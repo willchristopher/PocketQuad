@@ -1,0 +1,515 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  STUDENT
+  FACULTY
+  ADMIN
+}
+
+enum NotificationType {
+  OFFICE_HOUR
+  NEW_EVENT
+  EVENT_CANCELLED
+  DEADLINE
+  ANNOUNCEMENT
+  SYSTEM
+}
+
+enum ChannelType {
+  PUBLIC
+  PRIVATE
+  DIRECT
+}
+
+enum EventCategory {
+  ACADEMIC
+  SOCIAL
+  SPORTS
+  ARTS
+  CAREER
+  CLUBS
+  WELLNESS
+  OTHER
+}
+
+enum OfficeHourMode {
+  IN_PERSON
+  VIRTUAL
+  HYBRID
+}
+
+enum QueueStatus {
+  WAITING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum CalendarEventType {
+  PERSONAL
+  CAMPUS
+  OFFICE_HOURS
+  DEADLINE
+}
+
+enum DeadlinePriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum CampusServiceStatus {
+  OPEN
+  CLOSED
+  LIMITED
+}
+
+enum ResourceLinkCategory {
+  LEARNING
+  COMMUNICATION
+  STUDENT_SERVICES
+  FINANCE
+  CAMPUS_LIFE
+  OTHER
+}
+
+model User {
+  id                      String                   @id @default(cuid())
+  supabaseId              String?                  @unique @map("supabase_id")
+  universityId            String?                  @map("university_id")
+  email                   String                   @unique
+  displayName             String                   @map("display_name")
+  firstName               String                   @map("first_name")
+  lastName                String                   @map("last_name")
+  avatar                  String?
+  role                    UserRole                 @default(STUDENT)
+  canPublishCampusAnnouncements Boolean            @default(false) @map("can_publish_campus_announcements")
+  major                   String?
+  department              String?
+  bio                     String?
+  location                String?
+  website                 String?
+  year                    String?
+  emailVerified           Boolean                  @default(false) @map("email_verified")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+  lastLogin               DateTime?                @map("last_login")
+  notificationPreferences NotificationPreferences?
+  notifications           Notification[]
+  channels                Channel[]                @relation("ChannelCreator")
+  channelMemberships      ChannelMember[]
+  messages                ChatMessage[]
+  messageReactions        MessageReaction[]
+  organizedEvents         Event[]                  @relation("EventOrganizer")
+  eventInterests          EventInterest[]
+  facultyProfile          Faculty?
+  facultyFavorites        FacultyFavorite[]
+  officeHours             OfficeHour[]
+  officeHourQueueEntries  OfficeHourQueue[]        @relation("QueueStudent")
+  calendarEvents          CalendarEvent[]
+  deadlines               Deadline[]
+  aiConversations         AIConversation[]
+  aiMessages              AIMessage[]
+  university              University?              @relation(fields: [universityId], references: [id], onDelete: SetNull)
+
+  @@index([universityId])
+  @@map("users")
+}
+
+model NotificationPreferences {
+  id                String   @id @default(cuid())
+  userId            String   @unique @map("user_id")
+  officeHourChanges Boolean  @default(true) @map("office_hour_changes")
+  newEvents         Boolean  @default(true) @map("new_events")
+  eventReminders    Boolean  @default(true) @map("event_reminders")
+  deadlineReminders Boolean  @default(true) @map("deadline_reminders")
+  emailDigest       Boolean  @default(true) @map("email_digest")
+  pushEnabled       Boolean  @default(false) @map("push_enabled")
+  theme             String   @default("system")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String           @map("user_id")
+  type        NotificationType
+  title       String
+  message     String
+  actionUrl   String?          @map("action_url")
+  actionLabel String?          @map("action_label")
+  read        Boolean          @default(false)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model Channel {
+  id          String          @id @default(cuid())
+  name        String
+  description String?
+  type        ChannelType     @default(PUBLIC)
+  createdById String?         @map("created_by_id")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  creator     User?           @relation("ChannelCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  members     ChannelMember[]
+  messages    ChatMessage[]
+
+  @@map("channels")
+}
+
+model ChannelMember {
+  id        String   @id @default(cuid())
+  channelId String   @map("channel_id")
+  userId    String   @map("user_id")
+  role      String   @default("member")
+  joinedAt  DateTime @default(now()) @map("joined_at")
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+  @@index([userId])
+  @@map("channel_members")
+}
+
+model ChatMessage {
+  id        String            @id @default(cuid())
+  channelId String            @map("channel_id")
+  userId    String            @map("user_id")
+  content   String
+  isEdited  Boolean           @default(false) @map("is_edited")
+  isDeleted Boolean           @default(false) @map("is_deleted")
+  replyToId String?           @map("reply_to_id")
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+  channel   Channel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replyTo   ChatMessage?      @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   ChatMessage[]     @relation("MessageReplies")
+  reactions MessageReaction[]
+
+  @@index([channelId, createdAt])
+  @@map("chat_messages")
+}
+
+model MessageReaction {
+  id        String      @id @default(cuid())
+  messageId String      @map("message_id")
+  userId    String      @map("user_id")
+  emoji     String
+  createdAt DateTime    @default(now()) @map("created_at")
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([userId])
+  @@map("message_reactions")
+}
+
+model Event {
+  id           String          @id @default(cuid())
+  universityId String?         @map("university_id")
+  title        String
+  description  String
+  imageUrl     String?         @map("image_url")
+  date         DateTime
+  endDate      DateTime?       @map("end_date")
+  time         String
+  location     String
+  category     EventCategory
+  organizer    String
+  organizerId  String?         @map("organizer_id")
+  maxAttendees Int?            @map("max_attendees")
+  isPublished  Boolean         @default(true) @map("is_published")
+  isCancelled  Boolean         @default(false) @map("is_cancelled")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+  organizerRef User?           @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: SetNull)
+  interests    EventInterest[]
+  university   University?     @relation(fields: [universityId], references: [id], onDelete: SetNull)
+
+  @@index([universityId, date])
+  @@index([date])
+  @@index([category])
+  @@map("events")
+}
+
+model EventInterest {
+  id        String   @id @default(cuid())
+  eventId   String   @map("event_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId])
+  @@map("event_interests")
+}
+
+model Faculty {
+  id              String            @id @default(cuid())
+  userId          String            @unique @map("user_id")
+  universityId    String?           @map("university_id")
+  name            String
+  title           String
+  department      String
+  email           String
+  phone           String?
+  officeLocation  String            @map("office_location")
+  officeHours     String            @map("office_hours")
+  imageUrl        String?           @map("image_url")
+  bio             String?
+  courses         String[]
+  rating          Float             @default(0)
+  ratingCount     Int               @default(0) @map("rating_count")
+  tags            String[]
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  favorites       FacultyFavorite[]
+  officeHourSlots OfficeHour[]
+  university      University?       @relation(fields: [universityId], references: [id], onDelete: SetNull)
+
+  @@index([universityId, department])
+  @@index([department])
+  @@map("faculty")
+}
+
+model University {
+  id               String               @id @default(cuid())
+  name             String               @unique
+  slug             String               @unique
+  domain           String?
+  themeMainColor   String?              @map("theme_main_color")
+  themeAccentColor String?              @map("theme_accent_color")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+  users            User[]
+  faculties        Faculty[]
+  events           Event[]
+  buildings        CampusBuilding[]
+  resourceLinks    CampusResourceLink[]
+  services         CampusService[]
+  clubs            ClubOrganization[]
+
+  @@map("universities")
+}
+
+model CampusBuilding {
+  id           String     @id @default(cuid())
+  universityId String     @map("university_id")
+  name         String
+  code         String?
+  type         String
+  address      String
+  mapQuery     String     @map("map_query")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([universityId, name])
+  @@map("campus_buildings")
+}
+
+model CampusResourceLink {
+  id           String               @id @default(cuid())
+  universityId String               @map("university_id")
+  label        String
+  category     ResourceLinkCategory
+  href         String
+  description  String
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+  university   University           @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([universityId, category])
+  @@map("campus_resource_links")
+}
+
+model CampusService {
+  id            String              @id @default(cuid())
+  universityId  String              @map("university_id")
+  name          String
+  status        CampusServiceStatus
+  hours         String
+  location      String
+  directionsUrl String              @map("directions_url")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+  university    University          @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([universityId, name])
+  @@map("campus_services")
+}
+
+model ClubOrganization {
+  id           String     @id @default(cuid())
+  universityId String     @map("university_id")
+  name         String
+  category     String
+  description  String
+  contactEmail String?    @map("contact_email")
+  websiteUrl   String?    @map("website_url")
+  meetingInfo  String?    @map("meeting_info")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  @@index([universityId, name])
+  @@map("club_organizations")
+}
+
+model FacultyFavorite {
+  id        String   @id @default(cuid())
+  facultyId String   @map("faculty_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  faculty   Faculty  @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([facultyId, userId])
+  @@index([userId])
+  @@map("faculty_favorites")
+}
+
+model OfficeHour {
+  id          String            @id @default(cuid())
+  facultyId   String            @map("faculty_id")
+  userId      String            @map("user_id")
+  dayOfWeek   Int               @map("day_of_week")
+  startTime   String            @map("start_time")
+  endTime     String            @map("end_time")
+  location    String
+  mode        OfficeHourMode
+  isActive    Boolean           @default(false) @map("is_active")
+  maxQueue    Int               @default(20) @map("max_queue")
+  meetingLink String?           @map("meeting_link")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  faculty     Faculty           @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  queue       OfficeHourQueue[]
+
+  @@index([userId])
+  @@index([facultyId, dayOfWeek])
+  @@map("office_hours")
+}
+
+model OfficeHourQueue {
+  id           String      @id @default(cuid())
+  officeHourId String      @map("office_hour_id")
+  studentId    String      @map("student_id")
+  topic        String
+  position     Int
+  status       QueueStatus @default(WAITING)
+  joinedAt     DateTime    @default(now()) @map("joined_at")
+  startedAt    DateTime?   @map("started_at")
+  completedAt  DateTime?   @map("completed_at")
+  officeHour   OfficeHour  @relation(fields: [officeHourId], references: [id], onDelete: Cascade)
+  student      User        @relation("QueueStudent", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([officeHourId, position])
+  @@index([studentId, joinedAt(sort: Desc)])
+  @@map("office_hour_queue")
+}
+
+model CalendarEvent {
+  id          String            @id @default(cuid())
+  userId      String            @map("user_id")
+  title       String
+  description String?
+  start       DateTime
+  end         DateTime
+  allDay      Boolean           @default(false) @map("all_day")
+  type        CalendarEventType
+  location    String?
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, start])
+  @@map("calendar_events")
+}
+
+model Deadline {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  title     String
+  course    String
+  dueDate   DateTime         @map("due_date")
+  priority  DeadlinePriority @default(MEDIUM)
+  notes     String?
+  completed Boolean          @default(false)
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, dueDate])
+  @@map("deadlines")
+}
+
+model AIConversation {
+  id        String      @id @default(cuid())
+  userId    String      @map("user_id")
+  title     String?
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  AIMessage[]
+
+  @@index([userId, updatedAt(sort: Desc)])
+  @@map("ai_conversations")
+}
+
+model AIMessage {
+  id             String         @id @default(cuid())
+  conversationId String         @map("conversation_id")
+  userId         String?        @map("user_id")
+  role           String
+  content        String
+  createdAt      DateTime       @default(now()) @map("created_at")
+  conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+  @@map("ai_messages")
+}
+
+model QuickLink {
+  id        String   @id @default(cuid())
+  label     String
+  href      String
+  icon      String
+  color     String
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("quick_links")
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  message   String
+  linkUrl   String?  @map("link_url")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("announcements")
+}
