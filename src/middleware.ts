@@ -6,8 +6,11 @@ import {
   setRoleHintCookie,
   verifyRoleHintToken,
 } from '@/lib/auth/roleHint'
-import { canAccessAdminPortal, type PortalPermission } from '@/lib/auth/portalPermissions'
-import { prisma } from '@/lib/prisma'
+import {
+  canAccessAdminPortal,
+  type AdminAccessLevel,
+  type PortalPermission,
+} from '@/lib/auth/portalPermissions'
 import { createSupabaseMiddlewareClient, hasSupabaseEnv } from '@/lib/supabase/server'
 
 type AppRole = 'STUDENT' | 'FACULTY' | 'ADMIN'
@@ -94,6 +97,32 @@ function parseTestingRole(value: string | undefined): AppRole | null {
   return null
 }
 
+type MiddlewareProfile = {
+  role: AppRole
+  adminAccessLevel: AdminAccessLevel | null
+  portalPermissions: PortalPermission[]
+  canPublishCampusAnnouncements: boolean
+}
+
+async function fetchMiddlewareProfile(request: NextRequest): Promise<MiddlewareProfile | null> {
+  const endpoint = new URL('/api/auth/middleware-profile', request.url)
+  const cookie = request.headers.get('cookie')
+
+  const profileResponse = await fetch(endpoint, {
+    method: 'GET',
+    headers: cookie ? { cookie } : undefined,
+    cache: 'no-store',
+  })
+
+  if (!profileResponse.ok) return null
+
+  const payload = (await profileResponse.json()) as {
+    data?: MiddlewareProfile | null
+  }
+
+  return payload.data ?? null
+}
+
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
@@ -177,20 +206,7 @@ export async function middleware(request: NextRequest) {
       role = hintedRole
     }
 
-    const normalizedEmail = user.email?.toLowerCase()
-    const dbUser = await prisma.user.findFirst({
-      where: normalizedEmail
-        ? {
-            OR: [{ supabaseId: user.id }, { email: normalizedEmail }],
-          }
-        : { supabaseId: user.id },
-      select: {
-        role: true,
-        adminAccessLevel: true,
-        portalPermissions: true,
-        canPublishCampusAnnouncements: true,
-      },
-    })
+    const dbUser = await fetchMiddlewareProfile(request)
 
     if (dbUser?.role) {
       role = dbUser.role
