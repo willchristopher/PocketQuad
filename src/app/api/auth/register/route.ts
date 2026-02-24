@@ -59,17 +59,28 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createSupabaseRouteHandlerClient()
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password: payload.password,
-      options: {
-        data: {
-          firstName: payload.firstName,
-          lastName: payload.lastName,
-          role: payload.role,
+    let data: Awaited<ReturnType<typeof supabase.auth.signUp>>['data']
+    let error: Awaited<ReturnType<typeof supabase.auth.signUp>>['error']
+    try {
+      const authResponse = await supabase.auth.signUp({
+        email,
+        password: payload.password,
+        options: {
+          data: {
+            firstName: payload.firstName,
+            lastName: payload.lastName,
+            role: payload.role,
+          },
         },
-      },
-    })
+      })
+      data = authResponse.data
+      error = authResponse.error
+    } catch {
+      throw new ApiError(
+        500,
+        'Supabase auth request failed. Verify NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel and redeploy.',
+      )
+    }
 
     if (error || !data.user) {
       throw new ApiError(400, error?.message ?? 'Unable to register user')
