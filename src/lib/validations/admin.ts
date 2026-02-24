@@ -47,6 +47,13 @@ export const adminFacultyCreateSchema = z.object({
   tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
 })
 
+export const adminFacultySignupEmailCreateSchema = z.object({
+  universityId: z.string().cuid(),
+  email: z.string().trim().toLowerCase().email(),
+  firstName: z.string().trim().min(1).max(80).optional(),
+  lastName: z.string().trim().min(1).max(80).optional(),
+})
+
 export const adminFacultyUpdateSchema = z.object({
   universityId: z.string().cuid().optional(),
   name: z.string().trim().min(2).max(120).optional(),

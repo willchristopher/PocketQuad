@@ -42,3 +42,16 @@ export const resetPasswordSchema = z.object({
   token: z.string().min(1, 'Token is required'),
   password: passwordSchema,
 })
+
+export const facultyRequestOtpSchema = z.object({
+  email: z.string().trim().toLowerCase().email('Invalid email address'),
+})
+
+export const facultyVerifyOtpSchema = z.object({
+  email: z.string().trim().toLowerCase().email('Invalid email address'),
+  code: z.string().trim().min(6, 'Code must be at least 6 characters').max(12, 'Code is too long'),
+})
+
+export const facultySetPasswordSchema = z.object({
+  password: passwordSchema,
+})

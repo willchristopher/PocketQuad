@@ -303,6 +303,12 @@ function LoginForm() {
                   Sign up
                 </Link>
               </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Faculty first-time setup?{' '}
+                <Link href="/register" className="font-semibold text-primary hover:underline">
+                  Activate faculty account
+                </Link>
+              </p>
             </div>
           </div>
         </section>

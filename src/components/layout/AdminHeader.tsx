@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, Menu, Moon, Search, Sun } from 'lucide-react'
+import { Menu, Moon, Sun } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useTheme } from 'next-themes'
 
@@ -13,7 +13,7 @@ const tabConfig: Record<string, { title: string; subtitle: string }> = {
   },
   universities: {
     title: 'Universities',
-    subtitle: 'Create and configure tenant universities and domain mapping.',
+    subtitle: 'Manage domain and theme settings for the selected university.',
   },
   faculty: {
     title: 'Faculty',
@@ -72,26 +72,15 @@ export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
       </div>
 
       <div className="flex items-center gap-1.5">
-        <div className="relative hidden w-[240px] lg:block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="search"
-            placeholder="Search..."
-            className="w-full rounded-lg border border-border/60 bg-muted/30 py-1.5 pl-9 pr-3 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-          />
-        </div>
         <Button
           variant="ghost"
           size="icon"
           className="rounded-lg h-8 w-8 text-muted-foreground hover:text-foreground"
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         >
           <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
           <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-        </Button>
-        <Button variant="ghost" size="icon" className="relative rounded-lg h-8 w-8 text-muted-foreground hover:text-foreground">
-          <Bell className="h-4 w-4" />
-          <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
         </Button>
       </div>
     </header>

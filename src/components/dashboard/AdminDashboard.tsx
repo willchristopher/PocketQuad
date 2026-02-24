@@ -100,6 +100,18 @@ type FacultyRecord = {
   university?: { id: string; name: string; slug: string } | null
 }
 
+type FacultySignupEmailRecord = {
+  id: string
+  universityId: string | null
+  email: string
+  firstName: string
+  lastName: string
+  displayName: string
+  emailVerified: boolean
+  createdAt: string
+  university?: { id: string; name: string; slug: string } | null
+}
+
 type BuildingRecord = {
   id: string
   universityId: string
@@ -305,6 +317,7 @@ export function AdminDashboard() {
   )
 
   const requestedTab = searchParams.get('tab') as TabValue | null
+  const requestedUniversityId = searchParams.get('universityId') ?? ''
   const fallbackTab = visibleTabs[0]?.value ?? 'overview'
   const currentTab =
     requestedTab && visibleTabs.some((item) => item.value === requestedTab)
@@ -317,6 +330,7 @@ export function AdminDashboard() {
 
   const [universities, setUniversities] = React.useState<University[]>([])
   const [faculty, setFaculty] = React.useState<FacultyRecord[]>([])
+  const [facultySignupEmails, setFacultySignupEmails] = React.useState<FacultySignupEmailRecord[]>([])
   const [buildings, setBuildings] = React.useState<BuildingRecord[]>([])
   const [resourceLinks, setResourceLinks] = React.useState<ResourceLinkRecord[]>([])
   const [services, setServices] = React.useState<ServiceRecord[]>([])
@@ -325,7 +339,8 @@ export function AdminDashboard() {
   const [portalAccounts, setPortalAccounts] = React.useState<PortalAccountRecord[]>([])
   const [temporaryAccountPassword, setTemporaryAccountPassword] = React.useState<string | null>(null)
 
-  const [selectedUniversityId, setSelectedUniversityId] = React.useState('')
+  const [selectedUniversityId, setSelectedUniversityId] = React.useState(requestedUniversityId)
+  const [universitySelectionDraft, setUniversitySelectionDraft] = React.useState(requestedUniversityId)
   const [buildingImportUniversityId, setBuildingImportUniversityId] = React.useState('')
   const [buildingImportCsvContent, setBuildingImportCsvContent] = React.useState('')
   const [buildingImportFileName, setBuildingImportFileName] = React.useState('')
@@ -335,7 +350,6 @@ export function AdminDashboard() {
     typeof validateBuildingImportHeaders
   > | null>(null)
 
-  const [newUniversity, setNewUniversity] = React.useState({ name: '', domain: '' })
   const [newFaculty, setNewFaculty] = React.useState({
     universityId: '',
     name: '',
@@ -347,6 +361,12 @@ export function AdminDashboard() {
     officeHours: '',
     courses: '',
     tags: '',
+  })
+  const [newFacultySignupEmail, setNewFacultySignupEmail] = React.useState({
+    universityId: '',
+    email: '',
+    firstName: '',
+    lastName: '',
   })
   const [newBuilding, setNewBuilding] = React.useState({
     universityId: '',
@@ -431,13 +451,35 @@ export function AdminDashboard() {
     setLoading(true)
 
     try {
-      const universityQuery = selectedUniversityId
-        ? `?universityId=${encodeURIComponent(selectedUniversityId)}`
-        : ''
+      const nextUniversitiesRaw = canManageUniversities
+        ? await apiRequest<University[]>('/api/admin/universities')
+        : fallbackUniversityFromProfile
 
+      const nextUniversities =
+        nextUniversitiesRaw.length > 0 ? nextUniversitiesRaw : fallbackUniversityFromProfile
+
+      setUniversities(nextUniversities)
+
+      const hasValidSelectedUniversity =
+        selectedUniversityId.length > 0 &&
+        nextUniversities.some((university) => university.id === selectedUniversityId)
+
+      if (!hasValidSelectedUniversity) {
+        setFaculty([])
+        setFacultySignupEmails([])
+        setBuildings([])
+        setResourceLinks([])
+        setServices([])
+        setClubs([])
+        setEvents([])
+        setPortalAccounts([])
+        return
+      }
+
+      const universityQuery = `?universityId=${encodeURIComponent(selectedUniversityId)}`
       const [
-        nextUniversitiesRaw,
         nextFaculty,
+        nextFacultySignupEmails,
         nextBuildings,
         nextLinks,
         nextServices,
@@ -445,11 +487,13 @@ export function AdminDashboard() {
         nextEvents,
         nextAccounts,
       ] = await Promise.all([
-        canManageUniversities
-          ? apiRequest<University[]>('/api/admin/universities')
-          : Promise.resolve(fallbackUniversityFromProfile),
         canManageFaculty
           ? apiRequest<FacultyRecord[]>(`/api/admin/faculty${universityQuery}`)
+          : Promise.resolve([]),
+        canManageFaculty
+          ? apiRequest<FacultySignupEmailRecord[]>(
+              `/api/admin/faculty/signup-emails${universityQuery}`,
+            )
           : Promise.resolve([]),
         canManageBuildings
           ? apiRequest<BuildingRecord[]>(`/api/admin/buildings${universityQuery}`)
@@ -471,32 +515,14 @@ export function AdminDashboard() {
           : Promise.resolve([]),
       ])
 
-      const nextUniversities =
-        nextUniversitiesRaw.length > 0 ? nextUniversitiesRaw : fallbackUniversityFromProfile
-
-      setUniversities(nextUniversities)
       setFaculty(nextFaculty)
+      setFacultySignupEmails(nextFacultySignupEmails)
       setBuildings(nextBuildings)
       setResourceLinks(nextLinks)
       setServices(nextServices)
       setClubs(nextClubs)
       setEvents(nextEvents)
       setPortalAccounts(nextAccounts)
-
-      const defaultUniversityId = nextUniversities[0]?.id ?? ''
-      setSelectedUniversityId((current) => current || defaultUniversityId)
-      setBuildingImportUniversityId((current) => current || defaultUniversityId)
-
-      setNewFaculty((current) => ({ ...current, universityId: current.universityId || defaultUniversityId }))
-      setNewBuilding((current) => ({ ...current, universityId: current.universityId || defaultUniversityId }))
-      setNewLink((current) => ({ ...current, universityId: current.universityId || defaultUniversityId }))
-      setNewService((current) => ({ ...current, universityId: current.universityId || defaultUniversityId }))
-      setNewClub((current) => ({ ...current, universityId: current.universityId || defaultUniversityId }))
-      setNewEvent((current) => ({ ...current, universityId: current.universityId || defaultUniversityId }))
-      setNewPortalAccount((current) => ({
-        ...current,
-        universityId: current.universityId || defaultUniversityId,
-      }))
     } catch (error) {
       toast.error(asErrorMessage(error, 'Unable to load admin data'))
     } finally {
@@ -516,6 +542,11 @@ export function AdminDashboard() {
   ])
 
   React.useEffect(() => {
+    setSelectedUniversityId(requestedUniversityId)
+    setUniversitySelectionDraft(requestedUniversityId)
+  }, [requestedUniversityId])
+
+  React.useEffect(() => {
     void loadData()
   }, [loadData])
 
@@ -530,16 +561,41 @@ export function AdminDashboard() {
 
   React.useEffect(() => {
     if (!selectedUniversityId) return
+    if (universities.length === 0) return
+    if (universities.some((university) => university.id === selectedUniversityId)) return
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('universityId')
+    router.replace(`/admin?${params.toString()}`, { scroll: false })
+  }, [router, searchParams, selectedUniversityId, universities])
+
+  React.useEffect(() => {
+    if (!selectedUniversityId) return
 
     setNewFaculty((current) => ({ ...current, universityId: selectedUniversityId }))
+    setNewFacultySignupEmail((current) => ({ ...current, universityId: selectedUniversityId }))
     setNewBuilding((current) => ({ ...current, universityId: selectedUniversityId }))
     setNewLink((current) => ({ ...current, universityId: selectedUniversityId }))
     setNewService((current) => ({ ...current, universityId: selectedUniversityId }))
     setNewClub((current) => ({ ...current, universityId: selectedUniversityId }))
     setNewEvent((current) => ({ ...current, universityId: selectedUniversityId }))
     setNewPortalAccount((current) => ({ ...current, universityId: selectedUniversityId }))
-    setBuildingImportUniversityId((current) => current || selectedUniversityId)
+    setBuildingImportUniversityId(selectedUniversityId)
   }, [selectedUniversityId])
+
+  const applyUniversitySelection = React.useCallback(
+    (universityId: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('tab', currentTab)
+      if (universityId) {
+        params.set('universityId', universityId)
+      } else {
+        params.delete('universityId')
+      }
+      router.replace(`/admin?${params.toString()}`, { scroll: false })
+    },
+    [currentTab, router, searchParams],
+  )
 
   const handleTabChange = (nextTab: string) => {
     const normalized = nextTab as TabValue
@@ -551,7 +607,7 @@ export function AdminDashboard() {
   }
 
   const withinSelectedUniversity = <T extends { universityId: string | null | undefined }>(records: T[]) => {
-    if (!selectedUniversityId) return records
+    if (!selectedUniversityId) return []
     return records.filter((record) => record.universityId === selectedUniversityId)
   }
 
@@ -683,12 +739,16 @@ export function AdminDashboard() {
     )
   }
 
+  const selectedUniversity =
+    universities.find((university) => university.id === selectedUniversityId) ?? null
+  const scopedUniversities = selectedUniversity ? [selectedUniversity] : []
+
   const overviewMetrics = [
     {
-      label: 'Universities',
-      value: `${universities.length}`,
+      label: 'Working University',
+      value: selectedUniversity?.name ?? 'Not selected',
       icon: School,
-      helper: 'Tenant organizations configured',
+      helper: 'All dashboard data is scoped to this university',
     },
     {
       label: 'Faculty Profiles',
@@ -709,6 +769,11 @@ export function AdminDashboard() {
       {university.name}
     </option>
   ))
+  const scopedUniversityOptions = scopedUniversities.map((university) => (
+    <option key={university.id} value={university.id}>
+      {university.name}
+    </option>
+  ))
   const requiredBuildingHeaders = BUILDING_IMPORT_REQUIRED_HEADERS.join(', ')
 
   return (
@@ -722,21 +787,17 @@ export function AdminDashboard() {
               Create, update, and delete data by university so student-facing content stays tenant-specific.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Filter University</label>
-            <select
-              value={selectedUniversityId}
-              onChange={(event) => setSelectedUniversityId(event.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">All Universities</option>
-              {universityOptions}
-            </select>
+          <div className="flex flex-col items-start gap-2 md:items-end">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Working University</p>
+            <p className="text-sm font-medium">
+              {selectedUniversity?.name ?? 'Choose a university to continue'}
+            </p>
           </div>
         </div>
       </section>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
+      {selectedUniversity ? (
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl border border-border/60 bg-card/70 p-1">
           {visibleTabs.map((item) => (
             <TabsTrigger key={item.value} value={item.value} className="rounded-lg px-3 py-2 text-xs md:text-sm">
@@ -779,7 +840,7 @@ export function AdminDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {universities.map((university) => (
+                  {scopedUniversities.map((university) => (
                     <TableRow key={university.id}>
                       <TableCell>
                         <p className="font-semibold">{university.name}</p>
@@ -805,46 +866,8 @@ export function AdminDashboard() {
         <TabsContent value="universities" className="mt-0 space-y-4">
           <Card className="rounded-2xl border-border/60">
             <CardHeader>
-              <CardTitle>Create University</CardTitle>
-              <CardDescription>Add a new tenant with optional email domain mapping.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3 md:grid-cols-4">
-              <Input
-                value={newUniversity.name}
-                onChange={(event) => setNewUniversity((current) => ({ ...current, name: event.target.value }))}
-                placeholder="University name"
-              />
-              <Input
-                value={newUniversity.domain}
-                onChange={(event) => setNewUniversity((current) => ({ ...current, domain: event.target.value }))}
-                placeholder="Email domain (optional)"
-              />
-              <div className="md:col-span-2">
-                <Button
-                  disabled={saving || !newUniversity.name.trim()}
-                  onClick={() =>
-                    void runMutation(async () => {
-                      await apiRequest('/api/admin/universities', {
-                        method: 'POST',
-                        body: {
-                          name: newUniversity.name,
-                          domain: newUniversity.domain || undefined,
-                        },
-                      })
-                      setNewUniversity({ name: '', domain: '' })
-                    }, 'University created')
-                  }
-                >
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create University'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl border-border/60">
-            <CardHeader>
-              <CardTitle>Manage Universities</CardTitle>
-              <CardDescription>Update names/domains, set custom theme colors, or delete empty tenants.</CardDescription>
+              <CardTitle>Manage University</CardTitle>
+              <CardDescription>Update settings for the university currently in scope.</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -859,7 +882,7 @@ export function AdminDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {universities.map((university) => (
+                  {scopedUniversities.map((university) => (
                     <TableRow key={university.id}>
                       <TableCell>
                         <Input
@@ -1003,6 +1026,106 @@ export function AdminDashboard() {
         <TabsContent value="faculty" className="mt-0 space-y-4">
           <Card className="rounded-2xl border-border/60">
             <CardHeader>
+              <CardTitle>Allow Faculty Signup Email</CardTitle>
+              <CardDescription>
+                Add faculty emails that are allowed to use the faculty OTP activation flow.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 md:grid-cols-3">
+              <select
+                value={newFacultySignupEmail.universityId}
+                onChange={(event) =>
+                  setNewFacultySignupEmail((current) => ({
+                    ...current,
+                    universityId: event.target.value,
+                  }))
+                }
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {scopedUniversityOptions}
+              </select>
+              <Input
+                value={newFacultySignupEmail.email}
+                onChange={(event) =>
+                  setNewFacultySignupEmail((current) => ({
+                    ...current,
+                    email: event.target.value.toLowerCase(),
+                  }))
+                }
+                placeholder="Faculty email"
+              />
+              <Input
+                value={newFacultySignupEmail.firstName}
+                onChange={(event) =>
+                  setNewFacultySignupEmail((current) => ({
+                    ...current,
+                    firstName: event.target.value,
+                  }))
+                }
+                placeholder="First name (optional)"
+              />
+              <Input
+                value={newFacultySignupEmail.lastName}
+                onChange={(event) =>
+                  setNewFacultySignupEmail((current) => ({
+                    ...current,
+                    lastName: event.target.value,
+                  }))
+                }
+                placeholder="Last name (optional)"
+              />
+              <div>
+                <Button
+                  disabled={
+                    saving ||
+                    !newFacultySignupEmail.universityId ||
+                    !newFacultySignupEmail.email.trim()
+                  }
+                  onClick={() =>
+                    void runMutation(async () => {
+                      await apiRequest('/api/admin/faculty/signup-emails', {
+                        method: 'POST',
+                        body: {
+                          universityId: newFacultySignupEmail.universityId,
+                          email: newFacultySignupEmail.email,
+                          firstName: newFacultySignupEmail.firstName || undefined,
+                          lastName: newFacultySignupEmail.lastName || undefined,
+                        },
+                      })
+
+                      setNewFacultySignupEmail({
+                        universityId: selectedUniversityId,
+                        email: '',
+                        firstName: '',
+                        lastName: '',
+                      })
+                    }, 'Faculty signup email added')
+                  }
+                >
+                  Add Faculty Email
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <CrudFacultySignupEmailsTable
+            records={withinSelectedUniversity(facultySignupEmails)}
+            universities={scopedUniversities}
+            saving={saving}
+            onDelete={(recordId) =>
+              runMutation(
+                async () => {
+                  await apiRequest(`/api/admin/faculty/signup-emails/${recordId}`, {
+                    method: 'DELETE',
+                  })
+                },
+                'Faculty signup email removed',
+              )
+            }
+          />
+
+          <Card className="rounded-2xl border-border/60">
+            <CardHeader>
               <CardTitle>Create Faculty Profile</CardTitle>
               <CardDescription>Add faculty entries tied to a university.</CardDescription>
             </CardHeader>
@@ -1012,8 +1135,7 @@ export function AdminDashboard() {
                 onChange={(event) => setNewFaculty((current) => ({ ...current, universityId: event.target.value }))}
                 className="h-10 rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="">Select university</option>
-                {universityOptions}
+                {scopedUniversityOptions}
               </select>
               <Input value={newFaculty.name} onChange={(event) => setNewFaculty((current) => ({ ...current, name: event.target.value }))} placeholder="Full name" />
               <Input value={newFaculty.email} onChange={(event) => setNewFaculty((current) => ({ ...current, email: event.target.value }))} placeholder="Email" />
@@ -1080,7 +1202,7 @@ export function AdminDashboard() {
 
           <CrudFacultyTable
             faculty={withinSelectedUniversity(faculty)}
-            universities={universities}
+            universities={scopedUniversities}
             saving={saving}
             onChange={setFaculty}
             onSave={(record) =>
@@ -1127,8 +1249,7 @@ export function AdminDashboard() {
             content={
               <>
                 <select value={newBuilding.universityId} onChange={(event) => setNewBuilding((current) => ({ ...current, universityId: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-                  <option value="">Select university</option>
-                  {universityOptions}
+                  {scopedUniversityOptions}
                 </select>
                 <Input value={newBuilding.name} onChange={(event) => setNewBuilding((current) => ({ ...current, name: event.target.value }))} placeholder="Building name" />
                 <Input value={newBuilding.code} onChange={(event) => setNewBuilding((current) => ({ ...current, code: event.target.value }))} placeholder="Code (optional)" />
@@ -1170,7 +1291,7 @@ export function AdminDashboard() {
 
           <CrudBuildingTable
             records={withinSelectedUniversity(buildings)}
-            universities={universities}
+            universities={scopedUniversities}
             saving={saving}
             onChange={setBuildings}
             onSave={(record) =>
@@ -1201,7 +1322,7 @@ export function AdminDashboard() {
             <CardHeader>
               <CardTitle>Import Buildings From CSV</CardTitle>
               <CardDescription>
-                Choose a university, upload a CSV, and import records for AI/context-aware campus guidance.
+                Upload a CSV and import records for the university currently in scope.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1215,8 +1336,7 @@ export function AdminDashboard() {
                     onChange={(event) => setBuildingImportUniversityId(event.target.value)}
                     className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                   >
-                    <option value="">Select university</option>
-                    {universityOptions}
+                    {scopedUniversityOptions}
                   </select>
                 </div>
 
@@ -1324,8 +1444,7 @@ export function AdminDashboard() {
             content={
               <>
                 <select value={newLink.universityId} onChange={(event) => setNewLink((current) => ({ ...current, universityId: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-                  <option value="">Select university</option>
-                  {universityOptions}
+                  {scopedUniversityOptions}
                 </select>
                 <Input value={newLink.label} onChange={(event) => setNewLink((current) => ({ ...current, label: event.target.value }))} placeholder="Link label" />
                 <select value={newLink.category} onChange={(event) => setNewLink((current) => ({ ...current, category: event.target.value as LinkCategory }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
@@ -1362,7 +1481,7 @@ export function AdminDashboard() {
 
           <CrudLinkTable
             records={withinSelectedUniversity(resourceLinks)}
-            universities={universities}
+            universities={scopedUniversities}
             saving={saving}
             onChange={setResourceLinks}
             onSave={(record) =>
@@ -1394,8 +1513,7 @@ export function AdminDashboard() {
             content={
               <>
                 <select value={newService.universityId} onChange={(event) => setNewService((current) => ({ ...current, universityId: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-                  <option value="">Select university</option>
-                  {universityOptions}
+                  {scopedUniversityOptions}
                 </select>
                 <Input value={newService.name} onChange={(event) => setNewService((current) => ({ ...current, name: event.target.value }))} placeholder="Service name" />
                 <select value={newService.status} onChange={(event) => setNewService((current) => ({ ...current, status: event.target.value as ServiceStatus }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
@@ -1434,7 +1552,7 @@ export function AdminDashboard() {
 
           <CrudServiceTable
             records={withinSelectedUniversity(services)}
-            universities={universities}
+            universities={scopedUniversities}
             saving={saving}
             onChange={setServices}
             onSave={(record) =>
@@ -1467,8 +1585,7 @@ export function AdminDashboard() {
             content={
               <>
                 <select value={newClub.universityId} onChange={(event) => setNewClub((current) => ({ ...current, universityId: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-                  <option value="">Select university</option>
-                  {universityOptions}
+                  {scopedUniversityOptions}
                 </select>
                 <Input value={newClub.name} onChange={(event) => setNewClub((current) => ({ ...current, name: event.target.value }))} placeholder="Club name" />
                 <Input value={newClub.category} onChange={(event) => setNewClub((current) => ({ ...current, category: event.target.value }))} placeholder="Category" />
@@ -1510,7 +1627,7 @@ export function AdminDashboard() {
 
           <CrudClubTable
             records={withinSelectedUniversity(clubs)}
-            universities={universities}
+            universities={scopedUniversities}
             saving={saving}
             onChange={setClubs}
             onSave={(record) =>
@@ -1544,8 +1661,7 @@ export function AdminDashboard() {
             content={
               <>
                 <select value={newEvent.universityId} onChange={(event) => setNewEvent((current) => ({ ...current, universityId: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-                  <option value="">Select university</option>
-                  {universityOptions}
+                  {scopedUniversityOptions}
                 </select>
                 <Input value={newEvent.title} onChange={(event) => setNewEvent((current) => ({ ...current, title: event.target.value }))} placeholder="Event title" />
                 <Input value={newEvent.description} onChange={(event) => setNewEvent((current) => ({ ...current, description: event.target.value }))} placeholder="Description" />
@@ -1596,7 +1712,7 @@ export function AdminDashboard() {
 
           <CrudEventTable
             records={withinSelectedUniversity(events)}
-            universities={universities}
+            universities={scopedUniversities}
             saving={saving}
             onChange={setEvents}
             onSave={(record) =>
@@ -1661,8 +1777,7 @@ export function AdminDashboard() {
                   }
                   className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                 >
-                  <option value="">Select university</option>
-                  {universityOptions}
+                  {scopedUniversityOptions}
                 </select>
                 <Input
                   value={newPortalAccount.firstName}
@@ -1836,7 +1951,7 @@ export function AdminDashboard() {
 
           <CrudPortalAccountsTable
             records={withinSelectedUniversity(portalAccounts)}
-            universities={universities}
+            universities={scopedUniversities}
             clubs={withinSelectedUniversity(clubs)}
             saving={saving}
             onChange={setPortalAccounts}
@@ -1869,7 +1984,55 @@ export function AdminDashboard() {
             }
           />
         </TabsContent>
-      </Tabs>
+        </Tabs>
+      ) : (
+        <Card className="mx-auto w-full max-w-2xl rounded-2xl border-border/60">
+          <CardHeader>
+            <CardTitle>What university are you working on?</CardTitle>
+            <CardDescription>
+              Select one university to load a scoped dashboard and run CRUD operations for that tenant only.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {universities.length > 0 ? (
+              <form
+                className="space-y-4"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  if (!universitySelectionDraft) return
+                  applyUniversitySelection(universitySelectionDraft)
+                }}
+              >
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="admin-university-selection"
+                    className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
+                    University
+                  </label>
+                  <select
+                    id="admin-university-selection"
+                    value={universitySelectionDraft}
+                    onChange={(event) => setUniversitySelectionDraft(event.target.value)}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">Select university</option>
+                    {universityOptions}
+                  </select>
+                </div>
+
+                <Button type="submit" disabled={!universitySelectionDraft}>
+                  Load Dashboard
+                </Button>
+              </form>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No universities are available for this account.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {loading && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm">
@@ -1899,6 +2062,65 @@ function SimpleCreateCard({
       </CardHeader>
       <CardContent className="grid gap-3 md:grid-cols-3">{content}</CardContent>
     </Card>
+  )
+}
+
+function CrudFacultySignupEmailsTable({
+  records,
+  universities,
+  saving,
+  onDelete,
+}: {
+  records: FacultySignupEmailRecord[]
+  universities: University[]
+  saving: boolean
+  onDelete: (recordId: string) => Promise<void>
+}) {
+  return (
+    <CrudCard
+      title="Manage Faculty Signup Emails"
+      description="Emails listed here can complete faculty OTP verification and password setup."
+    >
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Email</TableHead>
+            <TableHead>Name</TableHead>
+            <TableHead>University</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="w-[160px]">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {records.map((record) => (
+            <TableRow key={record.id}>
+              <TableCell>{record.email}</TableCell>
+              <TableCell>{record.displayName}</TableCell>
+              <TableCell>
+                {record.university?.name ??
+                  universities.find((university) => university.id === record.universityId)?.name ??
+                  'Unassigned'}
+              </TableCell>
+              <TableCell>
+                <Badge variant={record.emailVerified ? 'success' : 'secondary'}>
+                  {record.emailVerified ? 'Activated' : 'Pending Signup'}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={saving}
+                  onClick={() => void onDelete(record.id)}
+                >
+                  Remove
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </CrudCard>
   )
 }
 

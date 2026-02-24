@@ -50,6 +50,7 @@ export function AdminSidebar({ className, mobile = false, onNavigate }: AdminSid
   const { profile, signOut } = useAuth()
 
   const currentTab = searchParams.get('tab') ?? 'overview'
+  const selectedUniversityId = searchParams.get('universityId') ?? ''
   const allowedTabs = React.useMemo(() => {
     if (!profile) return adminLinks.map((item) => item.tab)
     const resolved = getAllowedAdminTabs(profile)
@@ -77,6 +78,28 @@ export function AdminSidebar({ className, mobile = false, onNavigate }: AdminSid
     router.refresh()
   }
 
+  const buildAdminHref = React.useCallback(
+    (tab: AdminTabValue) => {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('tab', tab)
+      if (selectedUniversityId) {
+        params.set('universityId', selectedUniversityId)
+      } else {
+        params.delete('universityId')
+      }
+      return `/admin?${params.toString()}`
+    },
+    [searchParams, selectedUniversityId],
+  )
+
+  const handleChangeUniversity = () => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('universityId')
+    params.set('tab', defaultTab)
+    onNavigate?.()
+    router.replace(`/admin?${params.toString()}`, { scroll: false })
+  }
+
   return (
     <aside
       className={cn(
@@ -87,7 +110,7 @@ export function AdminSidebar({ className, mobile = false, onNavigate }: AdminSid
       )}
     >
       <div className="flex h-14 items-center justify-between border-b border-border/50 px-5">
-        <Link href={`/admin?tab=${defaultTab}`} onClick={onNavigate} className="flex items-center gap-3">
+        <Link href={buildAdminHref(defaultTab)} onClick={onNavigate} className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background">
             <ShieldCheck className="h-4 w-4" />
           </div>
@@ -105,7 +128,7 @@ export function AdminSidebar({ className, mobile = false, onNavigate }: AdminSid
         {visibleLinks.map((item) => {
           const isActive = pathname === '/admin' && currentTab === item.tab
           const Icon = item.icon
-          const href = `/admin?tab=${item.tab}`
+          const href = buildAdminHref(item.tab)
 
           return (
             <Link
@@ -134,6 +157,15 @@ export function AdminSidebar({ className, mobile = false, onNavigate }: AdminSid
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Signed in as</p>
           <p className="truncate text-xs font-medium mt-0.5">{profile?.email ?? 'admin@myquad.edu'}</p>
         </div>
+        <Button
+          variant="outline"
+          className="w-full justify-start gap-2 rounded-lg text-xs h-9"
+          onClick={handleChangeUniversity}
+          disabled={!selectedUniversityId}
+        >
+          <School className="h-3.5 w-3.5" />
+          Change university
+        </Button>
         <Button
           variant="outline"
           className="w-full justify-start gap-2 rounded-lg text-xs h-9"
