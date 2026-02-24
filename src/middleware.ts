@@ -141,7 +141,7 @@ export async function middleware(request: NextRequest) {
   })
 
   try {
-    const mockRole = parseTestingRole(request.cookies.get('myquad-test-role')?.value)
+    const mockRole = parseTestingRole(request.cookies.get('pocketquad-test-role')?.value)
     const supabase = createSupabaseMiddlewareClient(request, response)
     const { data } = await supabase.auth.getUser()
     const user = data.user

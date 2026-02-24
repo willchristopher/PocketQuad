@@ -33,7 +33,7 @@ async function ensureSupabaseFacultyAuthUser(user: FacultyAccountRecord) {
   if (!authUserId) {
     const { data: createdAuthUser, error } = await supabaseAdmin.auth.admin.createUser({
       email: user.email,
-      password: `MyQuad-${crypto.randomUUID()}-A1!`,
+      password: `PocketQuad-${crypto.randomUUID()}-A1!`,
       email_confirm: true,
       user_metadata: {
         firstName: user.firstName,

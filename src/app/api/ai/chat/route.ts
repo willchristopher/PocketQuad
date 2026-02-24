@@ -25,7 +25,7 @@ const chatSchema = z.object({
 })
 
 function buildSystemPrompt(universityContext: string, userInfo: { name: string; role: string }): string {
-  return `You are MyQuad, a knowledgeable campus advisor AI assistant for ${userInfo.name} (role: ${userInfo.role}).
+  return `You are PocketQuad, a knowledgeable campus advisor AI assistant for ${userInfo.name} (role: ${userInfo.role}).
 
 TODAY'S DATE: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
 

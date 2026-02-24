@@ -70,7 +70,7 @@ function LoginForm() {
   }, [])
 
   React.useEffect(() => {
-    const rememberedEmail = window.localStorage.getItem('myquad:last-login-email')
+    const rememberedEmail = window.localStorage.getItem('pocketquad:last-login-email')
     if (rememberedEmail) {
       setEmail(rememberedEmail)
     }
@@ -130,9 +130,9 @@ function LoginForm() {
       })
 
       if (rememberMe) {
-        window.localStorage.setItem('myquad:last-login-email', email)
+        window.localStorage.setItem('pocketquad:last-login-email', email)
       } else {
-        window.localStorage.removeItem('myquad:last-login-email')
+        window.localStorage.removeItem('pocketquad:last-login-email')
       }
 
       const session = await apiRequest<SessionResponse>('/api/auth/session')
@@ -163,7 +163,7 @@ function LoginForm() {
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20">
               <span className="text-lg font-extrabold text-primary-foreground">Q</span>
             </div>
-            <span className="font-display text-3xl font-extrabold tracking-tight">MyQuad</span>
+            <span className="font-display text-3xl font-extrabold tracking-tight">PocketQuad</span>
           </Link>
 
           <h1 className="mt-6 text-3xl font-display font-black leading-tight tracking-tight text-foreground sm:text-4xl lg:text-5xl">
@@ -174,10 +174,10 @@ function LoginForm() {
           </p>
 
           <div className="mt-8 w-full max-w-xl rounded-3xl border border-border/70 bg-card/90 p-4 shadow-2xl shadow-black/5 backdrop-blur sm:p-6">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/80">MyQuad Highlights</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/80">PocketQuad Highlights</p>
             <div className="mt-3 flex flex-col gap-3 items-center lg:items-start">
               <div className={`flex w-full justify-center gap-2 lg:justify-start ${slotSettled ? 'items-baseline' : 'items-center'}`}>
-                <p className="shrink-0 text-xl font-display font-bold leading-none tracking-tight text-foreground sm:text-2xl">MyQuad has</p>
+                <p className="shrink-0 text-xl font-display font-bold leading-none tracking-tight text-foreground sm:text-2xl">PocketQuad has</p>
                 {slotSettled ? (
                   <span className="text-xl font-display font-extrabold leading-none tracking-tight text-primary sm:text-2xl">it all.</span>
                 ) : (

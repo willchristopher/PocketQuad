@@ -21,7 +21,7 @@ function getPageTitle(pathname: string | null) {
   if (pathname === '/clubs') return 'Clubs'
   if (pathname === '/notifications') return 'Notifications'
   if (pathname === '/profile') return 'Profile'
-  return 'MyQuad'
+  return 'PocketQuad'
 }
 
 export function Header() {

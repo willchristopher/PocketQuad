@@ -39,7 +39,7 @@ export function AIChatWidget() {
       {
         id: 'welcome',
         role: 'assistant',
-        content: `${greeting} I'm your MyQuad campus assistant. I have access to your university's events, faculty, services, buildings, clubs, and your personal schedule. What can I help you with?`,
+        content: `${greeting} I'm your PocketQuad campus assistant. I have access to your university's events, faculty, services, buildings, clubs, and your personal schedule. What can I help you with?`,
       },
     ])
     if (profile) welcomeSet.current = true

@@ -42,12 +42,12 @@ async function main() {
 
   const users = await Promise.all([
     prisma.user.upsert({
-      where: { email: 'student1@myquad.edu' },
+      where: { email: 'student1@pocketquad.edu' },
       update: {
         universityId: northValley.id,
       },
       create: {
-        email: 'student1@myquad.edu',
+        email: 'student1@pocketquad.edu',
         displayName: 'Alex Student',
         firstName: 'Alex',
         lastName: 'Student',
@@ -58,12 +58,12 @@ async function main() {
       },
     }),
     prisma.user.upsert({
-      where: { email: 'faculty1@myquad.edu' },
+      where: { email: 'faculty1@pocketquad.edu' },
       update: {
         universityId: northValley.id,
       },
       create: {
-        email: 'faculty1@myquad.edu',
+        email: 'faculty1@pocketquad.edu',
         displayName: 'Dr. Rivera',
         firstName: 'Maya',
         lastName: 'Rivera',
@@ -73,12 +73,12 @@ async function main() {
       },
     }),
     prisma.user.upsert({
-      where: { email: 'admin1@myquad.edu' },
+      where: { email: 'admin1@pocketquad.edu' },
       update: {
         universityId: northValley.id,
       },
       create: {
-        email: 'admin1@myquad.edu',
+        email: 'admin1@pocketquad.edu',
         displayName: 'Taylor Admin',
         firstName: 'Taylor',
         lastName: 'Admin',
@@ -332,7 +332,7 @@ async function main() {
 
   await prisma.announcement.create({
     data: {
-      title: 'Welcome to MyQuad',
+      title: 'Welcome to PocketQuad',
       message: 'Backend seed data is ready. Connect frontend pages to API routes next.',
       isActive: true,
     },

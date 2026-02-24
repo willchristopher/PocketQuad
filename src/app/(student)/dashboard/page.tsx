@@ -142,7 +142,7 @@ export default function DashboardPage() {
       setFavorites(storedFavorites)
     }
 
-    const rawPreferences = window.localStorage.getItem('myquad-dashboard-preferences')
+    const rawPreferences = window.localStorage.getItem('pocketquad-dashboard-preferences')
     if (!rawPreferences) return
 
     try {

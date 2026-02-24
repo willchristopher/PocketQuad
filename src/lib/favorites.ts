@@ -1,6 +1,6 @@
 import type { FavoriteItem } from '@/lib/studentData'
 
-const FAVORITES_KEY = 'myquad-favorites'
+const FAVORITES_KEY = 'pocketquad-favorites'
 
 function safeParseFavorites(value: string | null): FavoriteItem[] {
   if (!value) return []

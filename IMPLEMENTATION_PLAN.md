@@ -1,4 +1,4 @@
-# MyQuad - Full-Stack Implementation Plan
+# PocketQuad - Full-Stack Implementation Plan
 
 ## Current State
 
@@ -51,7 +51,7 @@ GROQ_API_KEY=[groq-api-key]
 
 # Email (Resend)
 RESEND_API_KEY=[resend-api-key]
-EMAIL_FROM=noreply@myquad.app
+EMAIL_FROM=noreply@pocketquad.app
 
 # App
 NEXT_PUBLIC_APP_URL=http://localhost:3000

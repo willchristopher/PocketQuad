@@ -36,7 +36,7 @@ function getRoleForAccessLevel(
 }
 
 function buildSecurePassword() {
-  return `MyQuad-${crypto.randomUUID()}-A1!`
+  return `PocketQuad-${crypto.randomUUID()}-A1!`
 }
 
 export async function GET(request: NextRequest) {

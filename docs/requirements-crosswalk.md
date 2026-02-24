@@ -1,7 +1,7 @@
-# MyQuad Requirements Crosswalk
+# PocketQuad Requirements Crosswalk
 
 Date: 2026-02-08
-Repository: `/Users/willchristopher/MyQuad`
+Repository: `/Users/willchristopher/PocketQuad`
 
 ## 1) Current Tech Stack
 
@@ -9,13 +9,13 @@ Repository: `/Users/willchristopher/MyQuad`
 - Styling/UI: Tailwind CSS, Radix UI primitives, Lucide icons, Framer Motion
 - Data fetching/state: `fetch` + typed API client, React state, TanStack Query provider
 - Backend: Next.js Route Handlers under `src/app/api/**`
-- Database: PostgreSQL via Supabase, Prisma ORM (`/Users/willchristopher/MyQuad/prisma/schema.prisma`)
-- Auth: Supabase Auth + SSR helpers + role-aware middleware (`/Users/willchristopher/MyQuad/src/middleware.ts`)
+- Database: PostgreSQL via Supabase, Prisma ORM (`/Users/willchristopher/PocketQuad/prisma/schema.prisma`)
+- Auth: Supabase Auth + SSR helpers + role-aware middleware (`/Users/willchristopher/PocketQuad/src/middleware.ts`)
 - Realtime: Supabase Realtime subscriptions for chat, notifications, office-hour queue
-- AI: Vercel AI SDK + Groq (`/Users/willchristopher/MyQuad/src/app/api/ai/chat/route.ts`)
-- Storage: Supabase Storage for avatars (`/Users/willchristopher/MyQuad/src/app/api/users/me/avatar/route.ts`)
+- AI: Vercel AI SDK + Groq (`/Users/willchristopher/PocketQuad/src/app/api/ai/chat/route.ts`)
+- Storage: Supabase Storage for avatars (`/Users/willchristopher/PocketQuad/src/app/api/users/me/avatar/route.ts`)
 - Validation: Zod schemas for auth/domain/admin payloads
-- Email: Resend helper exists, but not currently wired to active flows (`/Users/willchristopher/MyQuad/src/lib/email/index.ts`)
+- Email: Resend helper exists, but not currently wired to active flows (`/Users/willchristopher/PocketQuad/src/lib/email/index.ts`)
 
 ## 2) Implemented Feature Inventory
 
@@ -51,10 +51,10 @@ User Story 1: As a new student/faculty user, I want account creation with univer
 Status: Partial
 
 Completed developer tasks:
-- Implemented `POST /api/auth/register` with Zod validation (`/Users/willchristopher/MyQuad/src/app/api/auth/register/route.ts`).
-- Added `.edu` enforcement for student/faculty roles (`/Users/willchristopher/MyQuad/src/lib/validations/auth.ts`).
-- Added university domain mapping during registration (`/Users/willchristopher/MyQuad/src/lib/university.ts`).
-- Added auth middleware route protection and role redirects (`/Users/willchristopher/MyQuad/src/middleware.ts`).
+- Implemented `POST /api/auth/register` with Zod validation (`/Users/willchristopher/PocketQuad/src/app/api/auth/register/route.ts`).
+- Added `.edu` enforcement for student/faculty roles (`/Users/willchristopher/PocketQuad/src/lib/validations/auth.ts`).
+- Added university domain mapping during registration (`/Users/willchristopher/PocketQuad/src/lib/university.ts`).
+- Added auth middleware route protection and role redirects (`/Users/willchristopher/PocketQuad/src/middleware.ts`).
 
 Remaining developer tasks:
 - Implement verification page logic to consume token/tokenHash and call `/api/auth/verify-email`.
@@ -67,8 +67,8 @@ User Story 2: As a returning user, I want secure login/session/logout with role-
 Status: Implemented
 
 Completed developer tasks:
-- Built auth routes for login/logout/session (`/Users/willchristopher/MyQuad/src/app/api/auth/login/route.ts`, `/Users/willchristopher/MyQuad/src/app/api/auth/logout/route.ts`, `/Users/willchristopher/MyQuad/src/app/api/auth/session/route.ts`).
-- Added safe redirect handling and role-based home routing (`/Users/willchristopher/MyQuad/src/lib/auth/routing.ts`).
+- Built auth routes for login/logout/session (`/Users/willchristopher/PocketQuad/src/app/api/auth/login/route.ts`, `/Users/willchristopher/PocketQuad/src/app/api/auth/logout/route.ts`, `/Users/willchristopher/PocketQuad/src/app/api/auth/session/route.ts`).
+- Added safe redirect handling and role-based home routing (`/Users/willchristopher/PocketQuad/src/lib/auth/routing.ts`).
 - Synced Supabase user IDs into Prisma profiles at login/session lookup.
 
 Remaining developer tasks:
@@ -82,8 +82,8 @@ User Story 3: As a student, I want a personalized dashboard with important campu
 Status: Partial
 
 Completed developer tasks:
-- Implemented dashboard data aggregation calls to events, deadlines, services, links, clubs (`/Users/willchristopher/MyQuad/src/app/(student)/dashboard/page.tsx`).
-- Built responsive bento-style dashboard modules (`/Users/willchristopher/MyQuad/src/components/dashboard/BentoGrid.tsx`).
+- Implemented dashboard data aggregation calls to events, deadlines, services, links, clubs (`/Users/willchristopher/PocketQuad/src/app/(student)/dashboard/page.tsx`).
+- Built responsive bento-style dashboard modules (`/Users/willchristopher/PocketQuad/src/components/dashboard/BentoGrid.tsx`).
 - Added quick links to map, services, clubs, advisor.
 
 Remaining developer tasks:
@@ -96,8 +96,8 @@ User Story 4: As a student, I want a unified calendar for events, deadlines, and
 Status: Partial
 
 Completed developer tasks:
-- Built month grid calendar UI with filters and day detail modal (`/Users/willchristopher/MyQuad/src/components/calendar/UnifiedCalendar.tsx`).
-- Implemented calendar and deadline CRUD APIs (`/Users/willchristopher/MyQuad/src/app/api/calendar/**`).
+- Built month grid calendar UI with filters and day detail modal (`/Users/willchristopher/PocketQuad/src/components/calendar/UnifiedCalendar.tsx`).
+- Implemented calendar and deadline CRUD APIs (`/Users/willchristopher/PocketQuad/src/app/api/calendar/**`).
 - Integrated event data from `GET /api/events` into calendar aggregation.
 
 Remaining developer tasks:
@@ -110,7 +110,7 @@ User Story 5: As a student, I want to discover campus events by category/date/lo
 Status: Implemented
 
 Completed developer tasks:
-- Implemented search/filter UI for category/date/location (`/Users/willchristopher/MyQuad/src/app/(student)/events/page.tsx`).
+- Implemented search/filter UI for category/date/location (`/Users/willchristopher/PocketQuad/src/app/(student)/events/page.tsx`).
 - Implemented `GET /api/events`, `GET /api/events/[id]`, `POST /api/events/[id]/interest`.
 - Added add-to-calendar behavior via `POST /api/calendar`.
 
@@ -123,8 +123,8 @@ User Story 6: As a student, I want searchable faculty information and quick favo
 Status: Partial
 
 Completed developer tasks:
-- Implemented faculty list/search/filter APIs and detail fetch (`/Users/willchristopher/MyQuad/src/app/api/faculty/**`).
-- Implemented faculty favorite toggle API (`/Users/willchristopher/MyQuad/src/app/api/faculty/[id]/favorite/route.ts`).
+- Implemented faculty list/search/filter APIs and detail fetch (`/Users/willchristopher/PocketQuad/src/app/api/faculty/**`).
+- Implemented faculty favorite toggle API (`/Users/willchristopher/PocketQuad/src/app/api/faculty/[id]/favorite/route.ts`).
 - Built student directory and faculty profile pages.
 
 Remaining developer tasks:
@@ -151,8 +151,8 @@ User Story 8: As a student, I want a real-time chatroom for campus conversations
 Status: Partial
 
 Completed developer tasks:
-- Implemented channel and message APIs (`/Users/willchristopher/MyQuad/src/app/api/channels/**`).
-- Added realtime chat subscriptions with Supabase (`/Users/willchristopher/MyQuad/src/lib/supabase/realtime.ts`).
+- Implemented channel and message APIs (`/Users/willchristopher/PocketQuad/src/app/api/channels/**`).
+- Added realtime chat subscriptions with Supabase (`/Users/willchristopher/PocketQuad/src/lib/supabase/realtime.ts`).
 - Built chatroom UI with channel selection and message send.
 
 Remaining developer tasks:

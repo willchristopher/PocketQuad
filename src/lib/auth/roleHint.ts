@@ -17,7 +17,7 @@ type RoleHintHeader = {
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
 
-export const ROLE_HINT_COOKIE_NAME = 'myquad-role-hint'
+export const ROLE_HINT_COOKIE_NAME = 'pocketquad-role-hint'
 export const ROLE_HINT_TTL_SECONDS = 15 * 60
 
 function getRoleHintSecret() {

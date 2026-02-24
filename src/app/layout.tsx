@@ -19,7 +19,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MyQuad | Campus Hub",
+  title: "PocketQuad | Campus Hub",
   description: "Intelligent university campus hub application.",
 };
 

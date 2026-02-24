@@ -95,7 +95,7 @@ export function Sidebar() {
           </div>
           {!sidebarCollapsed && (
             <div>
-              <p className="font-display text-base font-bold tracking-tight text-foreground">MyQuad</p>
+              <p className="font-display text-base font-bold tracking-tight text-foreground">PocketQuad</p>
               <p className="text-[10px] text-muted-foreground -mt-0.5">Student Hub</p>
             </div>
           )}

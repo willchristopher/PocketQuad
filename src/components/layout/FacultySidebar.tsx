@@ -41,7 +41,7 @@ export function FacultySidebar() {
           </div>
           <div className="flex flex-col">
             <span className="text-base font-display font-bold tracking-tight text-foreground">
-              MyQuad
+              PocketQuad
             </span>
             <span className="text-[10px] text-muted-foreground font-medium -mt-0.5">Faculty</span>
           </div>
@@ -80,7 +80,7 @@ export function FacultySidebar() {
                 </Avatar>
                 <div className="grid gap-0.5 text-xs">
                   <span className="font-semibold truncate">{displayName}</span>
-                  <span className="text-muted-foreground truncate">{profile?.email ?? 'faculty@myquad.edu'}</span>
+                  <span className="text-muted-foreground truncate">{profile?.email ?? 'faculty@pocketquad.edu'}</span>
                 </div>
               </div>
             </Button>

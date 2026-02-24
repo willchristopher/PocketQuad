@@ -2,7 +2,7 @@
 
 import React from 'react'
 
-const SIDEBAR_COLLAPSED_KEY = 'myquad-sidebar-collapsed'
+const SIDEBAR_COLLAPSED_KEY = 'pocketquad-sidebar-collapsed'
 
 type SidebarContextValue = {
   sidebarCollapsed: boolean

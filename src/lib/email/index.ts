@@ -14,7 +14,7 @@ function getAppUrl() {
 }
 
 function getFromAddress() {
-  return process.env.EMAIL_FROM ?? 'noreply@myquad.app'
+  return process.env.EMAIL_FROM ?? 'noreply@pocketquad.app'
 }
 
 export async function sendVerificationEmail(email: string, token: string) {
@@ -24,8 +24,8 @@ export async function sendVerificationEmail(email: string, token: string) {
   await resend.emails.send({
     from: getFromAddress(),
     to: email,
-    subject: 'Verify your MyQuad account',
-    html: `<p>Welcome to MyQuad.</p><p>Verify your email by clicking <a href="${verifyLink}">this link</a>.</p>`,
+    subject: 'Verify your PocketQuad account',
+    html: `<p>Welcome to PocketQuad.</p><p>Verify your email by clicking <a href="${verifyLink}">this link</a>.</p>`,
   })
 }
 
@@ -36,7 +36,7 @@ export async function sendPasswordResetEmail(email: string, token: string) {
   await resend.emails.send({
     from: getFromAddress(),
     to: email,
-    subject: 'Reset your MyQuad password',
+    subject: 'Reset your PocketQuad password',
     html: `<p>You requested a password reset.</p><p>Reset your password using <a href="${resetLink}">this link</a>.</p>`,
   })
 }

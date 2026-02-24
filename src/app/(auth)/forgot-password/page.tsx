@@ -47,7 +47,7 @@ export default function ForgotPasswordPage() {
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md">
               <span className="text-lg font-extrabold text-primary-foreground">Q</span>
             </div>
-            <span className="font-display text-2xl font-extrabold tracking-tight">MyQuad</span>
+            <span className="font-display text-2xl font-extrabold tracking-tight">PocketQuad</span>
           </Link>
         </div>
 

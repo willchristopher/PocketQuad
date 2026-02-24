@@ -115,7 +115,7 @@ export function AdminSidebar({ className, mobile = false, onNavigate }: AdminSid
             <ShieldCheck className="h-4 w-4" />
           </div>
           <div>
-            <p className="font-display text-base font-bold tracking-tight">MyQuad</p>
+            <p className="font-display text-base font-bold tracking-tight">PocketQuad</p>
             <p className="text-[10px] text-muted-foreground -mt-0.5">Admin</p>
           </div>
         </Link>
@@ -155,7 +155,7 @@ export function AdminSidebar({ className, mobile = false, onNavigate }: AdminSid
       <div className="border-t border-border/50 p-3 space-y-2">
         <div className="rounded-lg bg-muted/30 px-3 py-2">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Signed in as</p>
-          <p className="truncate text-xs font-medium mt-0.5">{profile?.email ?? 'admin@myquad.edu'}</p>
+          <p className="truncate text-xs font-medium mt-0.5">{profile?.email ?? 'admin@pocketquad.edu'}</p>
         </div>
         <Button
           variant="outline"

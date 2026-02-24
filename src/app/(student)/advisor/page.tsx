@@ -34,7 +34,7 @@ export default function AdvisorPage() {
     {
       id: 'assistant-0',
       role: 'assistant',
-      content: 'I am your MyQuad AI advisor. Ask about events, deadlines, office hours, or campus resources.',
+      content: 'I am your PocketQuad AI advisor. Ask about events, deadlines, office hours, or campus resources.',
     },
   ])
 

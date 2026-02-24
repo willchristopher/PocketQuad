@@ -363,7 +363,7 @@ function ThemeSelector() {
     <section className="overflow-hidden rounded-2xl border border-border/60 bg-card animate-in-up stagger-3">
       <div className="border-b border-border/60 px-5 py-4">
         <h2 className="text-base font-bold">Appearance</h2>
-        <p className="mt-1 text-xs text-muted-foreground">Choose how MyQuad looks for you. Your preference is saved across sessions.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Choose how PocketQuad looks for you. Your preference is saved across sessions.</p>
       </div>
 
       <div className="p-4 grid grid-cols-2 gap-3">

@@ -21,9 +21,9 @@ type UniversityThemeContextValue = {
 
 const UniversityThemeContext = React.createContext<UniversityThemeContextValue | undefined>(undefined)
 
-const THEME_STORAGE_KEY = 'myquad-theme-mode'
-const UNI_COLORS_STORAGE_KEY = 'myquad-uni-colors'
-const UNI_NAME_STORAGE_KEY = 'myquad-uni-name'
+const THEME_STORAGE_KEY = 'pocketquad-theme-mode'
+const UNI_COLORS_STORAGE_KEY = 'pocketquad-uni-colors'
+const UNI_NAME_STORAGE_KEY = 'pocketquad-uni-name'
 
 function hexToHSL(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16) / 255
