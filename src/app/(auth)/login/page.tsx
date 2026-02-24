@@ -2,6 +2,7 @@
 
 import React, { Suspense } from 'react'
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 
@@ -160,9 +161,14 @@ function LoginForm() {
       <main className="relative mx-auto flex w-full max-w-6xl flex-col gap-8 lg:min-h-[calc(100vh-4rem)] lg:flex-row lg:items-center lg:gap-14">
         <section className="flex w-full flex-col items-center text-center lg:w-1/2 lg:items-start lg:text-left">
           <Link href="/login" className="inline-flex items-center gap-2.5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20">
-              <span className="text-lg font-extrabold text-primary-foreground">Q</span>
-            </div>
+            <Image
+              src="/transparentPocketQuad.png"
+              alt="PocketQuad logo"
+              width={44}
+              height={44}
+              className="rounded-xl"
+              priority
+            />
             <span className="font-display text-3xl font-extrabold tracking-tight">PocketQuad</span>
           </Link>
 
