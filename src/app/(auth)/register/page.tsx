@@ -13,6 +13,7 @@ import {
 import { getHomeForRole } from '@/lib/auth/routing'
 
 type Role = 'STUDENT' | 'FACULTY'
+type StudentStep = 'details' | 'code'
 type FacultyStep = 'email' | 'code' | 'password'
 
 type SessionResponse = {
@@ -42,6 +43,7 @@ export default function RegisterPage() {
   const [password, setPassword] = React.useState('')
   const [otpCode, setOtpCode] = React.useState('')
   const [role, setRole] = React.useState<Role>('STUDENT')
+  const [studentStep, setStudentStep] = React.useState<StudentStep>('details')
   const [facultyStep, setFacultyStep] = React.useState<FacultyStep>('email')
   const [submitting, setSubmitting] = React.useState(false)
   const [resendingCode, setResendingCode] = React.useState(false)
@@ -54,6 +56,7 @@ export default function RegisterPage() {
   const domainCheckTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isFaculty = role === 'FACULTY'
+  const isStudent = role === 'STUDENT'
 
   const handleRoleChange = (nextRole: Role) => {
     setRole(nextRole)
@@ -65,7 +68,11 @@ export default function RegisterPage() {
       setFacultyStep('email')
       setOtpCode('')
       setPassword('')
+      return
     }
+
+    setStudentStep('details')
+    setOtpCode('')
   }
 
   React.useEffect(() => {
@@ -108,15 +115,28 @@ export default function RegisterPage() {
     router.refresh()
   }
 
-  const submitStudentRegistration = async () => {
-    await apiRequest('/api/auther/register', {
+  const submitStudentDetails = async () => {
+    await apiRequest('/api/auth/student/request-otp', {
       method: 'POST',
       body: {
         firstName,
         lastName,
         email,
         password,
-        role: 'STUDENT',
+      },
+    })
+    setStudentStep('code')
+  }
+
+  const submitStudentCode = async () => {
+    await apiRequest('/api/auth/student/verify-otp', {
+      method: 'POST',
+      body: {
+        firstName,
+        lastName,
+        email,
+        password,
+        code: otpCode,
       },
     })
 
@@ -182,7 +202,12 @@ export default function RegisterPage() {
         return
       }
 
-      await submitStudentRegistration()
+      if (studentStep === 'details') {
+        await submitStudentDetails()
+        return
+      }
+
+      await submitStudentCode()
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.message)
@@ -215,9 +240,34 @@ export default function RegisterPage() {
     }
   }
 
+  const resendStudentCode = async () => {
+    setError(null)
+    setFieldErrors({})
+    setResendingCode(true)
+    try {
+      await apiRequest('/api/auth/student/request-otp', {
+        method: 'POST',
+        body: {
+          firstName,
+          lastName,
+          email,
+          password,
+        },
+      })
+    } catch (err) {
+      const message = err instanceof ApiClientError ? err.message : 'Unable to resend code right now'
+      setError(message)
+    } finally {
+      setResendingCode(false)
+    }
+  }
+
   const submitLabel = (() => {
-    if (!isFaculty) {
-      return submitting ? 'Creating Account...' : 'Create Account'
+    if (isStudent) {
+      if (studentStep === 'details') {
+        return submitting ? 'Sending Code...' : 'Create Account'
+      }
+      return submitting ? 'Verifying Student...' : 'Verify & Finish Sign Up'
     }
     if (facultyStep === 'email') {
       return submitting ? 'Sending Code...' : 'Send One-Time Code'
@@ -315,7 +365,18 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {!isFaculty && (
+            {isStudent && studentStep === 'code' && (
+              <div className="space-y-2">
+                <div className="rounded-xl border border-primary/20 bg-primary/8 px-3 py-2">
+                  <p className="text-xs text-foreground">
+                    One more step: enter the one-time passcode sent to your university email to
+                    verify you are a student before we finish creating your account.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {isStudent && studentStep === 'details' && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 block mb-1.5">First Name</label>
@@ -363,7 +424,11 @@ export default function RegisterPage() {
                   className="bg-transparent text-sm outline-none w-full placeholder:text-muted-foreground/50"
                   required
                   autoComplete="email"
-                  disabled={submitting || (isFaculty && facultyStep !== 'email')}
+                  disabled={
+                    submitting ||
+                    (isFaculty && facultyStep !== 'email') ||
+                    (isStudent && studentStep !== 'details')
+                  }
                 />
               </div>
               {fieldErrors.email && (
@@ -383,7 +448,7 @@ export default function RegisterPage() {
               )}
             </div>
 
-            {isFaculty && facultyStep === 'code' && (
+            {((isFaculty && facultyStep === 'code') || (isStudent && studentStep === 'code')) && (
               <div>
                 <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 block mb-1.5">One-Time Passcode</label>
                 <input
@@ -400,7 +465,7 @@ export default function RegisterPage() {
                 {fieldErrors.code && <p className="mt-1 text-[11px] text-red-500">{fieldErrors.code[0]}</p>}
                 <button
                   type="button"
-                  onClick={resendFacultyCode}
+                  onClick={isFaculty ? resendFacultyCode : resendStudentCode}
                   className="mt-2 text-xs font-semibold text-primary hover:underline disabled:opacity-70"
                   disabled={submitting || resendingCode}
                 >
@@ -409,7 +474,7 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {(!isFaculty || facultyStep === 'password') && (
+            {((isStudent && studentStep === 'details') || (isFaculty && facultyStep === 'password')) && (
               <div>
                 <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 block mb-1.5">Password</label>
                 <div className={`flex items-center gap-2.5 rounded-xl border bg-muted/20 px-3.5 py-3 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all ${fieldErrors.password ? 'border-red-500/60' : 'border-border/60'}`}>

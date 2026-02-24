@@ -42,6 +42,13 @@ async function ensureGeneralChannelMembership(userId: string) {
 }
 
 function assertSupportedSelfRegistrationRole(role: 'STUDENT' | 'FACULTY' | 'ADMIN') {
+  if (role === 'STUDENT') {
+    throw new ApiError(
+      400,
+      'Student onboarding requires one-time email verification. Use the student signup OTP flow.',
+    )
+  }
+
   if (role === 'FACULTY') {
     throw new ApiError(
       400,
