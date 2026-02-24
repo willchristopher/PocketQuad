@@ -21,6 +21,10 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "PocketQuad | Campus Hub",
   description: "Intelligent university campus hub application.",
+  icons: {
+    icon: "/transparentPocketQuad.png",
+    apple: "/transparentPocketQuad.png",
+  },
 };
 
 export const viewport: Viewport = {

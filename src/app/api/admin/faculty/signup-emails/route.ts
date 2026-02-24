@@ -64,6 +64,21 @@ export async function GET(request: NextRequest) {
         displayName: true,
         emailVerified: true,
         createdAt: true,
+        canPublishCampusAnnouncements: true,
+        managesAllClubs: true,
+        facultyRoleTags: true,
+        managedBuildings: {
+          select: {
+            buildingId: true,
+            building: { select: { id: true, name: true } },
+          },
+        },
+        managedClubs: {
+          select: {
+            clubId: true,
+            club: { select: { id: true, name: true } },
+          },
+        },
         university: {
           select: { id: true, name: true, slug: true },
         },
@@ -122,27 +137,53 @@ export async function POST(request: NextRequest) {
     }
 
     if (existingUser) {
-      const updated = await prisma.user.update({
-        where: { id: existingUser.id },
-        data: {
-          universityId: payload.universityId,
-          firstName,
-          lastName,
-          displayName,
-        },
-        select: {
-          id: true,
-          universityId: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          displayName: true,
-          emailVerified: true,
-          createdAt: true,
-          university: {
-            select: { id: true, name: true, slug: true },
+      const updated = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.update({
+          where: { id: existingUser.id },
+          data: {
+            universityId: payload.universityId,
+            firstName,
+            lastName,
+            displayName,
+            canPublishCampusAnnouncements: payload.canPublishCampusAnnouncements,
+            managesAllClubs: payload.managesAllClubs,
+            facultyRoleTags: payload.facultyRoleTags,
           },
-        },
+          select: {
+            id: true,
+            universityId: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            displayName: true,
+            emailVerified: true,
+            createdAt: true,
+            canPublishCampusAnnouncements: true,
+            managesAllClubs: true,
+            facultyRoleTags: true,
+            university: {
+              select: { id: true, name: true, slug: true },
+            },
+          },
+        })
+
+        if (payload.managedBuildingIds.length > 0) {
+          await tx.buildingManagerAssignment.deleteMany({ where: { userId: user.id } })
+          await tx.buildingManagerAssignment.createMany({
+            data: payload.managedBuildingIds.map((buildingId) => ({ userId: user.id, buildingId })),
+            skipDuplicates: true,
+          })
+        }
+
+        if (payload.managedClubIds.length > 0) {
+          await tx.clubManagerAssignment.deleteMany({ where: { userId: user.id } })
+          await tx.clubManagerAssignment.createMany({
+            data: payload.managedClubIds.map((clubId) => ({ userId: user.id, clubId })),
+            skipDuplicates: true,
+          })
+        }
+
+        return user
       })
 
       return successResponse(updated)
@@ -157,7 +198,9 @@ export async function POST(request: NextRequest) {
           lastName,
           displayName,
           role: 'FACULTY',
-          canPublishCampusAnnouncements: false,
+          canPublishCampusAnnouncements: payload.canPublishCampusAnnouncements,
+          managesAllClubs: payload.managesAllClubs,
+          facultyRoleTags: payload.facultyRoleTags,
         },
         select: {
           id: true,
@@ -168,6 +211,9 @@ export async function POST(request: NextRequest) {
           displayName: true,
           emailVerified: true,
           createdAt: true,
+          canPublishCampusAnnouncements: true,
+          managesAllClubs: true,
+          facultyRoleTags: true,
           university: {
             select: { id: true, name: true, slug: true },
           },
@@ -179,6 +225,20 @@ export async function POST(request: NextRequest) {
           userId: user.id,
         },
       })
+
+      if (payload.managedBuildingIds.length > 0) {
+        await tx.buildingManagerAssignment.createMany({
+          data: payload.managedBuildingIds.map((buildingId) => ({ userId: user.id, buildingId })),
+          skipDuplicates: true,
+        })
+      }
+
+      if (payload.managedClubIds.length > 0) {
+        await tx.clubManagerAssignment.createMany({
+          data: payload.managedClubIds.map((clubId) => ({ userId: user.id, clubId })),
+          skipDuplicates: true,
+        })
+      }
 
       return user
     })

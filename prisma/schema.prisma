@@ -117,6 +117,8 @@ model User {
   avatar                  String?
   role                    UserRole                 @default(STUDENT)
   canPublishCampusAnnouncements Boolean            @default(false) @map("can_publish_campus_announcements")
+  managesAllClubs         Boolean                  @default(false) @map("manages_all_clubs")
+  facultyRoleTags         String[]                 @default([]) @map("faculty_role_tags")
   adminAccessLevel        AdminAccessLevel?        @map("admin_access_level")
   portalPermissions       PortalPermission[]       @default([]) @map("portal_permissions")
   major                   String?
@@ -146,6 +148,7 @@ model User {
   aiConversations         AIConversation[]
   aiMessages              AIMessage[]
   managedClubs            ClubManagerAssignment[]
+  managedBuildings        BuildingManagerAssignment[]
   university              University?              @relation(fields: [universityId], references: [id], onDelete: SetNull)
 
   @@index([universityId])
@@ -347,15 +350,22 @@ model CampusBuilding {
   type         String
   address      String
   mapQuery     String     @map("map_query")
+  purpose      String?
   description  String?
+  operatingHours String?  @map("operating_hours")
+  operationalStatus CampusServiceStatus @default(OPEN) @map("operational_status")
+  operationalNote String? @map("operational_note")
+  operationalUpdatedAt DateTime? @map("operational_updated_at")
   categories   String[]   @default([])
   services     String[]   @default([])
   departments  String[]   @default([])
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
+  managers     BuildingManagerAssignment[]
   university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
 
   @@index([universityId, name])
+  @@index([universityId, operationalStatus])
   @@map("campus_buildings")
 }
 
@@ -421,6 +431,21 @@ model ClubManagerAssignment {
   @@index([clubId])
   @@index([userId])
   @@map("club_manager_assignments")
+}
+
+model BuildingManagerAssignment {
+  id         String        @id @default(cuid())
+  userId     String        @map("user_id")
+  buildingId String        @map("building_id")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  building   CampusBuilding @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, buildingId])
+  @@index([buildingId])
+  @@index([userId])
+  @@map("building_manager_assignments")
 }
 
 model FacultyFavorite {

@@ -9,23 +9,15 @@ import { Button } from '@/components/ui/button'
 const tabConfig: Record<string, { title: string; subtitle: string }> = {
   overview: {
     title: 'Overview',
-    subtitle: 'Monitor tenant-level data coverage and content health.',
-  },
-  universities: {
-    title: 'Universities',
-    subtitle: 'Manage domain and theme settings for the selected university.',
+    subtitle: 'Monitor university data coverage and content health.',
   },
   faculty: {
     title: 'Faculty',
-    subtitle: 'Create and manage university-scoped faculty profiles.',
+    subtitle: 'Invite faculty and manage directory profiles and access.',
   },
   buildings: {
     title: 'Buildings',
-    subtitle: 'Manage campus map locations and facility metadata.',
-  },
-  'building-import': {
-    title: 'Building Import',
-    subtitle: 'Import university building records from the required CSV format.',
+    subtitle: 'Manage campus map locations, operating status, and facility metadata.',
   },
   links: {
     title: 'Resource Links',

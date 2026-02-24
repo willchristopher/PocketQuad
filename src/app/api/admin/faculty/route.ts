@@ -41,6 +41,20 @@ export async function GET(request: NextRequest) {
             email: true,
             role: true,
             canPublishCampusAnnouncements: true,
+            managesAllClubs: true,
+            facultyRoleTags: true,
+            managedBuildings: {
+              select: {
+                buildingId: true,
+                building: { select: { id: true, name: true } },
+              },
+            },
+            managedClubs: {
+              select: {
+                clubId: true,
+                club: { select: { id: true, name: true } },
+              },
+            },
           },
         },
         university: {

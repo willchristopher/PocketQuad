@@ -13,7 +13,6 @@ import {
   ShieldCheck,
   ShieldUser,
   School,
-  Upload,
   UserCog,
   Wrench,
 } from 'lucide-react'
@@ -32,10 +31,8 @@ type AdminSidebarProps = {
 
 const adminLinks: Array<{ icon: React.ElementType; label: string; tab: AdminTabValue }> = [
   { icon: LayoutDashboard, label: 'Overview', tab: 'overview' },
-  { icon: School, label: 'Universities', tab: 'universities' },
   { icon: UserCog, label: 'Faculty', tab: 'faculty' },
   { icon: Building2, label: 'Buildings', tab: 'buildings' },
-  { icon: Upload, label: 'Building Import', tab: 'building-import' },
   { icon: ExternalLink, label: 'Resource Links', tab: 'links' },
   { icon: Wrench, label: 'Services', tab: 'services' },
   { icon: Landmark, label: 'Clubs', tab: 'clubs' },

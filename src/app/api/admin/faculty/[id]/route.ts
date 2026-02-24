@@ -54,10 +54,42 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           ...(payload.canPublishCampusAnnouncements !== undefined
             ? { canPublishCampusAnnouncements: payload.canPublishCampusAnnouncements }
             : {}),
+          ...(payload.managesAllClubs !== undefined
+            ? { managesAllClubs: payload.managesAllClubs }
+            : {}),
+          ...(payload.facultyRoleTags !== undefined
+            ? { facultyRoleTags: payload.facultyRoleTags }
+            : {}),
           ...(payload.department ? { department: payload.department } : {}),
           ...(payload.universityId ? { universityId: payload.universityId } : {}),
         },
       })
+
+      if (payload.managedBuildingIds !== undefined) {
+        await tx.buildingManagerAssignment.deleteMany({ where: { userId: existing.userId } })
+        if (payload.managedBuildingIds.length > 0) {
+          await tx.buildingManagerAssignment.createMany({
+            data: payload.managedBuildingIds.map((buildingId) => ({
+              userId: existing.userId,
+              buildingId,
+            })),
+            skipDuplicates: true,
+          })
+        }
+      }
+
+      if (payload.managedClubIds !== undefined) {
+        await tx.clubManagerAssignment.deleteMany({ where: { userId: existing.userId } })
+        if (payload.managedClubIds.length > 0) {
+          await tx.clubManagerAssignment.createMany({
+            data: payload.managedClubIds.map((clubId) => ({
+              userId: existing.userId,
+              clubId,
+            })),
+            skipDuplicates: true,
+          })
+        }
+      }
 
       return tx.faculty.update({
         where: { id },
@@ -81,6 +113,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
               email: true,
               role: true,
               canPublishCampusAnnouncements: true,
+              managesAllClubs: true,
+              facultyRoleTags: true,
+              managedBuildings: {
+                select: {
+                  buildingId: true,
+                  building: { select: { id: true, name: true } },
+                },
+              },
+              managedClubs: {
+                select: {
+                  clubId: true,
+                  club: { select: { id: true, name: true } },
+                },
+              },
             },
           },
           university: {

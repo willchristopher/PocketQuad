@@ -3,26 +3,47 @@
 import React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
+  AlertCircle,
   Building2,
   CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Clock,
   ExternalLink,
+  GraduationCap,
   KeyRound,
   Landmark,
   Loader2,
+  MapPin,
+  Pencil,
+  Plus,
   School,
   ShieldUser,
+  Tag,
+  Trash2,
   Upload,
   Users,
   Wrench,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
 import { ApiClientError, apiRequest } from '@/lib/api/client'
 import { useAuth } from '@/lib/auth/context'
 import {
@@ -96,6 +117,10 @@ type FacultyRecord = {
     email: string
     role: 'STUDENT' | 'FACULTY' | 'ADMIN'
     canPublishCampusAnnouncements: boolean
+    managesAllClubs: boolean
+    facultyRoleTags: string[]
+    managedBuildings: Array<{ buildingId: string; building: { id: string; name: string } }>
+    managedClubs: Array<{ clubId: string; club: { id: string; name: string } }>
   } | null
   university?: { id: string; name: string; slug: string } | null
 }
@@ -109,6 +134,11 @@ type FacultySignupEmailRecord = {
   displayName: string
   emailVerified: boolean
   createdAt: string
+  canPublishCampusAnnouncements: boolean
+  managesAllClubs: boolean
+  facultyRoleTags: string[]
+  managedBuildings: Array<{ buildingId: string; building: { id: string; name: string } }>
+  managedClubs: Array<{ clubId: string; club: { id: string; name: string } }>
   university?: { id: string; name: string; slug: string } | null
 }
 
@@ -120,7 +150,11 @@ type BuildingRecord = {
   type: string
   address: string
   mapQuery: string
+  purpose: string | null
   description: string | null
+  operatingHours: string | null
+  operationalStatus: 'OPEN' | 'CLOSED' | 'LIMITED'
+  operationalNote: string | null
   categories: string[]
   services: string[]
   departments: string[]
@@ -235,6 +269,22 @@ const eventCategories: EventRecord['category'][] = [
   'OTHER',
 ]
 
+const FACULTY_ROLE_TAG_OPTIONS = [
+  'Club Advisor',
+  'Academic Advisor',
+  'Student Government Advisor',
+  'Residence Life',
+  'Athletics Advisor',
+  'Department Chair',
+  'Program Director',
+] as const
+
+const STATUS_CONFIG: Record<'OPEN' | 'CLOSED' | 'LIMITED', { label: string; className: string; icon: React.ReactNode }> = {
+  OPEN: { label: 'Open', className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30', icon: <CheckCircle2 className="h-2.5 w-2.5" /> },
+  LIMITED: { label: 'Limited', className: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30', icon: <AlertCircle className="h-2.5 w-2.5" /> },
+  CLOSED: { label: 'Closed', className: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30', icon: <X className="h-2.5 w-2.5" /> },
+}
+
 const accessLevelOptions: AdminAccessLevel[] = [
   'OWNER',
   'IT_ADMIN',
@@ -339,6 +389,12 @@ export function AdminDashboard() {
   const [portalAccounts, setPortalAccounts] = React.useState<PortalAccountRecord[]>([])
   const [temporaryAccountPassword, setTemporaryAccountPassword] = React.useState<string | null>(null)
 
+  // UI expansion state
+  const [expandedFacultyId, setExpandedFacultyId] = React.useState<string | null>(null)
+  const [expandedSignupEmailId, setExpandedSignupEmailId] = React.useState<string | null>(null)
+  const [expandedBuildingId, setExpandedBuildingId] = React.useState<string | null>(null)
+  const [showBuildingImport, setShowBuildingImport] = React.useState(false)
+
   const [selectedUniversityId, setSelectedUniversityId] = React.useState(requestedUniversityId)
   const [universitySelectionDraft, setUniversitySelectionDraft] = React.useState(requestedUniversityId)
   const [buildingImportUniversityId, setBuildingImportUniversityId] = React.useState('')
@@ -367,6 +423,11 @@ export function AdminDashboard() {
     email: '',
     firstName: '',
     lastName: '',
+    canPublishCampusAnnouncements: false,
+    managesAllClubs: false,
+    facultyRoleTags: [] as string[],
+    managedBuildingIds: [] as string[],
+    managedClubIds: [] as string[],
   })
   const [newBuilding, setNewBuilding] = React.useState({
     universityId: '',
@@ -375,6 +436,11 @@ export function AdminDashboard() {
     type: '',
     address: '',
     mapQuery: '',
+    purpose: '',
+    operatingHours: '',
+    operationalStatus: 'OPEN' as 'OPEN' | 'CLOSED' | 'LIMITED',
+    operationalNote: '',
+    description: '',
   })
   const [newLink, setNewLink] = React.useState({
     universityId: '',
@@ -573,7 +639,12 @@ export function AdminDashboard() {
     if (!selectedUniversityId) return
 
     setNewFaculty((current) => ({ ...current, universityId: selectedUniversityId }))
-    setNewFacultySignupEmail((current) => ({ ...current, universityId: selectedUniversityId }))
+    setNewFacultySignupEmail((current) => ({
+      ...current,
+      universityId: selectedUniversityId,
+      managedBuildingIds: [],
+      managedClubIds: [],
+    }))
     setNewBuilding((current) => ({ ...current, universityId: selectedUniversityId }))
     setNewLink((current) => ({ ...current, universityId: selectedUniversityId }))
     setNewService((current) => ({ ...current, universityId: selectedUniversityId }))
@@ -598,6 +669,13 @@ export function AdminDashboard() {
   )
 
   const handleTabChange = (nextTab: string) => {
+    // Redirect removed tabs to their new home or overview
+    if (nextTab === 'universities') return
+    if (nextTab === 'building-import') {
+      setShowBuildingImport(true)
+      handleTabChange('buildings')
+      return
+    }
     const normalized = nextTab as TabValue
     if (!visibleTabs.some((item) => item.value === normalized)) return
     setActiveTab(normalized)
@@ -743,27 +821,6 @@ export function AdminDashboard() {
     universities.find((university) => university.id === selectedUniversityId) ?? null
   const scopedUniversities = selectedUniversity ? [selectedUniversity] : []
 
-  const overviewMetrics = [
-    {
-      label: 'Working University',
-      value: selectedUniversity?.name ?? 'Not selected',
-      icon: School,
-      helper: 'All dashboard data is scoped to this university',
-    },
-    {
-      label: 'Faculty Profiles',
-      value: `${faculty.length}`,
-      icon: Users,
-      helper: 'Directory entries available to students',
-    },
-    {
-      label: 'Campus Content Items',
-      value: `${buildings.length + resourceLinks.length + services.length + clubs.length + events.length}`,
-      icon: Landmark,
-      helper: 'Buildings, links, services, clubs, and events',
-    },
-  ]
-
   const universityOptions = universities.map((university) => (
     <option key={university.id} value={university.id}>
       {university.name}
@@ -777,88 +834,91 @@ export function AdminDashboard() {
   const requiredBuildingHeaders = BUILDING_IMPORT_REQUIRED_HEADERS.join(', ')
 
   return (
-    <div className="space-y-6 animate-in-up">
-      <section className="rounded-2xl border border-border/60 bg-card/75 p-5 md:p-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Admin CRUD Console</p>
-            <h2 className="mt-1 text-2xl font-display font-extrabold tracking-tight">University-Scoped Data Management</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Create, update, and delete data by university so student-facing content stays tenant-specific.
-            </p>
-          </div>
-          <div className="flex flex-col items-start gap-2 md:items-end">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Working University</p>
-            <p className="text-sm font-medium">
-              {selectedUniversity?.name ?? 'Choose a university to continue'}
-            </p>
-          </div>
-        </div>
-      </section>
-
+    <div className="space-y-4 animate-in-up">
       {selectedUniversity ? (
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-        <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl border border-border/60 bg-card/70 p-1">
-          {visibleTabs.map((item) => (
-            <TabsTrigger key={item.value} value={item.value} className="rounded-lg px-3 py-2 text-xs md:text-sm">
-              <item.icon className="mr-1.5 h-3.5 w-3.5" />
-              {item.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
 
         <TabsContent value="overview" className="mt-0 space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            {overviewMetrics.map((metric) => (
-              <Card key={metric.label} className="rounded-2xl border-border/60">
-                <CardContent className="p-4">
-                  <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-                    <metric.icon className="h-4.5 w-4.5 text-primary" />
+          {/* University Info */}
+          <Card className="rounded-2xl border-border/60">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Active University</p>
+                  <h2 className="mt-1 text-2xl font-display font-bold">{selectedUniversity.name}</h2>
+                  {selectedUniversity.domain && (
+                    <p className="text-sm text-muted-foreground mt-0.5">@{selectedUniversity.domain}</p>
+                  )}
+                </div>
+                {(selectedUniversity.themeMainColor || selectedUniversity.themeAccentColor) && (
+                  <div className="flex items-center gap-3">
+                    {[
+                      { label: 'Primary', color: selectedUniversity.themeMainColor },
+                      { label: 'Accent', color: selectedUniversity.themeAccentColor },
+                    ].filter((c) => c.color).map((c) => (
+                      <div key={c.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <div style={{ backgroundColor: c.color! }} className="h-5 w-5 rounded-full border border-border/60 shadow-sm" />
+                        <span className="font-mono">{c.color}</span>
+                        <span className="text-muted-foreground/60">({c.label})</span>
+                      </div>
+                    ))}
                   </div>
-                  <p className="text-2xl font-extrabold tracking-tight">{metric.value}</p>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-0.5">{metric.label}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{metric.helper}</p>
-                </CardContent>
-              </Card>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Stats grid — click any to navigate */}
+          <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+            {([
+              { label: 'Faculty', value: faculty.length, icon: GraduationCap, tab: 'faculty' as TabValue },
+              { label: 'Buildings', value: buildings.length, icon: Building2, tab: 'buildings' as TabValue },
+              { label: 'Clubs', value: clubs.length, icon: Landmark, tab: 'clubs' as TabValue },
+              { label: 'Events', value: events.length, icon: CalendarDays, tab: 'events' as TabValue },
+              { label: 'Links', value: resourceLinks.length, icon: ExternalLink, tab: 'links' as TabValue },
+              { label: 'Services', value: services.length, icon: Wrench, tab: 'services' as TabValue },
+            ] as const).map((stat) => (
+              <button
+                key={stat.label}
+                className="rounded-2xl border border-border/60 bg-card/70 p-4 text-left hover:bg-card transition-colors duration-150 active:scale-[0.98]"
+                onClick={() => handleTabChange(stat.tab)}
+              >
+                <stat.icon className="h-4 w-4 text-muted-foreground mb-2" />
+                <p className="text-2xl font-extrabold tracking-tight">{stat.value}</p>
+                <p className="text-xs font-medium text-muted-foreground mt-0.5">{stat.label}</p>
+              </button>
             ))}
           </div>
 
+          {/* Quick actions */}
           <Card className="rounded-2xl border-border/60">
-            <CardHeader>
-              <CardTitle>University Summary</CardTitle>
-              <CardDescription>Counts shown per university to verify tenant isolation.</CardDescription>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Quick Actions</CardTitle>
+              <CardDescription>Jump to any section to manage content for {selectedUniversity.name}.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>University</TableHead>
-                    <TableHead>Users</TableHead>
-                    <TableHead>Faculty</TableHead>
-                    <TableHead>Events</TableHead>
-                    <TableHead>Resources</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {scopedUniversities.map((university) => (
-                    <TableRow key={university.id}>
-                      <TableCell>
-                        <p className="font-semibold">{university.name}</p>
-                        <p className="text-xs text-muted-foreground">{university.slug}</p>
-                      </TableCell>
-                      <TableCell>{university._count?.users ?? 0}</TableCell>
-                      <TableCell>{university._count?.faculties ?? 0}</TableCell>
-                      <TableCell>{university._count?.events ?? 0}</TableCell>
-                      <TableCell>
-                        {(university._count?.buildings ?? 0) +
-                          (university._count?.resourceLinks ?? 0) +
-                          (university._count?.services ?? 0) +
-                          (university._count?.clubs ?? 0)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                {([
+                  { icon: GraduationCap, title: 'Invite Faculty', desc: 'Add faculty and configure access', tab: 'faculty' as TabValue },
+                  { icon: Building2, title: 'Manage Buildings', desc: 'Add buildings and update their status', tab: 'buildings' as TabValue },
+                  { icon: Landmark, title: 'Manage Clubs', desc: 'Update club info and leadership', tab: 'clubs' as TabValue },
+                  { icon: CalendarDays, title: 'Publish Events', desc: 'Create and manage campus events', tab: 'events' as TabValue },
+                  { icon: Wrench, title: 'Update Services', desc: 'Change service status and hours', tab: 'services' as TabValue },
+                  { icon: ShieldUser, title: 'IT Accounts', desc: 'Provision portal access and permissions', tab: 'it-accounts' as TabValue },
+                ] as const).map((action) => (
+                  <button
+                    key={action.title}
+                    className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+                    onClick={() => handleTabChange(action.tab)}
+                  >
+                    <action.icon className="mt-0.5 h-4 w-4 text-primary shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold">{action.title}</p>
+                      <p className="text-xs text-muted-foreground">{action.desc}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1023,64 +1083,152 @@ export function AdminDashboard() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="faculty" className="mt-0 space-y-4">
+        <TabsContent value="faculty" className="mt-0 space-y-5">
+
+          {/* ── Invite Faculty Member ─────────────────────────────── */}
           <Card className="rounded-2xl border-border/60">
             <CardHeader>
-              <CardTitle>Allow Faculty Signup Email</CardTitle>
+              <CardTitle>Invite Faculty Member</CardTitle>
               <CardDescription>
-                Add faculty emails that are allowed to use the faculty OTP activation flow.
+                Enter their email to allow signup. Configure their access and role assignments before they activate.
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-3 md:grid-cols-3">
-              <select
-                value={newFacultySignupEmail.universityId}
-                onChange={(event) =>
-                  setNewFacultySignupEmail((current) => ({
-                    ...current,
-                    universityId: event.target.value,
-                  }))
-                }
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-              >
-                {scopedUniversityOptions}
-              </select>
-              <Input
-                value={newFacultySignupEmail.email}
-                onChange={(event) =>
-                  setNewFacultySignupEmail((current) => ({
-                    ...current,
-                    email: event.target.value.toLowerCase(),
-                  }))
-                }
-                placeholder="Faculty email"
-              />
-              <Input
-                value={newFacultySignupEmail.firstName}
-                onChange={(event) =>
-                  setNewFacultySignupEmail((current) => ({
-                    ...current,
-                    firstName: event.target.value,
-                  }))
-                }
-                placeholder="First name (optional)"
-              />
-              <Input
-                value={newFacultySignupEmail.lastName}
-                onChange={(event) =>
-                  setNewFacultySignupEmail((current) => ({
-                    ...current,
-                    lastName: event.target.value,
-                  }))
-                }
-                placeholder="Last name (optional)"
-              />
+            <CardContent className="space-y-5">
+              <div className="grid gap-3 md:grid-cols-3">
+                <Input
+                  value={newFacultySignupEmail.email}
+                  onChange={(event) => setNewFacultySignupEmail((c) => ({ ...c, email: event.target.value.toLowerCase() }))}
+                  placeholder="Faculty email (required)"
+                />
+                <Input
+                  value={newFacultySignupEmail.firstName}
+                  onChange={(event) => setNewFacultySignupEmail((c) => ({ ...c, firstName: event.target.value }))}
+                  placeholder="First name (optional)"
+                />
+                <Input
+                  value={newFacultySignupEmail.lastName}
+                  onChange={(event) => setNewFacultySignupEmail((c) => ({ ...c, lastName: event.target.value }))}
+                  placeholder="Last name (optional)"
+                />
+              </div>
+
+              <Separator />
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Permissions</p>
+                <div className="flex flex-wrap gap-2">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm hover:bg-muted/30">
+                    <input
+                      type="checkbox"
+                      checked={newFacultySignupEmail.canPublishCampusAnnouncements}
+                      onChange={(event) => setNewFacultySignupEmail((c) => ({ ...c, canPublishCampusAnnouncements: event.target.checked }))}
+                    />
+                    Can publish campus announcements
+                  </label>
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm hover:bg-muted/30">
+                    <input
+                      type="checkbox"
+                      checked={newFacultySignupEmail.managesAllClubs}
+                      onChange={(event) => setNewFacultySignupEmail((c) => ({ ...c, managesAllClubs: event.target.checked }))}
+                    />
+                    Manages all clubs / Student orgs
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Role Tags</p>
+                <div className="flex flex-wrap gap-2">
+                  {FACULTY_ROLE_TAG_OPTIONS.map((tag) => {
+                    const isSelected = newFacultySignupEmail.facultyRoleTags.includes(tag)
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() =>
+                          setNewFacultySignupEmail((c) => ({
+                            ...c,
+                            facultyRoleTags: isSelected
+                              ? c.facultyRoleTags.filter((t) => t !== tag)
+                              : [...c.facultyRoleTags, tag],
+                          }))
+                        }
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                          isSelected
+                            ? 'border-primary/30 bg-primary/10 text-primary'
+                            : 'border-border/60 text-muted-foreground hover:border-primary/30 hover:text-foreground',
+                        )}
+                      >
+                        <Tag className="h-3 w-3" />
+                        {tag}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {withinSelectedUniversity(buildings).length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Manages Buildings</p>
+                  <div className="grid gap-1.5 md:grid-cols-2 lg:grid-cols-3">
+                    {withinSelectedUniversity(buildings).map((building) => {
+                      const isSelected = newFacultySignupEmail.managedBuildingIds.includes(building.id)
+                      return (
+                        <label key={building.id} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-xs hover:bg-muted/30">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() =>
+                              setNewFacultySignupEmail((c) => ({
+                                ...c,
+                                managedBuildingIds: isSelected
+                                  ? c.managedBuildingIds.filter((id) => id !== building.id)
+                                  : [...c.managedBuildingIds, building.id],
+                              }))
+                            }
+                          />
+                          <Building2 className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{building.name}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {withinSelectedUniversity(clubs).length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Advises Clubs / Orgs</p>
+                  <div className="grid gap-1.5 md:grid-cols-2 lg:grid-cols-3">
+                    {withinSelectedUniversity(clubs).map((club) => {
+                      const isSelected = newFacultySignupEmail.managedClubIds.includes(club.id)
+                      return (
+                        <label key={club.id} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-xs hover:bg-muted/30">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() =>
+                              setNewFacultySignupEmail((c) => ({
+                                ...c,
+                                managedClubIds: isSelected
+                                  ? c.managedClubIds.filter((id) => id !== club.id)
+                                  : [...c.managedClubIds, club.id],
+                              }))
+                            }
+                          />
+                          <Landmark className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{club.name}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <Button
-                  disabled={
-                    saving ||
-                    !newFacultySignupEmail.universityId ||
-                    !newFacultySignupEmail.email.trim()
-                  }
+                  disabled={saving || !newFacultySignupEmail.universityId || !newFacultySignupEmail.email.trim()}
                   onClick={() =>
                     void runMutation(async () => {
                       await apiRequest('/api/admin/faculty/signup-emails', {
@@ -1090,352 +1238,873 @@ export function AdminDashboard() {
                           email: newFacultySignupEmail.email,
                           firstName: newFacultySignupEmail.firstName || undefined,
                           lastName: newFacultySignupEmail.lastName || undefined,
+                          canPublishCampusAnnouncements: newFacultySignupEmail.canPublishCampusAnnouncements,
+                          managesAllClubs: newFacultySignupEmail.managesAllClubs,
+                          facultyRoleTags: newFacultySignupEmail.facultyRoleTags,
+                          managedBuildingIds: newFacultySignupEmail.managedBuildingIds,
+                          managedClubIds: newFacultySignupEmail.managedClubIds,
                         },
                       })
-
                       setNewFacultySignupEmail({
                         universityId: selectedUniversityId,
                         email: '',
                         firstName: '',
                         lastName: '',
-                      })
-                    }, 'Faculty signup email added')
-                  }
-                >
-                  Add Faculty Email
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <CrudFacultySignupEmailsTable
-            records={withinSelectedUniversity(facultySignupEmails)}
-            universities={scopedUniversities}
-            saving={saving}
-            onDelete={(recordId) =>
-              runMutation(
-                async () => {
-                  await apiRequest(`/api/admin/faculty/signup-emails/${recordId}`, {
-                    method: 'DELETE',
-                  })
-                },
-                'Faculty signup email removed',
-              )
-            }
-          />
-
-          <Card className="rounded-2xl border-border/60">
-            <CardHeader>
-              <CardTitle>Create Faculty Profile</CardTitle>
-              <CardDescription>Add faculty entries tied to a university.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3 md:grid-cols-3">
-              <select
-                value={newFaculty.universityId}
-                onChange={(event) => setNewFaculty((current) => ({ ...current, universityId: event.target.value }))}
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-              >
-                {scopedUniversityOptions}
-              </select>
-              <Input value={newFaculty.name} onChange={(event) => setNewFaculty((current) => ({ ...current, name: event.target.value }))} placeholder="Full name" />
-              <Input value={newFaculty.email} onChange={(event) => setNewFaculty((current) => ({ ...current, email: event.target.value }))} placeholder="Email" />
-              <Input value={newFaculty.title} onChange={(event) => setNewFaculty((current) => ({ ...current, title: event.target.value }))} placeholder="Title" />
-              <Input value={newFaculty.department} onChange={(event) => setNewFaculty((current) => ({ ...current, department: event.target.value }))} placeholder="Department" />
-              <Input value={newFaculty.officeLocation} onChange={(event) => setNewFaculty((current) => ({ ...current, officeLocation: event.target.value }))} placeholder="Office location" />
-              <Input value={newFaculty.officeHours} onChange={(event) => setNewFaculty((current) => ({ ...current, officeHours: event.target.value }))} placeholder="Office hours" />
-              <Input value={newFaculty.courses} onChange={(event) => setNewFaculty((current) => ({ ...current, courses: event.target.value }))} placeholder="Courses (comma separated)" />
-              <Input value={newFaculty.tags} onChange={(event) => setNewFaculty((current) => ({ ...current, tags: event.target.value }))} placeholder="Tags (comma separated)" />
-              <label className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={newFaculty.canPublishCampusAnnouncements}
-                  onChange={(event) =>
-                    setNewFaculty((current) => ({
-                      ...current,
-                      canPublishCampusAnnouncements: event.target.checked,
-                    }))
-                  }
-                />
-                Can publish campus announcements
-              </label>
-              <div>
-                <Button
-                  disabled={saving || !newFaculty.universityId || !newFaculty.name || !newFaculty.email}
-                  onClick={() =>
-                    void runMutation(async () => {
-                      await apiRequest('/api/admin/faculty', {
-                        method: 'POST',
-                        body: {
-                          universityId: newFaculty.universityId,
-                          name: newFaculty.name,
-                          email: newFaculty.email,
-                          canPublishCampusAnnouncements: newFaculty.canPublishCampusAnnouncements,
-                          title: newFaculty.title,
-                          department: newFaculty.department,
-                          officeLocation: newFaculty.officeLocation,
-                          officeHours: newFaculty.officeHours,
-                          courses: splitCsv(newFaculty.courses),
-                          tags: splitCsv(newFaculty.tags),
-                        },
-                      })
-
-                      setNewFaculty({
-                        universityId: selectedUniversityId,
-                        name: '',
-                        email: '',
                         canPublishCampusAnnouncements: false,
-                        title: '',
-                        department: '',
-                        officeLocation: '',
-                        officeHours: '',
-                        courses: '',
-                        tags: '',
+                        managesAllClubs: false,
+                        facultyRoleTags: [],
+                        managedBuildingIds: [],
+                        managedClubIds: [],
                       })
-                    }, 'Faculty profile created')
+                    }, 'Faculty invite sent')
                   }
                 >
-                  Create Faculty
+                  Send Invite
                 </Button>
               </div>
             </CardContent>
           </Card>
 
-          <CrudFacultyTable
-            faculty={withinSelectedUniversity(faculty)}
-            universities={scopedUniversities}
-            saving={saving}
-            onChange={setFaculty}
-            onSave={(record) =>
-              runMutation(
-                async () => {
-                  await apiRequest(`/api/admin/faculty/${record.id}`, {
-                    method: 'PATCH',
-                    body: {
-                      universityId: record.universityId,
-                      name: record.name,
-                      email: record.email,
-                      canPublishCampusAnnouncements: Boolean(
-                        record.user?.canPublishCampusAnnouncements,
-                      ),
-                      title: record.title,
-                      department: record.department,
-                      officeLocation: record.officeLocation,
-                      officeHours: record.officeHours,
-                      phone: record.phone || undefined,
-                      bio: record.bio || undefined,
-                      courses: record.courses,
-                      tags: record.tags,
-                    },
-                  })
-                },
-                'Faculty updated',
-              )
-            }
-            onDelete={(recordId) =>
-              runMutation(
-                async () => {
-                  await apiRequest(`/api/admin/faculty/${recordId}`, { method: 'DELETE' })
-                },
-                'Faculty deleted',
-              )
-            }
-          />
-        </TabsContent>
+          {/* ── Pending Invitations ───────────────────────────────── */}
+          {withinSelectedUniversity(facultySignupEmails).length > 0 && (
+            <Card className="rounded-2xl border-border/60">
+              <CardHeader>
+                <CardTitle>Pending Invitations</CardTitle>
+                <CardDescription>Invited faculty who haven&apos;t yet completed their profile.</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y divide-border/40">
+                  {withinSelectedUniversity(facultySignupEmails).map((record) => {
+                    const isExpanded = expandedSignupEmailId === record.id
+                    return (
+                      <div key={record.id}>
+                        <button
+                          className="flex w-full items-center justify-between gap-3 px-6 py-3 text-left hover:bg-muted/30 transition-colors"
+                          onClick={() => setExpandedSignupEmailId(isExpanded ? null : record.id)}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                              <GraduationCap className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">{record.displayName}</p>
+                              <p className="truncate text-xs text-muted-foreground">{record.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {record.facultyRoleTags.slice(0, 2).map((tag) => (
+                              <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>
+                            ))}
+                            <Badge variant={record.emailVerified ? 'success' : 'secondary'} className="text-[10px] shrink-0">
+                              {record.emailVerified ? 'Activated' : 'Pending'}
+                            </Badge>
+                            {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                          </div>
+                        </button>
+                        {isExpanded && (
+                          <div className="border-t border-border/40 bg-muted/20 px-6 py-4 space-y-3">
+                            <div className="grid gap-2 md:grid-cols-2 text-sm">
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Email</p>
+                                <p>{record.email}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Status</p>
+                                <p>{record.emailVerified ? 'Account activated' : 'Awaiting signup'}</p>
+                              </div>
+                            </div>
+                            {(record.canPublishCampusAnnouncements || record.managesAllClubs) && (
+                              <div className="flex flex-wrap gap-2">
+                                {record.canPublishCampusAnnouncements && (
+                                  <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                                    <CheckCircle2 className="h-3 w-3" />Can publish announcements
+                                  </span>
+                                )}
+                                {record.managesAllClubs && (
+                                  <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                                    <CheckCircle2 className="h-3 w-3" />Manages all clubs
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {record.facultyRoleTags.length > 0 && (
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">Role Tags</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {record.facultyRoleTags.map((tag) => <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>)}
+                                </div>
+                              </div>
+                            )}
+                            {record.managedBuildings.length > 0 && (
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">Manages Buildings</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {record.managedBuildings.map((mb) => (
+                                    <Badge key={mb.buildingId} variant="secondary" className="text-xs">
+                                      <Building2 className="mr-1 h-3 w-3" />{mb.building.name}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {record.managedClubs.length > 0 && (
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">Advises Clubs</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {record.managedClubs.map((mc) => (
+                                    <Badge key={mc.clubId} variant="secondary" className="text-xs">
+                                      <Landmark className="mr-1 h-3 w-3" />{mc.club.name}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={saving}
+                              onClick={() =>
+                                void runMutation(async () => {
+                                  await apiRequest(`/api/admin/faculty/signup-emails/${record.id}`, { method: 'DELETE' })
+                                  setExpandedSignupEmailId(null)
+                                }, 'Faculty invite removed')
+                              }
+                            >
+                              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                              Remove Invite
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-        <TabsContent value="buildings" className="mt-0 space-y-4">
-          <SimpleCreateCard
-            title="Create Building"
-            description="Buildings power the campus map and location metadata."
-            content={
-              <>
-                <select value={newBuilding.universityId} onChange={(event) => setNewBuilding((current) => ({ ...current, universityId: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-                  {scopedUniversityOptions}
-                </select>
-                <Input value={newBuilding.name} onChange={(event) => setNewBuilding((current) => ({ ...current, name: event.target.value }))} placeholder="Building name" />
-                <Input value={newBuilding.code} onChange={(event) => setNewBuilding((current) => ({ ...current, code: event.target.value }))} placeholder="Code (optional)" />
-                <Input value={newBuilding.type} onChange={(event) => setNewBuilding((current) => ({ ...current, type: event.target.value }))} placeholder="Type (Resource, Faculty Office...)" />
-                <Input value={newBuilding.address} onChange={(event) => setNewBuilding((current) => ({ ...current, address: event.target.value }))} placeholder="Address" />
-                <Input value={newBuilding.mapQuery} onChange={(event) => setNewBuilding((current) => ({ ...current, mapQuery: event.target.value }))} placeholder="Map query" />
-                <Button
-                  disabled={saving || !newBuilding.universityId || !newBuilding.name || !newBuilding.type || !newBuilding.address || !newBuilding.mapQuery}
-                  onClick={() =>
-                    void runMutation(async () => {
-                      await apiRequest('/api/admin/buildings', {
-                        method: 'POST',
-                        body: {
-                          universityId: newBuilding.universityId,
-                          name: newBuilding.name,
-                          code: newBuilding.code || undefined,
-                          type: newBuilding.type,
-                          address: newBuilding.address,
-                          mapQuery: newBuilding.mapQuery,
-                        },
-                      })
-
-                      setNewBuilding({
-                        universityId: selectedUniversityId,
-                        name: '',
-                        code: '',
-                        type: '',
-                        address: '',
-                        mapQuery: '',
-                      })
-                    }, 'Building created')
-                  }
-                >
-                  Create Building
-                </Button>
-              </>
-            }
-          />
-
-          <CrudBuildingTable
-            records={withinSelectedUniversity(buildings)}
-            universities={scopedUniversities}
-            saving={saving}
-            onChange={setBuildings}
-            onSave={(record) =>
-              runMutation(async () => {
-                await apiRequest(`/api/admin/buildings/${record.id}`, {
-                  method: 'PATCH',
-                  body: {
-                    universityId: record.universityId,
-                    name: record.name,
-                    code: record.code || undefined,
-                    type: record.type,
-                    address: record.address,
-                    mapQuery: record.mapQuery,
-                  },
-                })
-              }, 'Building updated')
-            }
-            onDelete={(recordId) =>
-              runMutation(async () => {
-                await apiRequest(`/api/admin/buildings/${recordId}`, { method: 'DELETE' })
-              }, 'Building deleted')
-            }
-          />
-        </TabsContent>
-
-        <TabsContent value="building-import" className="mt-0 space-y-4">
+          {/* ── Faculty Directory ─────────────────────────────────── */}
           <Card className="rounded-2xl border-border/60">
             <CardHeader>
-              <CardTitle>Import Buildings From CSV</CardTitle>
+              <CardTitle>Faculty Directory</CardTitle>
               <CardDescription>
-                Upload a CSV and import records for the university currently in scope.
+                {withinSelectedUniversity(faculty).length} member{withinSelectedUniversity(faculty).length !== 1 ? 's' : ''} — click a row to view and edit.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    University
-                  </label>
-                  <select
-                    value={buildingImportUniversityId}
-                    onChange={(event) => setBuildingImportUniversityId(event.target.value)}
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    {scopedUniversityOptions}
-                  </select>
-                </div>
+            <CardContent className="p-0">
+              {withinSelectedUniversity(faculty).length === 0 ? (
+                <p className="px-6 py-6 text-sm text-muted-foreground">No faculty profiles yet.</p>
+              ) : (
+                <div className="divide-y divide-border/40">
+                  {withinSelectedUniversity(faculty).map((record) => {
+                    const isExpanded = expandedFacultyId === record.id
+                    return (
+                      <div key={record.id}>
+                        <button
+                          className="flex w-full items-center justify-between gap-3 px-6 py-3 text-left hover:bg-muted/30 transition-colors"
+                          onClick={() => setExpandedFacultyId(isExpanded ? null : record.id)}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
+                              <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold">{record.name}</p>
+                              <p className="truncate text-xs text-muted-foreground">{record.title} &bull; {record.department}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="hidden text-xs text-muted-foreground md:block">{record.email}</span>
+                            {record.user?.managesAllClubs && <Badge variant="outline" className="text-[10px]">All Clubs</Badge>}
+                            {(record.user?.facultyRoleTags ?? []).slice(0, 1).map((tag) => (
+                              <Badge key={tag} variant="secondary" className="hidden text-[10px] md:inline-flex">{tag}</Badge>
+                            ))}
+                            {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                          </div>
+                        </button>
 
+                        {isExpanded && (
+                          <div className="border-t border-border/40 bg-muted/20 px-6 py-5 space-y-5">
+                            {/* Basic info */}
+                            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                              {[
+                                { label: 'Full Name', key: 'name' as const },
+                                { label: 'Email', key: 'email' as const },
+                                { label: 'Title', key: 'title' as const },
+                                { label: 'Department', key: 'department' as const },
+                                { label: 'Office Location', key: 'officeLocation' as const },
+                                { label: 'Office Hours', key: 'officeHours' as const },
+                              ].map(({ label, key }) => (
+                                <div key={key} className="space-y-1.5">
+                                  <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</label>
+                                  <Input
+                                    value={record[key]}
+                                    onChange={(event) => setFaculty((current) => current.map((item) => (item.id === record.id ? { ...item, [key]: event.target.value } : item)))}
+                                  />
+                                </div>
+                              ))}
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Phone</label>
+                                <Input
+                                  value={record.phone ?? ''}
+                                  placeholder="Optional"
+                                  onChange={(event) => setFaculty((current) => current.map((item) => (item.id === record.id ? { ...item, phone: event.target.value || null } : item)))}
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Courses (comma-separated)</label>
+                                <Input
+                                  value={record.courses.join(', ')}
+                                  onChange={(event) => setFaculty((current) => current.map((item) => (item.id === record.id ? { ...item, courses: splitCsv(event.target.value) } : item)))}
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Tags (comma-separated)</label>
+                                <Input
+                                  value={record.tags.join(', ')}
+                                  onChange={(event) => setFaculty((current) => current.map((item) => (item.id === record.id ? { ...item, tags: splitCsv(event.target.value) } : item)))}
+                                />
+                              </div>
+                              <div className="space-y-1.5 md:col-span-2">
+                                <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Bio</label>
+                                <Textarea
+                                  value={record.bio ?? ''}
+                                  placeholder="Optional bio"
+                                  rows={2}
+                                  className="resize-none"
+                                  onChange={(event) => setFaculty((current) => current.map((item) => (item.id === record.id ? { ...item, bio: event.target.value || null } : item)))}
+                                />
+                              </div>
+                            </div>
+
+                            <Separator />
+
+                            {/* Permissions */}
+                            <div className="space-y-2">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Permissions</p>
+                              <div className="flex flex-wrap gap-2">
+                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm hover:bg-muted/30">
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(record.user?.canPublishCampusAnnouncements)}
+                                    onChange={(event) =>
+                                      setFaculty((current) => current.map((item) =>
+                                        item.id === record.id && item.user
+                                          ? { ...item, user: { ...item.user, canPublishCampusAnnouncements: event.target.checked } }
+                                          : item
+                                      ))
+                                    }
+                                  />
+                                  Can publish campus announcements
+                                </label>
+                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm hover:bg-muted/30">
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(record.user?.managesAllClubs)}
+                                    onChange={(event) =>
+                                      setFaculty((current) => current.map((item) =>
+                                        item.id === record.id && item.user
+                                          ? { ...item, user: { ...item.user, managesAllClubs: event.target.checked } }
+                                          : item
+                                      ))
+                                    }
+                                  />
+                                  Manages all clubs / Student orgs
+                                </label>
+                              </div>
+                            </div>
+
+                            {/* Role Tags */}
+                            <div className="space-y-2">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Role Tags</p>
+                              <div className="flex flex-wrap gap-2">
+                                {FACULTY_ROLE_TAG_OPTIONS.map((tag) => {
+                                  const currentTags = record.user?.facultyRoleTags ?? []
+                                  const isSelected = currentTags.includes(tag)
+                                  return (
+                                    <button
+                                      key={tag}
+                                      type="button"
+                                      onClick={() =>
+                                        setFaculty((current) => current.map((item) =>
+                                          item.id === record.id && item.user
+                                            ? {
+                                                ...item,
+                                                user: {
+                                                  ...item.user,
+                                                  facultyRoleTags: isSelected
+                                                    ? item.user.facultyRoleTags.filter((t) => t !== tag)
+                                                    : [...item.user.facultyRoleTags, tag],
+                                                },
+                                              }
+                                            : item
+                                        ))
+                                      }
+                                      className={cn(
+                                        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                                        isSelected
+                                          ? 'border-primary/30 bg-primary/10 text-primary'
+                                          : 'border-border/60 text-muted-foreground hover:border-primary/30 hover:text-foreground',
+                                      )}
+                                    >
+                                      <Tag className="h-3 w-3" />
+                                      {tag}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Building Assignments */}
+                            {withinSelectedUniversity(buildings).length > 0 && (
+                              <div className="space-y-2">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Manages Buildings</p>
+                                <div className="grid gap-1.5 md:grid-cols-2 lg:grid-cols-3">
+                                  {withinSelectedUniversity(buildings).map((building) => {
+                                    const isAssigned = (record.user?.managedBuildings ?? []).some((mb) => mb.buildingId === building.id)
+                                    return (
+                                      <label key={building.id} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-xs hover:bg-muted/30">
+                                        <input
+                                          type="checkbox"
+                                          checked={isAssigned}
+                                          onChange={() =>
+                                            setFaculty((current) => current.map((item) =>
+                                              item.id === record.id && item.user
+                                                ? {
+                                                    ...item,
+                                                    user: {
+                                                      ...item.user,
+                                                      managedBuildings: isAssigned
+                                                        ? item.user.managedBuildings.filter((mb) => mb.buildingId !== building.id)
+                                                        : [...item.user.managedBuildings, { buildingId: building.id, building: { id: building.id, name: building.name } }],
+                                                    },
+                                                  }
+                                                : item
+                                            ))
+                                          }
+                                        />
+                                        <Building2 className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                        <span className="truncate">{building.name}</span>
+                                      </label>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Club Assignments */}
+                            {withinSelectedUniversity(clubs).length > 0 && (
+                              <div className="space-y-2">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Advises Clubs / Orgs</p>
+                                <div className="grid gap-1.5 md:grid-cols-2 lg:grid-cols-3">
+                                  {withinSelectedUniversity(clubs).map((club) => {
+                                    const isAssigned = (record.user?.managedClubs ?? []).some((mc) => mc.clubId === club.id)
+                                    return (
+                                      <label key={club.id} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-xs hover:bg-muted/30">
+                                        <input
+                                          type="checkbox"
+                                          checked={isAssigned}
+                                          onChange={() =>
+                                            setFaculty((current) => current.map((item) =>
+                                              item.id === record.id && item.user
+                                                ? {
+                                                    ...item,
+                                                    user: {
+                                                      ...item.user,
+                                                      managedClubs: isAssigned
+                                                        ? item.user.managedClubs.filter((mc) => mc.clubId !== club.id)
+                                                        : [...item.user.managedClubs, { clubId: club.id, club: { id: club.id, name: club.name } }],
+                                                    },
+                                                  }
+                                                : item
+                                            ))
+                                          }
+                                        />
+                                        <Landmark className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                        <span className="truncate">{club.name}</span>
+                                      </label>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex gap-2 pt-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={saving}
+                                onClick={() =>
+                                  void runMutation(async () => {
+                                    await apiRequest(`/api/admin/faculty/${record.id}`, {
+                                      method: 'PATCH',
+                                      body: {
+                                        universityId: record.universityId,
+                                        name: record.name,
+                                        email: record.email,
+                                        canPublishCampusAnnouncements: Boolean(record.user?.canPublishCampusAnnouncements),
+                                        managesAllClubs: Boolean(record.user?.managesAllClubs),
+                                        facultyRoleTags: record.user?.facultyRoleTags ?? [],
+                                        managedBuildingIds: record.user?.managedBuildings.map((mb) => mb.buildingId) ?? [],
+                                        managedClubIds: record.user?.managedClubs.map((mc) => mc.clubId) ?? [],
+                                        title: record.title,
+                                        department: record.department,
+                                        officeLocation: record.officeLocation,
+                                        officeHours: record.officeHours,
+                                        phone: record.phone || undefined,
+                                        bio: record.bio || undefined,
+                                        courses: record.courses,
+                                        tags: record.tags,
+                                      },
+                                    })
+                                  }, 'Faculty updated')
+                                }
+                              >
+                                <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                                Save Changes
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                disabled={saving}
+                                onClick={() =>
+                                  void runMutation(async () => {
+                                    await apiRequest(`/api/admin/faculty/${record.id}`, { method: 'DELETE' })
+                                    setExpandedFacultyId(null)
+                                  }, 'Faculty deleted')
+                                }
+                              >
+                                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Buildings Tab ─────────────────────────────────────── */}
+        <TabsContent value="buildings" className="mt-0 space-y-5">
+
+          {/* Header actions */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setExpandedBuildingId(expandedBuildingId === 'new' ? null : 'new')}
+              >
+                <Plus className="mr-1.5 h-4 w-4" />
+                Add Building
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowBuildingImport(true)}
+              >
+                <Upload className="mr-1.5 h-4 w-4" />
+                Import from CSV
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {withinSelectedUniversity(buildings).length} building{withinSelectedUniversity(buildings).length !== 1 ? 's' : ''}
+            </p>
+          </div>
+
+          {/* New building form */}
+          {expandedBuildingId === 'new' && (
+            <Card className="rounded-2xl border-primary/30 bg-primary/5">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">New Building</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Building Name *</label>
+                    <Input value={newBuilding.name} onChange={(event) => setNewBuilding((c) => ({ ...c, name: event.target.value }))} placeholder="e.g. Science Hall" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Code</label>
+                    <Input value={newBuilding.code} onChange={(event) => setNewBuilding((c) => ({ ...c, code: event.target.value }))} placeholder="e.g. SCI" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Type *</label>
+                    <Input value={newBuilding.type} onChange={(event) => setNewBuilding((c) => ({ ...c, type: event.target.value }))} placeholder="e.g. Academic, Resource, Dining" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Address *</label>
+                    <Input value={newBuilding.address} onChange={(event) => setNewBuilding((c) => ({ ...c, address: event.target.value }))} placeholder="Street address" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Map Query *</label>
+                    <Input value={newBuilding.mapQuery} onChange={(event) => setNewBuilding((c) => ({ ...c, mapQuery: event.target.value }))} placeholder="Search term for maps" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Operating Hours</label>
+                    <Input value={newBuilding.operatingHours} onChange={(event) => setNewBuilding((c) => ({ ...c, operatingHours: event.target.value }))} placeholder="e.g. Mon–Fri 8am–6pm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Operational Status</label>
+                    <select
+                      value={newBuilding.operationalStatus}
+                      onChange={(event) => setNewBuilding((c) => ({ ...c, operationalStatus: event.target.value as 'OPEN' | 'CLOSED' | 'LIMITED' }))}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="OPEN">Open</option>
+                      <option value="CLOSED">Closed</option>
+                      <option value="LIMITED">Limited Access</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Status Note</label>
+                    <Input value={newBuilding.operationalNote} onChange={(event) => setNewBuilding((c) => ({ ...c, operationalNote: event.target.value }))} placeholder="e.g. Closed for renovation" />
+                  </div>
+                </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    CSV File
-                  </label>
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Purpose (AI descriptor)</label>
+                  <Textarea
+                    value={newBuilding.purpose}
+                    onChange={(event) => setNewBuilding((c) => ({ ...c, purpose: event.target.value }))}
+                    placeholder="Describe what this building is used for so the AI assistant can surface it in relevant queries..."
+                    rows={2}
+                    className="resize-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Description</label>
+                  <Textarea
+                    value={newBuilding.description}
+                    onChange={(event) => setNewBuilding((c) => ({ ...c, description: event.target.value }))}
+                    placeholder="Optional public-facing description"
+                    rows={2}
+                    className="resize-none"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    disabled={saving || !newBuilding.name || !newBuilding.type || !newBuilding.address || !newBuilding.mapQuery}
+                    onClick={() =>
+                      void runMutation(async () => {
+                        await apiRequest('/api/admin/buildings', {
+                          method: 'POST',
+                          body: {
+                            universityId: newBuilding.universityId,
+                            name: newBuilding.name,
+                            code: newBuilding.code || undefined,
+                            type: newBuilding.type,
+                            address: newBuilding.address,
+                            mapQuery: newBuilding.mapQuery,
+                            purpose: newBuilding.purpose || undefined,
+                            operatingHours: newBuilding.operatingHours || undefined,
+                            operationalStatus: newBuilding.operationalStatus,
+                            operationalNote: newBuilding.operationalNote || undefined,
+                            description: newBuilding.description || undefined,
+                          },
+                        })
+                        setNewBuilding({
+                          universityId: selectedUniversityId,
+                          name: '', code: '', type: '', address: '', mapQuery: '',
+                          purpose: '', operatingHours: '', operationalStatus: 'OPEN',
+                          operationalNote: '', description: '',
+                        })
+                        setExpandedBuildingId(null)
+                      }, 'Building created')
+                    }
+                  >
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    Create Building
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setExpandedBuildingId(null)}>
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Buildings list */}
+          <Card className="rounded-2xl border-border/60">
+            <CardContent className="p-0">
+              {withinSelectedUniversity(buildings).length === 0 ? (
+                <p className="px-6 py-6 text-sm text-muted-foreground">No buildings yet. Add one above or import from CSV.</p>
+              ) : (
+                <div className="divide-y divide-border/40">
+                  {withinSelectedUniversity(buildings).map((building) => {
+                    const isExpanded = expandedBuildingId === building.id
+                    const statusMeta = STATUS_CONFIG[building.operationalStatus ?? 'OPEN']
+                    return (
+                      <div key={building.id}>
+                        <button
+                          className="flex w-full items-center justify-between gap-3 px-6 py-3 text-left hover:bg-muted/30 transition-colors"
+                          onClick={() => setExpandedBuildingId(isExpanded ? null : building.id)}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
+                              <Building2 className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold">{building.name}</p>
+                              <p className="truncate text-xs text-muted-foreground">{building.type} &bull; {building.address}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', statusMeta.className)}>
+                              {statusMeta.icon}
+                              {statusMeta.label}
+                            </span>
+                            {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                          </div>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="border-t border-border/40 bg-muted/20 px-6 py-5 space-y-4">
+                            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                              {([
+                                { label: 'Building Name', key: 'name' as const },
+                                { label: 'Code', key: 'code' as const },
+                                { label: 'Type', key: 'type' as const },
+                                { label: 'Address', key: 'address' as const },
+                                { label: 'Map Query', key: 'mapQuery' as const },
+                                { label: 'Operating Hours', key: 'operatingHours' as const },
+                              ] as { label: string; key: keyof BuildingRecord }[]).map(({ label, key }) => (
+                                <div key={String(key)} className="space-y-1.5">
+                                  <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</label>
+                                  <Input
+                                    value={(building[key] as string) ?? ''}
+                                    onChange={(event) =>
+                                      setBuildings((current) =>
+                                        current.map((item) => (item.id === building.id ? { ...item, [key]: event.target.value } : item)),
+                                      )
+                                    }
+                                  />
+                                </div>
+                              ))}
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Operational Status</label>
+                                <select
+                                  value={building.operationalStatus ?? 'OPEN'}
+                                  onChange={(event) =>
+                                    setBuildings((current) =>
+                                      current.map((item) => (item.id === building.id ? { ...item, operationalStatus: event.target.value as 'OPEN' | 'CLOSED' | 'LIMITED' } : item)),
+                                    )
+                                  }
+                                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                                >
+                                  <option value="OPEN">Open</option>
+                                  <option value="CLOSED">Closed</option>
+                                  <option value="LIMITED">Limited Access</option>
+                                </select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Status Note</label>
+                                <Input
+                                  value={building.operationalNote ?? ''}
+                                  placeholder="e.g. Closed for renovation"
+                                  onChange={(event) =>
+                                    setBuildings((current) =>
+                                      current.map((item) => (item.id === building.id ? { ...item, operationalNote: event.target.value } : item)),
+                                    )
+                                  }
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Purpose (AI descriptor)</label>
+                              <Textarea
+                                value={building.purpose ?? ''}
+                                placeholder="Describe what this building is used for so the AI assistant can surface it in relevant queries..."
+                                rows={2}
+                                className="resize-none"
+                                onChange={(event) =>
+                                  setBuildings((current) =>
+                                    current.map((item) => (item.id === building.id ? { ...item, purpose: event.target.value } : item)),
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Description</label>
+                              <Textarea
+                                value={building.description ?? ''}
+                                placeholder="Optional public-facing description"
+                                rows={2}
+                                className="resize-none"
+                                onChange={(event) =>
+                                  setBuildings((current) =>
+                                    current.map((item) => (item.id === building.id ? { ...item, description: event.target.value } : item)),
+                                  )
+                                }
+                              />
+                            </div>
+
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={saving}
+                                onClick={() =>
+                                  void runMutation(async () => {
+                                    await apiRequest(`/api/admin/buildings/${building.id}`, {
+                                      method: 'PATCH',
+                                      body: {
+                                        universityId: building.universityId,
+                                        name: building.name,
+                                        code: building.code || undefined,
+                                        type: building.type,
+                                        address: building.address,
+                                        mapQuery: building.mapQuery,
+                                        purpose: building.purpose || undefined,
+                                        operatingHours: building.operatingHours || undefined,
+                                        operationalStatus: building.operationalStatus,
+                                        operationalNote: building.operationalNote || undefined,
+                                        description: building.description || undefined,
+                                      },
+                                    })
+                                  }, 'Building updated')
+                                }
+                              >
+                                <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                                Save Changes
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                disabled={saving}
+                                onClick={() =>
+                                  void runMutation(async () => {
+                                    await apiRequest(`/api/admin/buildings/${building.id}`, { method: 'DELETE' })
+                                    setExpandedBuildingId(null)
+                                  }, 'Building deleted')
+                                }
+                              >
+                                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Building Import Dialog */}
+          <Dialog open={showBuildingImport} onOpenChange={setShowBuildingImport}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Import Buildings From CSV</DialogTitle>
+                <DialogDescription>
+                  Upload a CSV file to bulk-import or update buildings for this university.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">CSV File</label>
                   <Input
                     type="file"
                     accept=".csv,text/csv"
-                    onChange={(event) =>
-                      void handleBuildingImportFileSelected(event.target.files?.[0] ?? null)
-                    }
+                    onChange={(event) => void handleBuildingImportFileSelected(event.target.files?.[0] ?? null)}
                   />
                 </div>
-              </div>
 
-              <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                <p className="font-semibold text-foreground">Required columns (exact names):</p>
-                <p className="mt-1 font-mono">{requiredBuildingHeaders}</p>
-                <p className="mt-2">All future building CSV uploads must use the same column names.</p>
-              </div>
-
-              {buildingImportFileName && (
-                <p className="text-xs text-muted-foreground">
-                  File selected: <span className="font-medium text-foreground">{buildingImportFileName}</span>
-                </p>
-              )}
-
-              {buildingImportError && (
-                <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
-                  {buildingImportError}
-                </p>
-              )}
-
-              {buildingImportValidation && (
-                <div
-                  className={cn(
-                    'rounded-md border px-3 py-2 text-xs',
-                    buildingImportValidation.valid
-                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
-                      : 'border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300',
-                  )}
-                >
-                  <p className="font-semibold">
-                    {buildingImportValidation.valid
-                      ? 'CSV headers look good.'
-                      : 'CSV headers do not match the required format.'}
-                  </p>
-                  {buildingImportValidation.missingHeaders.length > 0 && (
-                    <p>Missing: {buildingImportValidation.missingHeaders.join(', ')}</p>
-                  )}
-                  {buildingImportValidation.unexpectedHeaders.length > 0 && (
-                    <p>Unexpected: {buildingImportValidation.unexpectedHeaders.join(', ')}</p>
-                  )}
-                  {buildingImportValidation.duplicateHeaders.length > 0 && (
-                    <p>Duplicate: {buildingImportValidation.duplicateHeaders.join(', ')}</p>
-                  )}
-                  <p>Detected data rows: {buildingImportRowCount}</p>
+                <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                  <p className="font-semibold text-foreground">Required columns (exact names):</p>
+                  <p className="mt-1 font-mono">{requiredBuildingHeaders}</p>
+                  <p className="mt-2">All future building CSV uploads must use the same column names.</p>
                 </div>
-              )}
 
-              <Button
-                disabled={
-                  saving ||
-                  !buildingImportUniversityId ||
-                  !buildingImportCsvContent ||
-                  !buildingImportValidation?.valid ||
-                  buildingImportRowCount === 0
-                }
-                onClick={() =>
-                  void runMutation(
-                    async () => {
-                      const result = await apiRequest<BuildingImportResult>('/api/admin/buildings/import', {
-                        method: 'POST',
-                        body: {
-                          universityId: buildingImportUniversityId,
-                          csvContent: buildingImportCsvContent,
+                {buildingImportFileName && (
+                  <p className="text-xs text-muted-foreground">
+                    File selected: <span className="font-medium text-foreground">{buildingImportFileName}</span>
+                  </p>
+                )}
+
+                {buildingImportError && (
+                  <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+                    {buildingImportError}
+                  </p>
+                )}
+
+                {buildingImportValidation && (
+                  <div
+                    className={cn(
+                      'rounded-md border px-3 py-2 text-xs',
+                      buildingImportValidation.valid
+                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
+                        : 'border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300',
+                    )}
+                  >
+                    <p className="font-semibold">
+                      {buildingImportValidation.valid ? 'CSV headers look good.' : 'CSV headers do not match the required format.'}
+                    </p>
+                    {buildingImportValidation.missingHeaders.length > 0 && (
+                      <p>Missing: {buildingImportValidation.missingHeaders.join(', ')}</p>
+                    )}
+                    {buildingImportValidation.unexpectedHeaders.length > 0 && (
+                      <p>Unexpected: {buildingImportValidation.unexpectedHeaders.join(', ')}</p>
+                    )}
+                    {buildingImportValidation.duplicateHeaders.length > 0 && (
+                      <p>Duplicate: {buildingImportValidation.duplicateHeaders.join(', ')}</p>
+                    )}
+                    <p>Detected data rows: {buildingImportRowCount}</p>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setShowBuildingImport(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    disabled={
+                      saving ||
+                      !buildingImportCsvContent ||
+                      !buildingImportValidation?.valid ||
+                      buildingImportRowCount === 0
+                    }
+                    onClick={() =>
+                      void runMutation(
+                        async () => {
+                          const result = await apiRequest<BuildingImportResult>('/api/admin/buildings/import', {
+                            method: 'POST',
+                            body: {
+                              universityId: buildingImportUniversityId,
+                              csvContent: buildingImportCsvContent,
+                            },
+                          })
+                          setBuildingImportCsvContent('')
+                          setBuildingImportFileName('')
+                          setBuildingImportRowCount(0)
+                          setBuildingImportError(null)
+                          setBuildingImportValidation(null)
+                          setShowBuildingImport(false)
+                          return result
                         },
-                      })
+                        (result) =>
+                          `Imported ${result.totalRows} rows (${result.createdCount} created, ${result.updatedCount} updated)`,
+                      )
+                    }
+                  >
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Import Buildings'}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
 
-                      setBuildingImportCsvContent('')
-                      setBuildingImportFileName('')
-                      setBuildingImportRowCount(0)
-                      setBuildingImportError(null)
-                      setBuildingImportValidation(null)
-
-                      return result
-                    },
-                    (result) =>
-                      `Imported ${result.totalRows} rows (${result.createdCount} created, ${result.updatedCount} updated)`,
-                  )
-                }
-              >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Import Buildings'}
-              </Button>
-            </CardContent>
-          </Card>
         </TabsContent>
+
+        {/* building-import is now embedded in buildings tab — keep empty for compat */}
+        <TabsContent value="building-import" className="mt-0" />
 
         <TabsContent value="links" className="mt-0 space-y-4">
           <SimpleCreateCard
@@ -2044,7 +2713,6 @@ export function AdminDashboard() {
     </div>
   )
 }
-
 function SimpleCreateCard({
   title,
   description,
@@ -2065,213 +2733,6 @@ function SimpleCreateCard({
   )
 }
 
-function CrudFacultySignupEmailsTable({
-  records,
-  universities,
-  saving,
-  onDelete,
-}: {
-  records: FacultySignupEmailRecord[]
-  universities: University[]
-  saving: boolean
-  onDelete: (recordId: string) => Promise<void>
-}) {
-  return (
-    <CrudCard
-      title="Manage Faculty Signup Emails"
-      description="Emails listed here can complete faculty OTP verification and password setup."
-    >
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Email</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>University</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="w-[160px]">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {records.map((record) => (
-            <TableRow key={record.id}>
-              <TableCell>{record.email}</TableCell>
-              <TableCell>{record.displayName}</TableCell>
-              <TableCell>
-                {record.university?.name ??
-                  universities.find((university) => university.id === record.universityId)?.name ??
-                  'Unassigned'}
-              </TableCell>
-              <TableCell>
-                <Badge variant={record.emailVerified ? 'success' : 'secondary'}>
-                  {record.emailVerified ? 'Activated' : 'Pending Signup'}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  disabled={saving}
-                  onClick={() => void onDelete(record.id)}
-                >
-                  Remove
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </CrudCard>
-  )
-}
-
-function CrudFacultyTable({
-  faculty,
-  universities,
-  saving,
-  onChange,
-  onSave,
-  onDelete,
-}: {
-  faculty: FacultyRecord[]
-  universities: University[]
-  saving: boolean
-  onChange: React.Dispatch<React.SetStateAction<FacultyRecord[]>>
-  onSave: (record: FacultyRecord) => Promise<void>
-  onDelete: (recordId: string) => Promise<void>
-}) {
-  return (
-    <CrudCard title="Manage Faculty" description="Edit faculty directory records and university assignment.">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Faculty</TableHead>
-            <TableHead>University</TableHead>
-            <TableHead>Department</TableHead>
-            <TableHead>Permissions</TableHead>
-            <TableHead>Courses/Tags</TableHead>
-            <TableHead className="w-[220px]">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {faculty.map((record) => (
-            <TableRow key={record.id}>
-              <TableCell className="space-y-2 min-w-[320px]">
-                <Input value={record.name} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, name: event.target.value } : item)))} />
-                <Input value={record.email} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, email: event.target.value } : item)))} />
-                <Input value={record.title} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, title: event.target.value } : item)))} />
-                <Input value={record.officeLocation} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, officeLocation: event.target.value } : item)))} />
-                <Input value={record.officeHours} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, officeHours: event.target.value } : item)))} />
-              </TableCell>
-              <TableCell>
-                <select
-                  value={record.universityId ?? ''}
-                  onChange={(event) =>
-                    onChange((current) => current.map((item) => (item.id === record.id ? { ...item, universityId: event.target.value } : item)))
-                  }
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  {universities.map((university) => (
-                    <option key={university.id} value={university.id}>
-                      {university.name}
-                    </option>
-                  ))}
-                </select>
-              </TableCell>
-              <TableCell>
-                <Input value={record.department} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, department: event.target.value } : item)))} />
-              </TableCell>
-              <TableCell className="min-w-[220px]">
-                <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(record.user?.canPublishCampusAnnouncements)}
-                    onChange={(event) =>
-                      onChange((current) =>
-                        current.map((item) =>
-                          item.id === record.id
-                            ? {
-                                ...item,
-                                user: {
-                                  id: item.user?.id ?? '',
-                                  email: item.user?.email ?? item.email,
-                                  role: item.user?.role ?? 'FACULTY',
-                                  canPublishCampusAnnouncements: event.target.checked,
-                                },
-                              }
-                            : item,
-                        ),
-                      )
-                    }
-                  />
-                  Campus announcements
-                </label>
-              </TableCell>
-              <TableCell className="space-y-2 min-w-[260px]">
-                <Input value={record.courses.join(', ')} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, courses: splitCsv(event.target.value) } : item)))} />
-                <Input value={record.tags.join(', ')} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, tags: splitCsv(event.target.value) } : item)))} />
-              </TableCell>
-              <TableCell className="space-x-2">
-                <Button size="sm" variant="outline" disabled={saving || !record.universityId} onClick={() => void onSave(record)}>
-                  Save
-                </Button>
-                <Button size="sm" variant="destructive" disabled={saving} onClick={() => void onDelete(record.id)}>
-                  Delete
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </CrudCard>
-  )
-}
-
-function CrudBuildingTable({
-  records,
-  universities,
-  saving,
-  onChange,
-  onSave,
-  onDelete,
-}: {
-  records: BuildingRecord[]
-  universities: University[]
-  saving: boolean
-  onChange: React.Dispatch<React.SetStateAction<BuildingRecord[]>>
-  onSave: (record: BuildingRecord) => Promise<void>
-  onDelete: (recordId: string) => Promise<void>
-}) {
-  return (
-    <CrudCard title="Manage Buildings" description="Edit map/location records by university.">
-      <BaseCrudTable
-        rows={records.map((record) => (
-          <TableRow key={record.id}>
-            <TableCell className="space-y-2 min-w-[260px]">
-              <Input value={record.name} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, name: event.target.value } : item)))} />
-              <Input value={record.code ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, code: event.target.value || null } : item)))} placeholder="Code" />
-              <Input value={record.type} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, type: event.target.value } : item)))} />
-            </TableCell>
-            <TableCell>
-              <select value={record.universityId} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, universityId: event.target.value } : item)))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-                {universities.map((university) => (
-                  <option key={university.id} value={university.id}>{university.name}</option>
-                ))}
-              </select>
-            </TableCell>
-            <TableCell className="space-y-2 min-w-[280px]">
-              <Input value={record.address} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, address: event.target.value } : item)))} />
-              <Input value={record.mapQuery} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, mapQuery: event.target.value } : item)))} />
-            </TableCell>
-            <TableCell className="space-x-2">
-              <Button size="sm" variant="outline" disabled={saving} onClick={() => void onSave(record)}>Save</Button>
-              <Button size="sm" variant="destructive" disabled={saving} onClick={() => void onDelete(record.id)}>Delete</Button>
-            </TableCell>
-          </TableRow>
-        ))}
-      />
-    </CrudCard>
-  )
-}
 
 function CrudLinkTable({
   records,
