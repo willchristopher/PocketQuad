@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Check, Mail, Pencil, Upload, Trash2, Sun, Moon, Monitor, Palette } from 'lucide-react'
+import { Check, GraduationCap, Mail, Pencil, Upload, Trash2, Sun, Moon, Monitor, Palette } from 'lucide-react'
 import Image from 'next/image'
 
 import { useAuth } from '@/lib/auth/context'
@@ -210,6 +210,19 @@ export default function ProfilePage() {
               <Mail className="h-4 w-4 text-muted-foreground" />
               {profile?.email ?? 'Loading...'}
             </p>
+          </div>
+
+          <div className="mt-3 rounded-xl border border-border/50 bg-muted/20 p-4">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">University</p>
+            <p className="inline-flex items-center gap-2 text-sm font-medium">
+              <GraduationCap className="h-4 w-4 text-muted-foreground" />
+              {profile?.university?.name ?? 'Not linked to a university'}
+            </p>
+            {!profile?.university && profile?.email && (
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Your email domain isn&apos;t associated with a registered university yet. Contact your admin.
+              </p>
+            )}
           </div>
 
           {error && (

@@ -2,19 +2,18 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { Bell, Moon, Search, Sun } from 'lucide-react'
+import { Bell, Moon, Palette, Sun } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-import { useTheme } from 'next-themes'
 import { useAuth } from '@/lib/auth/context'
 import { apiRequest } from '@/lib/api/client'
 import { subscribeToNotifications } from '@/lib/supabase/realtime'
+import { useUniversityTheme, type ThemeMode } from '@/lib/theme'
 
 function getPageTitle(pathname: string | null) {
   if (!pathname || pathname === '/dashboard' || pathname === '/') return 'Dashboard'
   if (pathname === '/calendar') return 'Calendar'
   if (pathname === '/events' || pathname.startsWith('/events/')) return 'Events'
   if (pathname.startsWith('/faculty-directory')) return 'Faculty'
-  if (pathname === '/advisor') return 'AI Advisor'
   if (pathname === '/chatroom') return 'Chat'
   if (pathname === '/campus-map') return 'Map & Services'
   if (pathname === '/services-status') return 'Services'
@@ -28,8 +27,11 @@ function getPageTitle(pathname: string | null) {
 export function Header() {
   const pathname = usePathname()
   const { profile } = useAuth()
-  const { theme, setTheme } = useTheme()
+  const { themeMode, setThemeMode, universityColors, universityName } = useUniversityTheme()
+  const [mounted, setMounted] = React.useState(false)
   const [unreadCount, setUnreadCount] = React.useState(0)
+
+  React.useEffect(() => setMounted(true), [])
 
   React.useEffect(() => {
     if (!profile?.id) {
@@ -62,10 +64,6 @@ export function Header() {
     }
   }, [profile?.id])
 
-  const openCommandPalette = () => {
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true }))
-  }
-
   return (
     <header className="sticky top-0 z-30 flex h-14 w-full items-center justify-between gap-4 border-b border-border/50 bg-background/80 px-4 backdrop-blur-xl md:px-6">
       <div className="min-w-0">
@@ -76,20 +74,34 @@ export function Header() {
 
       <div className="flex items-center gap-1.5">
         <button
-          onClick={openCommandPalette}
-          className="hidden items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground md:flex"
-        >
-          <Search className="h-3.5 w-3.5" />
-          <span>Search...</span>
-          <kbd className="rounded border border-border/60 bg-background px-1 py-0.5 text-[10px]">⌘K</kbd>
-        </button>
-
-        <button
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          onClick={() => {
+            const cycle: ThemeMode[] = universityColors
+              ? ['light', 'dark', 'university']
+              : ['light', 'dark']
+            const idx = cycle.indexOf(themeMode)
+            setThemeMode(cycle[(idx + 1) % cycle.length])
+          }}
           className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+          aria-label={`Theme: ${themeMode}. Click to switch.`}
+          title={
+            !mounted
+              ? 'Toggle theme'
+              : themeMode === 'light'
+                ? 'Light mode'
+                : themeMode === 'dark'
+                  ? 'Dark mode'
+                  : `${universityName ?? 'University'} theme`
+          }
         >
-          <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-          <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+          {!mounted ? (
+            <Sun className="h-4 w-4" />
+          ) : themeMode === 'light' ? (
+            <Sun className="h-4 w-4" />
+          ) : themeMode === 'dark' ? (
+            <Moon className="h-4 w-4" />
+          ) : (
+            <Palette className="h-4 w-4" />
+          )}
         </button>
 
         <Link

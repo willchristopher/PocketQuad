@@ -1,5 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
+import {
+  createRoleHintToken,
+  ROLE_HINT_COOKIE_NAME,
+  setRoleHintCookie,
+  verifyRoleHintToken,
+} from '@/lib/auth/roleHint'
+import { canAccessAdminPortal, type PortalPermission } from '@/lib/auth/portalPermissions'
 import { prisma } from '@/lib/prisma'
 import { createSupabaseMiddlewareClient, hasSupabaseEnv } from '@/lib/supabase/server'
 
@@ -61,15 +68,22 @@ function redirectToLogin(request: NextRequest) {
 function redirectAuthenticatedUser(request: NextRequest, role: AppRole) {
   const url = request.nextUrl.clone()
 
-  if (role === 'FACULTY') {
-    url.pathname = '/faculty/dashboard'
-  } else if (role === 'ADMIN') {
+  if (role === 'ADMIN') {
     url.pathname = '/admin'
+  } else if (role === 'FACULTY') {
+    url.pathname = '/faculty/dashboard'
   } else {
     url.pathname = '/dashboard'
   }
 
   return NextResponse.redirect(url)
+}
+
+function withRoleHint(response: NextResponse, roleHintToken: string | null) {
+  if (roleHintToken) {
+    setRoleHintCookie(response, roleHintToken)
+  }
+  return response
 }
 
 function parseTestingRole(value: string | undefined): AppRole | null {
@@ -148,49 +162,84 @@ export async function middleware(request: NextRequest) {
     }
 
     let role: AppRole = 'STUDENT'
+    let roleHintToken: string | null = null
 
-    if (user.email) {
-      const dbUser = await prisma.user.findFirst({
-        where: {
-          OR: [{ supabaseId: user.id }, { email: user.email }],
-        },
-        select: { role: true },
-      })
+    const hintedRole = await verifyRoleHintToken(
+      request.cookies.get(ROLE_HINT_COOKIE_NAME)?.value,
+      user.id,
+    )
 
-      if (dbUser?.role) {
-        role = dbUser.role
+    let adminAccessLevel: 'OWNER' | 'IT_ADMIN' | 'CLUB_PRESIDENT' | 'CONTENT_MANAGER' | null = null
+    let portalPermissions: PortalPermission[] = []
+    let canPublishCampusAnnouncements = false
+
+    if (hintedRole) {
+      role = hintedRole
+    }
+
+    const normalizedEmail = user.email?.toLowerCase()
+    const dbUser = await prisma.user.findFirst({
+      where: normalizedEmail
+        ? {
+            OR: [{ supabaseId: user.id }, { email: normalizedEmail }],
+          }
+        : { supabaseId: user.id },
+      select: {
+        role: true,
+        adminAccessLevel: true,
+        portalPermissions: true,
+        canPublishCampusAnnouncements: true,
+      },
+    })
+
+    if (dbUser?.role) {
+      role = dbUser.role
+      adminAccessLevel = dbUser.adminAccessLevel
+      portalPermissions = dbUser.portalPermissions
+      canPublishCampusAnnouncements = dbUser.canPublishCampusAnnouncements
+
+      if (!hintedRole || hintedRole !== role) {
+        roleHintToken = await createRoleHintToken(user.id, role)
       }
     }
 
+    const canAccessAdmin = canAccessAdminPortal({
+      role,
+      adminAccessLevel,
+      portalPermissions,
+      canPublishCampusAnnouncements,
+    })
+
     if (authRoute) {
-      return redirectAuthenticatedUser(request, role)
+      const redirectRole: AppRole = canAccessAdmin ? 'ADMIN' : role
+      return withRoleHint(redirectAuthenticatedUser(request, redirectRole), roleHintToken)
     }
 
     if (isFacultyRoute(pathname) && role !== 'FACULTY' && role !== 'ADMIN') {
       const url = request.nextUrl.clone()
       url.pathname = '/dashboard'
-      return NextResponse.redirect(url)
+      return withRoleHint(NextResponse.redirect(url), roleHintToken)
     }
 
-    if (isAdminRoute(pathname) && role !== 'ADMIN') {
+    if (isAdminRoute(pathname) && !canAccessAdmin) {
       const url = request.nextUrl.clone()
-      url.pathname = '/dashboard'
-      return NextResponse.redirect(url)
+      url.pathname = role === 'FACULTY' ? '/faculty/dashboard' : '/dashboard'
+      return withRoleHint(NextResponse.redirect(url), roleHintToken)
     }
 
     if (isStudentRoute(pathname) && role === 'FACULTY') {
       const url = request.nextUrl.clone()
       url.pathname = '/faculty/dashboard'
-      return NextResponse.redirect(url)
+      return withRoleHint(NextResponse.redirect(url), roleHintToken)
     }
 
-    if (isStudentRoute(pathname) && role === 'ADMIN') {
+    if (isStudentRoute(pathname) && role === 'ADMIN' && canAccessAdmin) {
       const url = request.nextUrl.clone()
       url.pathname = '/admin'
-      return NextResponse.redirect(url)
+      return withRoleHint(NextResponse.redirect(url), roleHintToken)
     }
 
-    return response
+    return withRoleHint(response, roleHintToken)
   } catch (error) {
     console.error('Middleware auth check failed:', error)
     return NextResponse.next()

@@ -4,6 +4,10 @@ import React from 'react'
 import type { User } from '@supabase/supabase-js'
 
 import { apiRequest } from '@/lib/api/client'
+import {
+  type AdminAccessLevel,
+  type PortalPermission,
+} from '@/lib/auth/portalPermissions'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 type UserProfile = {
@@ -14,7 +18,14 @@ type UserProfile = {
   lastName: string
   avatar: string | null
   role: 'STUDENT' | 'FACULTY' | 'ADMIN'
+  adminAccessLevel: AdminAccessLevel | null
+  portalPermissions: PortalPermission[]
   universityId: string | null
+  university?: { id: string; name: string; domain: string | null } | null
+  managedClubs?: Array<{
+    clubId: string
+    club: { id: string; universityId: string; name: string }
+  }>
   bio: string | null
   location: string | null
   website: string | null

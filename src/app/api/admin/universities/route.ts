@@ -2,12 +2,13 @@ import { NextRequest } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
 import { getAuthenticatedAdmin, handleApiError, successResponse } from '@/lib/api/utils'
+import { ALL_UNIVERSITY_DATA_TAGS, invalidateUniversityData } from '@/lib/server/universityData'
 import { universityCreateSchema } from '@/lib/validations/admin'
 import { slugifyUniversityName } from '@/lib/university'
 
 export async function GET() {
   try {
-    await getAuthenticatedAdmin()
+    await getAuthenticatedAdmin('ADMIN_TAB_UNIVERSITIES')
 
     const universities = await prisma.university.findMany({
       include: {
@@ -34,7 +35,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    await getAuthenticatedAdmin()
+    await getAuthenticatedAdmin('ADMIN_TAB_UNIVERSITIES')
     const payload = universityCreateSchema.parse(await request.json())
 
     const university = await prisma.university.create({
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
         domain: payload.domain,
       },
     })
+    invalidateUniversityData(...ALL_UNIVERSITY_DATA_TAGS)
 
     return successResponse(university, 201)
   } catch (error) {

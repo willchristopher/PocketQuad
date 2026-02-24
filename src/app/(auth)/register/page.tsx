@@ -1,11 +1,15 @@
 'use client'
 
 import React from 'react'
-import { Mail, Lock, Eye, EyeOff, User, ArrowRight } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, User, ArrowRight, GraduationCap } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 import { ApiClientError, apiRequest } from '@/lib/api/client'
+import {
+  type AdminAccessLevel,
+  type PortalPermission,
+} from '@/lib/auth/portalPermissions'
 import { getHomeForRole } from '@/lib/auth/routing'
 
 type Role = 'STUDENT' | 'FACULTY'
@@ -13,7 +17,14 @@ type Role = 'STUDENT' | 'FACULTY'
 type SessionResponse = {
   profile: {
     role: 'STUDENT' | 'FACULTY' | 'ADMIN'
+    adminAccessLevel: AdminAccessLevel | null
+    portalPermissions: PortalPermission[]
+    canPublishCampusAnnouncements: boolean
   } | null
+}
+
+type CheckUniversityResponse = {
+  university: { id: string; name: string } | null
 }
 
 export default function RegisterPage() {
@@ -25,12 +36,52 @@ export default function RegisterPage() {
   const [role, setRole] = React.useState<Role>('STUDENT')
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string[]>>({})
+  const [detectedUniversity, setDetectedUniversity] = React.useState<string | null>(null)
+  const [checkingDomain, setCheckingDomain] = React.useState(false)
 
   const router = useRouter()
+  const domainCheckTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Debounced university detection from email domain
+  React.useEffect(() => {
+    if (domainCheckTimer.current) clearTimeout(domainCheckTimer.current)
+
+    const atIndex = email.lastIndexOf('@')
+    if (atIndex < 0 || atIndex === email.length - 1) {
+      setDetectedUniversity(null)
+      return
+    }
+
+    const domain = email.slice(atIndex + 1).toLowerCase()
+    if (!domain.includes('.') || domain.length < 4) {
+      setDetectedUniversity(null)
+      return
+    }
+
+    setCheckingDomain(true)
+    domainCheckTimer.current = setTimeout(async () => {
+      try {
+        const result = await apiRequest<CheckUniversityResponse>(
+          `/api/auth/check-university?domain=${encodeURIComponent(domain)}`,
+        )
+        setDetectedUniversity(result.university?.name ?? null)
+      } catch {
+        setDetectedUniversity(null)
+      } finally {
+        setCheckingDomain(false)
+      }
+    }, 400)
+
+    return () => {
+      if (domainCheckTimer.current) clearTimeout(domainCheckTimer.current)
+    }
+  }, [email])
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
+    setFieldErrors({})
     setSubmitting(true)
 
     try {
@@ -54,11 +105,18 @@ export default function RegisterPage() {
       })
 
       const session = await apiRequest<SessionResponse>('/api/auth/session')
-      router.push(getHomeForRole(session.profile?.role))
+      router.push(getHomeForRole(session.profile))
       router.refresh()
     } catch (err) {
-      const message = err instanceof ApiClientError ? err.message : 'Unable to create account right now'
-      setError(message)
+      if (err instanceof ApiClientError) {
+        setError(err.message)
+        const issues = err.details as { fieldErrors?: Record<string, string[]> } | undefined
+        if (issues?.fieldErrors) {
+          setFieldErrors(issues.fieldErrors)
+        }
+      } else {
+        setError('Unable to create account right now')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -87,7 +145,7 @@ export default function RegisterPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 block mb-1.5">First Name</label>
-                <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-muted/20 px-3.5 py-3 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all">
+                <div className={`flex items-center gap-2.5 rounded-xl border bg-muted/20 px-3.5 py-3 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all ${fieldErrors.firstName ? 'border-red-500/60' : 'border-border/60'}`}>
                   <User className="w-4 h-4 text-muted-foreground shrink-0" />
                   <input
                     type="text"
@@ -99,10 +157,11 @@ export default function RegisterPage() {
                     disabled={submitting}
                   />
                 </div>
+                {fieldErrors.firstName && <p className="mt-1 text-[11px] text-red-500">{fieldErrors.firstName[0]}</p>}
               </div>
               <div>
                 <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 block mb-1.5">Last Name</label>
-                <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-muted/20 px-3.5 py-3 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all">
+                <div className={`flex items-center gap-2.5 rounded-xl border bg-muted/20 px-3.5 py-3 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all ${fieldErrors.lastName ? 'border-red-500/60' : 'border-border/60'}`}>
                   <input
                     type="text"
                     value={lastName}
@@ -113,12 +172,13 @@ export default function RegisterPage() {
                     disabled={submitting}
                   />
                 </div>
+                {fieldErrors.lastName && <p className="mt-1 text-[11px] text-red-500">{fieldErrors.lastName[0]}</p>}
               </div>
             </div>
 
             <div>
               <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 block mb-1.5">University Email</label>
-              <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-muted/20 px-3.5 py-3 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all">
+              <div className={`flex items-center gap-2.5 rounded-xl border bg-muted/20 px-3.5 py-3 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all ${fieldErrors.email ? 'border-red-500/60' : 'border-border/60'}`}>
                 <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
                 <input
                   type="email"
@@ -131,11 +191,31 @@ export default function RegisterPage() {
                   disabled={submitting}
                 />
               </div>
+              {fieldErrors.email && (
+                <p className="mt-1 text-[11px] text-red-500">{fieldErrors.email[0]}</p>
+              )}
+              {(detectedUniversity || checkingDomain) && (
+                <div className="mt-2 flex items-center gap-2 rounded-lg bg-primary/8 px-3 py-2">
+                  <GraduationCap className="h-4 w-4 text-primary shrink-0" />
+                  {checkingDomain ? (
+                    <span className="text-xs text-muted-foreground">Checking university...</span>
+                  ) : (
+                    <span className="text-xs font-semibold text-primary">
+                      You&apos;ll be joining {detectedUniversity}
+                    </span>
+                  )}
+                </div>
+              )}
+              {!detectedUniversity && !checkingDomain && email.includes('@') && email.indexOf('@') < email.length - 1 && email.slice(email.indexOf('@') + 1).includes('.') && (
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  No university found for this email domain. You can still sign up.
+                </p>
+              )}
             </div>
 
             <div>
               <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 block mb-1.5">Password</label>
-              <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-muted/20 px-3.5 py-3 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all">
+              <div className={`flex items-center gap-2.5 rounded-xl border bg-muted/20 px-3.5 py-3 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all ${fieldErrors.password ? 'border-red-500/60' : 'border-border/60'}`}>
                 <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -151,6 +231,7 @@ export default function RegisterPage() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {fieldErrors.password && <p className="mt-1 text-[11px] text-red-500">{fieldErrors.password[0]}</p>}
             </div>
 
             <div>

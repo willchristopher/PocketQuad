@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { registerSchema } from '@/lib/validations/auth'
 import { ApiError, handleApiError, successResponse } from '@/lib/api/utils'
+import { getDefaultPermissionsForAccessLevel } from '@/lib/auth/portalPermissions'
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server'
 import { extractEmailDomain } from '@/lib/university'
 
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
     const matchedUniversity = emailDomain
       ? await prisma.university.findFirst({
           where: { domain: emailDomain },
-          select: { id: true },
+          select: { id: true, name: true },
         })
       : null
 
@@ -89,6 +90,11 @@ export async function POST(request: NextRequest) {
         firstName: payload.firstName,
         lastName: payload.lastName,
         role: payload.role,
+        adminAccessLevel: payload.role === 'ADMIN' ? 'OWNER' : null,
+        portalPermissions:
+          payload.role === 'ADMIN'
+            ? getDefaultPermissionsForAccessLevel('OWNER')
+            : [],
         universityId: matchedUniversity?.id,
       },
     })
@@ -124,6 +130,8 @@ export async function POST(request: NextRequest) {
       {
         id: createdUser.id,
         email: createdUser.email,
+        universityId: matchedUniversity?.id ?? null,
+        universityName: matchedUniversity?.name ?? null,
       },
       201,
     )

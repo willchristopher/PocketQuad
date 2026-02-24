@@ -2,7 +2,19 @@
 
 import React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Building2, CalendarDays, ExternalLink, Landmark, Loader2, School, Users, Wrench } from 'lucide-react'
+import {
+  Building2,
+  CalendarDays,
+  ExternalLink,
+  KeyRound,
+  Landmark,
+  Loader2,
+  School,
+  ShieldUser,
+  Upload,
+  Users,
+  Wrench,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +24,15 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ApiClientError, apiRequest } from '@/lib/api/client'
+import { useAuth } from '@/lib/auth/context'
+import {
+  getAllowedAdminTabs,
+  hasPortalPermission,
+  type AdminAccessLevel,
+  type PortalPermission,
+} from '@/lib/auth/portalPermissions'
+import { BUILDING_IMPORT_REQUIRED_HEADERS, validateBuildingImportHeaders } from '@/lib/buildingImport'
+import { parseCsvText } from '@/lib/csv'
 import { cn } from '@/lib/utils'
 
 type TabValue =
@@ -19,20 +40,24 @@ type TabValue =
   | 'universities'
   | 'faculty'
   | 'buildings'
+  | 'building-import'
   | 'links'
   | 'services'
   | 'clubs'
   | 'events'
+  | 'it-accounts'
 
 const tabItems: Array<{ value: TabValue; label: string; icon: React.ElementType }> = [
   { value: 'overview', label: 'Overview', icon: Landmark },
   { value: 'universities', label: 'Universities', icon: School },
   { value: 'faculty', label: 'Faculty', icon: Users },
   { value: 'buildings', label: 'Buildings', icon: Building2 },
+  { value: 'building-import', label: 'Building Import', icon: Upload },
   { value: 'links', label: 'Resource Links', icon: ExternalLink },
   { value: 'services', label: 'Services', icon: Wrench },
   { value: 'clubs', label: 'Clubs', icon: Users },
   { value: 'events', label: 'Events', icon: CalendarDays },
+  { value: 'it-accounts', label: 'IT Accounts', icon: ShieldUser },
 ]
 
 type University = {
@@ -83,7 +108,18 @@ type BuildingRecord = {
   type: string
   address: string
   mapQuery: string
+  description: string | null
+  categories: string[]
+  services: string[]
+  departments: string[]
   university?: { id: string; name: string; slug: string } | null
+}
+
+type BuildingImportResult = {
+  createdCount: number
+  updatedCount: number
+  totalRows: number
+  requiredColumns: readonly string[]
 }
 
 type LinkCategory = 'LEARNING' | 'COMMUNICATION' | 'STUDENT_SERVICES' | 'FINANCE' | 'CAMPUS_LIFE' | 'OTHER'
@@ -137,6 +173,35 @@ type EventRecord = {
   university?: { id: string; name: string; slug: string } | null
 }
 
+type ManagedClubAssignment = {
+  clubId: string
+  club: {
+    id: string
+    name: string
+    universityId: string
+  }
+}
+
+type PortalAccountRecord = {
+  id: string
+  universityId: string | null
+  email: string
+  firstName: string
+  lastName: string
+  displayName: string
+  role: 'STUDENT' | 'FACULTY' | 'ADMIN'
+  adminAccessLevel: AdminAccessLevel | null
+  portalPermissions: PortalPermission[]
+  canPublishCampusAnnouncements: boolean
+  managedClubs: ManagedClubAssignment[]
+  university?: { id: string; name: string; slug: string } | null
+}
+
+type PortalAccountCreateResult = {
+  account: PortalAccountRecord
+  temporaryPassword: string | null
+}
+
 const resourceCategories: LinkCategory[] = [
   'LEARNING',
   'COMMUNICATION',
@@ -157,6 +222,46 @@ const eventCategories: EventRecord['category'][] = [
   'WELLNESS',
   'OTHER',
 ]
+
+const accessLevelOptions: AdminAccessLevel[] = [
+  'OWNER',
+  'IT_ADMIN',
+  'CLUB_PRESIDENT',
+  'CONTENT_MANAGER',
+]
+
+const portalPermissionOptions: PortalPermission[] = [
+  'ADMIN_TAB_OVERVIEW',
+  'ADMIN_TAB_UNIVERSITIES',
+  'ADMIN_TAB_FACULTY',
+  'ADMIN_TAB_BUILDINGS',
+  'ADMIN_TAB_BUILDING_IMPORT',
+  'ADMIN_TAB_LINKS',
+  'ADMIN_TAB_SERVICES',
+  'ADMIN_TAB_CLUBS',
+  'ADMIN_TAB_EVENTS',
+  'ADMIN_TAB_IT_ACCOUNTS',
+  'CAN_PUBLISH_ANNOUNCEMENTS',
+  'CAN_MANAGE_CLUB_PROFILE',
+  'CAN_MANAGE_CLUB_CONTACT',
+]
+
+const portalPermissionLabels: Record<PortalPermission, string> = {
+  ADMIN_PORTAL_ACCESS: 'Portal Access',
+  ADMIN_TAB_OVERVIEW: 'Tab: Overview',
+  ADMIN_TAB_UNIVERSITIES: 'Tab: Universities',
+  ADMIN_TAB_FACULTY: 'Tab: Faculty',
+  ADMIN_TAB_BUILDINGS: 'Tab: Buildings',
+  ADMIN_TAB_BUILDING_IMPORT: 'Tab: Building Import',
+  ADMIN_TAB_LINKS: 'Tab: Resource Links',
+  ADMIN_TAB_SERVICES: 'Tab: Services',
+  ADMIN_TAB_CLUBS: 'Tab: Clubs',
+  ADMIN_TAB_EVENTS: 'Tab: Events',
+  ADMIN_TAB_IT_ACCOUNTS: 'Tab: IT Accounts',
+  CAN_PUBLISH_ANNOUNCEMENTS: 'Publish Announcements',
+  CAN_MANAGE_CLUB_PROFILE: 'Manage Club Profile',
+  CAN_MANAGE_CLUB_CONTACT: 'Manage Club Contact',
+}
 
 function asErrorMessage(error: unknown, fallback: string) {
   if (error instanceof ApiClientError) {
@@ -186,9 +291,25 @@ function splitCsv(value: string) {
 export function AdminDashboard() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { profile } = useAuth()
+
+  const allowedTabs = React.useMemo(() => {
+    if (!profile) return tabItems.map((item) => item.value)
+    const resolved = getAllowedAdminTabs(profile)
+    return resolved.length > 0 ? resolved : ['overview']
+  }, [profile])
+
+  const visibleTabs = React.useMemo(
+    () => tabItems.filter((item) => allowedTabs.includes(item.value)),
+    [allowedTabs],
+  )
 
   const requestedTab = searchParams.get('tab') as TabValue | null
-  const currentTab = tabItems.some((item) => item.value === requestedTab) ? requestedTab ?? 'overview' : 'overview'
+  const fallbackTab = visibleTabs[0]?.value ?? 'overview'
+  const currentTab =
+    requestedTab && visibleTabs.some((item) => item.value === requestedTab)
+      ? requestedTab
+      : fallbackTab
   const [activeTab, setActiveTab] = React.useState<TabValue>(currentTab)
 
   const [loading, setLoading] = React.useState(true)
@@ -201,8 +322,18 @@ export function AdminDashboard() {
   const [services, setServices] = React.useState<ServiceRecord[]>([])
   const [clubs, setClubs] = React.useState<ClubRecord[]>([])
   const [events, setEvents] = React.useState<EventRecord[]>([])
+  const [portalAccounts, setPortalAccounts] = React.useState<PortalAccountRecord[]>([])
+  const [temporaryAccountPassword, setTemporaryAccountPassword] = React.useState<string | null>(null)
 
   const [selectedUniversityId, setSelectedUniversityId] = React.useState('')
+  const [buildingImportUniversityId, setBuildingImportUniversityId] = React.useState('')
+  const [buildingImportCsvContent, setBuildingImportCsvContent] = React.useState('')
+  const [buildingImportFileName, setBuildingImportFileName] = React.useState('')
+  const [buildingImportRowCount, setBuildingImportRowCount] = React.useState(0)
+  const [buildingImportError, setBuildingImportError] = React.useState<string | null>(null)
+  const [buildingImportValidation, setBuildingImportValidation] = React.useState<ReturnType<
+    typeof validateBuildingImportHeaders
+  > | null>(null)
 
   const [newUniversity, setNewUniversity] = React.useState({ name: '', domain: '' })
   const [newFaculty, setNewFaculty] = React.useState({
@@ -260,21 +391,88 @@ export function AdminDashboard() {
     organizer: '',
     isPublished: true,
   })
+  const [newPortalAccount, setNewPortalAccount] = React.useState({
+    universityId: '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    role: 'ADMIN' as 'STUDENT' | 'FACULTY' | 'ADMIN',
+    accessLevel: 'IT_ADMIN' as AdminAccessLevel,
+    portalPermissions: ['ADMIN_TAB_OVERVIEW', 'ADMIN_TAB_FACULTY', 'ADMIN_TAB_BUILDINGS'] as PortalPermission[],
+    managedClubIds: [] as string[],
+    password: '',
+  })
+
+  const canManageUniversities = !profile || hasPortalPermission(profile, 'ADMIN_TAB_UNIVERSITIES')
+  const canManageFaculty = !profile || hasPortalPermission(profile, 'ADMIN_TAB_FACULTY')
+  const canManageBuildings = !profile || hasPortalPermission(profile, 'ADMIN_TAB_BUILDINGS')
+  const canManageLinks = !profile || hasPortalPermission(profile, 'ADMIN_TAB_LINKS')
+  const canManageServices = !profile || hasPortalPermission(profile, 'ADMIN_TAB_SERVICES')
+  const canManageClubs = !profile || hasPortalPermission(profile, 'ADMIN_TAB_CLUBS')
+  const canManageEvents = !profile || hasPortalPermission(profile, 'ADMIN_TAB_EVENTS')
+  const canManageAccounts = !profile || hasPortalPermission(profile, 'ADMIN_TAB_IT_ACCOUNTS')
+
+  const fallbackUniversityFromProfile = React.useMemo<University[]>(() => {
+    if (!profile?.university) return []
+
+    return [
+      {
+        id: profile.university.id,
+        name: profile.university.name,
+        slug: profile.university.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+        domain: profile.university.domain ?? null,
+        themeMainColor: null,
+        themeAccentColor: null,
+      },
+    ]
+  }, [profile])
 
   const loadData = React.useCallback(async () => {
     setLoading(true)
 
     try {
-      const [nextUniversities, nextFaculty, nextBuildings, nextLinks, nextServices, nextClubs, nextEvents] =
-        await Promise.all([
-          apiRequest<University[]>('/api/admin/universities'),
-          apiRequest<FacultyRecord[]>('/api/admin/faculty'),
-          apiRequest<BuildingRecord[]>('/api/admin/buildings'),
-          apiRequest<ResourceLinkRecord[]>('/api/admin/resource-links'),
-          apiRequest<ServiceRecord[]>('/api/admin/services'),
-          apiRequest<ClubRecord[]>('/api/admin/clubs'),
-          apiRequest<EventRecord[]>('/api/admin/events'),
-        ])
+      const universityQuery = selectedUniversityId
+        ? `?universityId=${encodeURIComponent(selectedUniversityId)}`
+        : ''
+
+      const [
+        nextUniversitiesRaw,
+        nextFaculty,
+        nextBuildings,
+        nextLinks,
+        nextServices,
+        nextClubs,
+        nextEvents,
+        nextAccounts,
+      ] = await Promise.all([
+        canManageUniversities
+          ? apiRequest<University[]>('/api/admin/universities')
+          : Promise.resolve(fallbackUniversityFromProfile),
+        canManageFaculty
+          ? apiRequest<FacultyRecord[]>(`/api/admin/faculty${universityQuery}`)
+          : Promise.resolve([]),
+        canManageBuildings
+          ? apiRequest<BuildingRecord[]>(`/api/admin/buildings${universityQuery}`)
+          : Promise.resolve([]),
+        canManageLinks
+          ? apiRequest<ResourceLinkRecord[]>(`/api/admin/resource-links${universityQuery}`)
+          : Promise.resolve([]),
+        canManageServices
+          ? apiRequest<ServiceRecord[]>(`/api/admin/services${universityQuery}`)
+          : Promise.resolve([]),
+        canManageClubs || canManageAccounts
+          ? apiRequest<ClubRecord[]>(`/api/admin/clubs${universityQuery}`)
+          : Promise.resolve([]),
+        canManageEvents
+          ? apiRequest<EventRecord[]>(`/api/admin/events${universityQuery}`)
+          : Promise.resolve([]),
+        canManageAccounts
+          ? apiRequest<PortalAccountRecord[]>(`/api/admin/accounts${universityQuery}`)
+          : Promise.resolve([]),
+      ])
+
+      const nextUniversities =
+        nextUniversitiesRaw.length > 0 ? nextUniversitiesRaw : fallbackUniversityFromProfile
 
       setUniversities(nextUniversities)
       setFaculty(nextFaculty)
@@ -283,9 +481,11 @@ export function AdminDashboard() {
       setServices(nextServices)
       setClubs(nextClubs)
       setEvents(nextEvents)
+      setPortalAccounts(nextAccounts)
 
       const defaultUniversityId = nextUniversities[0]?.id ?? ''
       setSelectedUniversityId((current) => current || defaultUniversityId)
+      setBuildingImportUniversityId((current) => current || defaultUniversityId)
 
       setNewFaculty((current) => ({ ...current, universityId: current.universityId || defaultUniversityId }))
       setNewBuilding((current) => ({ ...current, universityId: current.universityId || defaultUniversityId }))
@@ -293,12 +493,27 @@ export function AdminDashboard() {
       setNewService((current) => ({ ...current, universityId: current.universityId || defaultUniversityId }))
       setNewClub((current) => ({ ...current, universityId: current.universityId || defaultUniversityId }))
       setNewEvent((current) => ({ ...current, universityId: current.universityId || defaultUniversityId }))
+      setNewPortalAccount((current) => ({
+        ...current,
+        universityId: current.universityId || defaultUniversityId,
+      }))
     } catch (error) {
       toast.error(asErrorMessage(error, 'Unable to load admin data'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [
+    canManageAccounts,
+    canManageBuildings,
+    canManageClubs,
+    canManageEvents,
+    canManageFaculty,
+    canManageLinks,
+    canManageServices,
+    canManageUniversities,
+    fallbackUniversityFromProfile,
+    selectedUniversityId,
+  ])
 
   React.useEffect(() => {
     void loadData()
@@ -306,7 +521,12 @@ export function AdminDashboard() {
 
   React.useEffect(() => {
     setActiveTab(currentTab)
-  }, [currentTab])
+    if (requestedTab !== currentTab) {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('tab', currentTab)
+      router.replace(`/admin?${params.toString()}`, { scroll: false })
+    }
+  }, [currentTab, requestedTab, router, searchParams])
 
   React.useEffect(() => {
     if (!selectedUniversityId) return
@@ -317,10 +537,13 @@ export function AdminDashboard() {
     setNewService((current) => ({ ...current, universityId: selectedUniversityId }))
     setNewClub((current) => ({ ...current, universityId: selectedUniversityId }))
     setNewEvent((current) => ({ ...current, universityId: selectedUniversityId }))
+    setNewPortalAccount((current) => ({ ...current, universityId: selectedUniversityId }))
+    setBuildingImportUniversityId((current) => current || selectedUniversityId)
   }, [selectedUniversityId])
 
   const handleTabChange = (nextTab: string) => {
     const normalized = nextTab as TabValue
+    if (!visibleTabs.some((item) => item.value === normalized)) return
     setActiveTab(normalized)
     const params = new URLSearchParams(searchParams.toString())
     params.set('tab', normalized)
@@ -332,18 +555,132 @@ export function AdminDashboard() {
     return records.filter((record) => record.universityId === selectedUniversityId)
   }
 
-  const runMutation = async (action: () => Promise<void>, successMessage: string) => {
+  const runMutation = async <T,>(
+    action: () => Promise<T>,
+    successMessage: string | ((result: T) => string),
+  ) => {
     setSaving(true)
 
     try {
-      await action()
-      toast.success(successMessage)
+      const result = await action()
+      toast.success(typeof successMessage === 'function' ? successMessage(result) : successMessage)
       await loadData()
+      return result
     } catch (error) {
       toast.error(asErrorMessage(error, 'Request failed'))
+      return undefined
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleBuildingImportFileSelected = React.useCallback(async (file: File | null) => {
+    if (!file) {
+      setBuildingImportCsvContent('')
+      setBuildingImportFileName('')
+      setBuildingImportRowCount(0)
+      setBuildingImportError(null)
+      setBuildingImportValidation(null)
+      return
+    }
+
+    try {
+      const content = await file.text()
+      const rows = parseCsvText(content)
+
+      if (rows.length === 0) {
+        setBuildingImportError('CSV file is empty')
+        setBuildingImportValidation(null)
+        setBuildingImportCsvContent('')
+        setBuildingImportRowCount(0)
+        setBuildingImportFileName(file.name)
+        return
+      }
+
+      const headers = rows[0] ?? []
+      const validation = validateBuildingImportHeaders(headers)
+      const rowCount = rows.slice(1).filter((row) => row.some((cell) => cell.trim().length > 0)).length
+
+      setBuildingImportCsvContent(content)
+      setBuildingImportFileName(file.name)
+      setBuildingImportRowCount(rowCount)
+      setBuildingImportValidation(validation)
+      setBuildingImportError(null)
+    } catch {
+      setBuildingImportError('Unable to read the CSV file')
+      setBuildingImportValidation(null)
+      setBuildingImportCsvContent('')
+      setBuildingImportRowCount(0)
+      setBuildingImportFileName(file.name)
+    }
+  }, [])
+
+  const togglePermissionInDraftAccount = (permission: PortalPermission) => {
+    setNewPortalAccount((current) => {
+      const hasPermission = current.portalPermissions.includes(permission)
+      const nextPermissions = hasPermission
+        ? current.portalPermissions.filter((item) => item !== permission)
+        : [...current.portalPermissions, permission]
+
+      return {
+        ...current,
+        portalPermissions: nextPermissions,
+      }
+    })
+  }
+
+  const togglePermissionForAccount = (accountId: string, permission: PortalPermission) => {
+    setPortalAccounts((current) =>
+      current.map((account) => {
+        if (account.id !== accountId) return account
+        const hasPermission = account.portalPermissions.includes(permission)
+        return {
+          ...account,
+          portalPermissions: hasPermission
+            ? account.portalPermissions.filter((item) => item !== permission)
+            : [...account.portalPermissions, permission],
+        }
+      }),
+    )
+  }
+
+  const toggleManagedClubInDraftAccount = (clubId: string) => {
+    setNewPortalAccount((current) => {
+      const selected = current.managedClubIds.includes(clubId)
+      return {
+        ...current,
+        managedClubIds: selected
+          ? current.managedClubIds.filter((item) => item !== clubId)
+          : [...current.managedClubIds, clubId],
+      }
+    })
+  }
+
+  const toggleManagedClubForAccount = (accountId: string, clubId: string) => {
+    setPortalAccounts((current) =>
+      current.map((account) => {
+        if (account.id !== accountId) return account
+        const alreadyManaged = account.managedClubs.some((item) => item.clubId === clubId)
+        const nextManagedClubs = alreadyManaged
+          ? account.managedClubs.filter((item) => item.clubId !== clubId)
+          : [
+              ...account.managedClubs,
+              {
+                clubId,
+                club: {
+                  id: clubId,
+                  name: clubs.find((club) => club.id === clubId)?.name ?? 'Unknown Club',
+                  universityId: clubs.find((club) => club.id === clubId)?.universityId ?? '',
+                },
+              },
+            ]
+
+        return {
+          ...account,
+          managedClubs: nextManagedClubs,
+        }
+      }),
+    )
   }
 
   const overviewMetrics = [
@@ -372,6 +709,7 @@ export function AdminDashboard() {
       {university.name}
     </option>
   ))
+  const requiredBuildingHeaders = BUILDING_IMPORT_REQUIRED_HEADERS.join(', ')
 
   return (
     <div className="space-y-6 animate-in-up">
@@ -400,7 +738,7 @@ export function AdminDashboard() {
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl border border-border/60 bg-card/70 p-1">
-          {tabItems.map((item) => (
+          {visibleTabs.map((item) => (
             <TabsTrigger key={item.value} value={item.value} className="rounded-lg px-3 py-2 text-xs md:text-sm">
               <item.icon className="mr-1.5 h-3.5 w-3.5" />
               {item.label}
@@ -858,6 +1196,127 @@ export function AdminDashboard() {
           />
         </TabsContent>
 
+        <TabsContent value="building-import" className="mt-0 space-y-4">
+          <Card className="rounded-2xl border-border/60">
+            <CardHeader>
+              <CardTitle>Import Buildings From CSV</CardTitle>
+              <CardDescription>
+                Choose a university, upload a CSV, and import records for AI/context-aware campus guidance.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    University
+                  </label>
+                  <select
+                    value={buildingImportUniversityId}
+                    onChange={(event) => setBuildingImportUniversityId(event.target.value)}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">Select university</option>
+                    {universityOptions}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    CSV File
+                  </label>
+                  <Input
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={(event) =>
+                      void handleBuildingImportFileSelected(event.target.files?.[0] ?? null)
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                <p className="font-semibold text-foreground">Required columns (exact names):</p>
+                <p className="mt-1 font-mono">{requiredBuildingHeaders}</p>
+                <p className="mt-2">All future building CSV uploads must use the same column names.</p>
+              </div>
+
+              {buildingImportFileName && (
+                <p className="text-xs text-muted-foreground">
+                  File selected: <span className="font-medium text-foreground">{buildingImportFileName}</span>
+                </p>
+              )}
+
+              {buildingImportError && (
+                <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+                  {buildingImportError}
+                </p>
+              )}
+
+              {buildingImportValidation && (
+                <div
+                  className={cn(
+                    'rounded-md border px-3 py-2 text-xs',
+                    buildingImportValidation.valid
+                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
+                      : 'border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300',
+                  )}
+                >
+                  <p className="font-semibold">
+                    {buildingImportValidation.valid
+                      ? 'CSV headers look good.'
+                      : 'CSV headers do not match the required format.'}
+                  </p>
+                  {buildingImportValidation.missingHeaders.length > 0 && (
+                    <p>Missing: {buildingImportValidation.missingHeaders.join(', ')}</p>
+                  )}
+                  {buildingImportValidation.unexpectedHeaders.length > 0 && (
+                    <p>Unexpected: {buildingImportValidation.unexpectedHeaders.join(', ')}</p>
+                  )}
+                  {buildingImportValidation.duplicateHeaders.length > 0 && (
+                    <p>Duplicate: {buildingImportValidation.duplicateHeaders.join(', ')}</p>
+                  )}
+                  <p>Detected data rows: {buildingImportRowCount}</p>
+                </div>
+              )}
+
+              <Button
+                disabled={
+                  saving ||
+                  !buildingImportUniversityId ||
+                  !buildingImportCsvContent ||
+                  !buildingImportValidation?.valid ||
+                  buildingImportRowCount === 0
+                }
+                onClick={() =>
+                  void runMutation(
+                    async () => {
+                      const result = await apiRequest<BuildingImportResult>('/api/admin/buildings/import', {
+                        method: 'POST',
+                        body: {
+                          universityId: buildingImportUniversityId,
+                          csvContent: buildingImportCsvContent,
+                        },
+                      })
+
+                      setBuildingImportCsvContent('')
+                      setBuildingImportFileName('')
+                      setBuildingImportRowCount(0)
+                      setBuildingImportError(null)
+                      setBuildingImportValidation(null)
+
+                      return result
+                    },
+                    (result) =>
+                      `Imported ${result.totalRows} rows (${result.createdCount} created, ${result.updatedCount} updated)`,
+                  )
+                }
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Import Buildings'}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="links" className="mt-0 space-y-4">
           <SimpleCreateCard
             title="Create Resource Link"
@@ -1162,6 +1621,251 @@ export function AdminDashboard() {
               runMutation(async () => {
                 await apiRequest(`/api/admin/events/${recordId}`, { method: 'DELETE' })
               }, 'Event deleted')
+            }
+          />
+        </TabsContent>
+
+        <TabsContent value="it-accounts" className="mt-0 space-y-4">
+          {temporaryAccountPassword && (
+            <Card className="rounded-2xl border-emerald-500/30 bg-emerald-500/10">
+              <CardContent className="p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
+                  Temporary Password
+                </p>
+                <p className="mt-1 font-mono text-sm text-emerald-900 dark:text-emerald-100">
+                  {temporaryAccountPassword}
+                </p>
+                <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-300">
+                  Share this securely and require the user to reset it at first login.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="rounded-2xl border-border/60">
+            <CardHeader>
+              <CardTitle>Create IT / Portal Account</CardTitle>
+              <CardDescription>
+                Provision IT admins and scoped portal users with tab-level access controls.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-3">
+                <select
+                  value={newPortalAccount.universityId}
+                  onChange={(event) =>
+                    setNewPortalAccount((current) => ({
+                      ...current,
+                      universityId: event.target.value,
+                    }))
+                  }
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">Select university</option>
+                  {universityOptions}
+                </select>
+                <Input
+                  value={newPortalAccount.firstName}
+                  onChange={(event) =>
+                    setNewPortalAccount((current) => ({
+                      ...current,
+                      firstName: event.target.value,
+                    }))
+                  }
+                  placeholder="First name"
+                />
+                <Input
+                  value={newPortalAccount.lastName}
+                  onChange={(event) =>
+                    setNewPortalAccount((current) => ({
+                      ...current,
+                      lastName: event.target.value,
+                    }))
+                  }
+                  placeholder="Last name"
+                />
+                <Input
+                  value={newPortalAccount.email}
+                  onChange={(event) =>
+                    setNewPortalAccount((current) => ({
+                      ...current,
+                      email: event.target.value.toLowerCase(),
+                    }))
+                  }
+                  placeholder="Email address"
+                />
+                <select
+                  value={newPortalAccount.role}
+                  onChange={(event) =>
+                    setNewPortalAccount((current) => ({
+                      ...current,
+                      role: event.target.value as 'STUDENT' | 'FACULTY' | 'ADMIN',
+                    }))
+                  }
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="ADMIN">Admin</option>
+                  <option value="FACULTY">Faculty</option>
+                  <option value="STUDENT">Student</option>
+                </select>
+                <select
+                  value={newPortalAccount.accessLevel}
+                  onChange={(event) =>
+                    setNewPortalAccount((current) => ({
+                      ...current,
+                      accessLevel: event.target.value as AdminAccessLevel,
+                    }))
+                  }
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  {accessLevelOptions.map((level) => (
+                    <option key={level} value={level}>
+                      {level.replaceAll('_', ' ')}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  value={newPortalAccount.password}
+                  onChange={(event) =>
+                    setNewPortalAccount((current) => ({
+                      ...current,
+                      password: event.target.value,
+                    }))
+                  }
+                  placeholder="Password (optional)"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Portal Permissions
+                </p>
+                <div className="grid gap-2 md:grid-cols-3">
+                  {portalPermissionOptions.map((permission) => (
+                    <label
+                      key={permission}
+                      className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-xs"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={newPortalAccount.portalPermissions.includes(permission)}
+                        onChange={() => togglePermissionInDraftAccount(permission)}
+                      />
+                      {portalPermissionLabels[permission]}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Managed Clubs (for club leadership roles)
+                </p>
+                <div className="grid gap-2 md:grid-cols-3">
+                  {withinSelectedUniversity(clubs).map((club) => (
+                    <label
+                      key={club.id}
+                      className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-xs"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={newPortalAccount.managedClubIds.includes(club.id)}
+                        onChange={() => toggleManagedClubInDraftAccount(club.id)}
+                      />
+                      {club.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                disabled={
+                  saving ||
+                  !newPortalAccount.universityId ||
+                  !newPortalAccount.firstName.trim() ||
+                  !newPortalAccount.lastName.trim() ||
+                  !newPortalAccount.email.trim()
+                }
+                onClick={() =>
+                  void runMutation(
+                    async () => {
+                      const result = await apiRequest<PortalAccountCreateResult>(
+                        '/api/admin/accounts',
+                        {
+                          method: 'POST',
+                          body: {
+                            universityId: newPortalAccount.universityId,
+                            firstName: newPortalAccount.firstName,
+                            lastName: newPortalAccount.lastName,
+                            email: newPortalAccount.email,
+                            role: newPortalAccount.role,
+                            accessLevel: newPortalAccount.accessLevel,
+                            portalPermissions: newPortalAccount.portalPermissions,
+                            managedClubIds: newPortalAccount.managedClubIds,
+                            password: newPortalAccount.password || undefined,
+                          },
+                        },
+                      )
+
+                      setTemporaryAccountPassword(result.temporaryPassword)
+                      setNewPortalAccount({
+                        universityId: selectedUniversityId,
+                        firstName: '',
+                        lastName: '',
+                        email: '',
+                        role: 'ADMIN',
+                        accessLevel: 'IT_ADMIN',
+                        portalPermissions: [
+                          'ADMIN_TAB_OVERVIEW',
+                          'ADMIN_TAB_FACULTY',
+                          'ADMIN_TAB_BUILDINGS',
+                        ],
+                        managedClubIds: [],
+                        password: '',
+                      })
+                    },
+                    'Portal account created',
+                  )
+                }
+              >
+                <KeyRound className="mr-1.5 h-4 w-4" />
+                Create Account
+              </Button>
+            </CardContent>
+          </Card>
+
+          <CrudPortalAccountsTable
+            records={withinSelectedUniversity(portalAccounts)}
+            universities={universities}
+            clubs={withinSelectedUniversity(clubs)}
+            saving={saving}
+            onChange={setPortalAccounts}
+            onTogglePermission={togglePermissionForAccount}
+            onToggleManagedClub={toggleManagedClubForAccount}
+            onSave={(record) =>
+              runMutation(async () => {
+                await apiRequest(`/api/admin/accounts/${record.id}`, {
+                  method: 'PATCH',
+                  body: {
+                    firstName: record.firstName,
+                    lastName: record.lastName,
+                    role: record.role,
+                    accessLevel: record.adminAccessLevel,
+                    portalPermissions: record.portalPermissions,
+                    managedClubIds: record.managedClubs.map((assignment) => assignment.clubId),
+                    canPublishCampusAnnouncements: record.portalPermissions.includes(
+                      'CAN_PUBLISH_ANNOUNCEMENTS',
+                    ),
+                  },
+                })
+              }, 'Account updated')
+            }
+            onDelete={(recordId) =>
+              runMutation(async () => {
+                await apiRequest(`/api/admin/accounts/${recordId}`, {
+                  method: 'DELETE',
+                })
+              }, 'Account deleted')
             }
           />
         </TabsContent>
@@ -1550,6 +2254,211 @@ function CrudEventTable({
           </TableRow>
         ))}
       />
+    </CrudCard>
+  )
+}
+
+function CrudPortalAccountsTable({
+  records,
+  universities,
+  clubs,
+  saving,
+  onChange,
+  onTogglePermission,
+  onToggleManagedClub,
+  onSave,
+  onDelete,
+}: {
+  records: PortalAccountRecord[]
+  universities: University[]
+  clubs: ClubRecord[]
+  saving: boolean
+  onChange: React.Dispatch<React.SetStateAction<PortalAccountRecord[]>>
+  onTogglePermission: (accountId: string, permission: PortalPermission) => void
+  onToggleManagedClub: (accountId: string, clubId: string) => void
+  onSave: (record: PortalAccountRecord) => Promise<void>
+  onDelete: (recordId: string) => Promise<void>
+}) {
+  return (
+    <CrudCard
+      title="Manage Portal Accounts"
+      description="Update role access levels, tab permissions, and club assignment scope."
+    >
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Account</TableHead>
+              <TableHead>University</TableHead>
+              <TableHead>Access</TableHead>
+              <TableHead>Permissions</TableHead>
+              <TableHead>Managed Clubs</TableHead>
+              <TableHead className="w-[220px]">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {records.map((record) => {
+              const assignedClubIds = new Set(
+                record.managedClubs.map((assignment) => assignment.clubId),
+              )
+
+              return (
+                <TableRow key={record.id}>
+                  <TableCell className="space-y-2 min-w-[260px]">
+                    <Input
+                      value={record.firstName}
+                      onChange={(event) =>
+                        onChange((current) =>
+                          current.map((item) =>
+                            item.id === record.id
+                              ? {
+                                  ...item,
+                                  firstName: event.target.value,
+                                  displayName: `${event.target.value} ${item.lastName}`.trim(),
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                    />
+                    <Input
+                      value={record.lastName}
+                      onChange={(event) =>
+                        onChange((current) =>
+                          current.map((item) =>
+                            item.id === record.id
+                              ? {
+                                  ...item,
+                                  lastName: event.target.value,
+                                  displayName: `${item.firstName} ${event.target.value}`.trim(),
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                    />
+                    <Input value={record.email} disabled />
+                  </TableCell>
+                  <TableCell>
+                    <select
+                      value={record.universityId ?? ''}
+                      disabled
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">Unscoped</option>
+                      {universities.map((university) => (
+                        <option key={university.id} value={university.id}>
+                          {university.name}
+                        </option>
+                      ))}
+                    </select>
+                  </TableCell>
+                  <TableCell className="space-y-2 min-w-[220px]">
+                    <select
+                      value={record.role}
+                      onChange={(event) =>
+                        onChange((current) =>
+                          current.map((item) =>
+                            item.id === record.id
+                              ? {
+                                  ...item,
+                                  role: event.target.value as 'STUDENT' | 'FACULTY' | 'ADMIN',
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="ADMIN">Admin</option>
+                      <option value="FACULTY">Faculty</option>
+                      <option value="STUDENT">Student</option>
+                    </select>
+                    <select
+                      value={record.adminAccessLevel ?? ''}
+                      onChange={(event) =>
+                        onChange((current) =>
+                          current.map((item) =>
+                            item.id === record.id
+                              ? {
+                                  ...item,
+                                  adminAccessLevel: (event.target.value || null) as
+                                    | AdminAccessLevel
+                                    | null,
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">No access level</option>
+                      {accessLevelOptions.map((level) => (
+                        <option key={level} value={level}>
+                          {level.replaceAll('_', ' ')}
+                        </option>
+                      ))}
+                    </select>
+                    <Badge variant="outline">{record.adminAccessLevel ?? 'CUSTOM'}</Badge>
+                  </TableCell>
+                  <TableCell className="min-w-[360px]">
+                    <div className="grid gap-1.5 md:grid-cols-2">
+                      {portalPermissionOptions.map((permission) => (
+                        <label
+                          key={`${record.id}-${permission}`}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-input px-2 py-1 text-[11px]"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={record.portalPermissions.includes(permission)}
+                            onChange={() => onTogglePermission(record.id, permission)}
+                          />
+                          {portalPermissionLabels[permission]}
+                        </label>
+                      ))}
+                    </div>
+                  </TableCell>
+                  <TableCell className="min-w-[240px]">
+                    <div className="grid gap-1.5">
+                      {clubs.map((club) => (
+                        <label
+                          key={`${record.id}-${club.id}`}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-input px-2 py-1 text-[11px]"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={assignedClubIds.has(club.id)}
+                            onChange={() => onToggleManagedClub(record.id, club.id)}
+                          />
+                          {club.name}
+                        </label>
+                      ))}
+                    </div>
+                  </TableCell>
+                  <TableCell className="space-x-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={saving}
+                      onClick={() => void onSave(record)}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={saving}
+                      onClick={() => void onDelete(record.id)}
+                    >
+                      Delete
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </div>
     </CrudCard>
   )
 }

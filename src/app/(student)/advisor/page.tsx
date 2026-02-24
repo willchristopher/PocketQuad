@@ -17,6 +17,8 @@ type ChatResponse = {
   text: string
 }
 
+const MAX_PAYLOAD_MESSAGES = 12
+
 const starterPrompts = [
   'What events are happening this week?',
   'Show me upcoming deadlines I should prioritize.',
@@ -65,6 +67,7 @@ export default function AdvisorPage() {
           role: message.role,
           content: message.content,
         }))
+        .slice(-MAX_PAYLOAD_MESSAGES)
 
       const response = await apiRequest<ChatResponse>('/api/ai/chat?stream=false', {
         method: 'POST',

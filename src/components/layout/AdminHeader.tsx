@@ -23,6 +23,10 @@ const tabConfig: Record<string, { title: string; subtitle: string }> = {
     title: 'Buildings',
     subtitle: 'Manage campus map locations and facility metadata.',
   },
+  'building-import': {
+    title: 'Building Import',
+    subtitle: 'Import university building records from the required CSV format.',
+  },
   links: {
     title: 'Resource Links',
     subtitle: 'Maintain external links shown in student directories.',
@@ -38,6 +42,10 @@ const tabConfig: Record<string, { title: string; subtitle: string }> = {
   events: {
     title: 'Events',
     subtitle: 'Publish and maintain student-facing campus events.',
+  },
+  'it-accounts': {
+    title: 'IT Accounts',
+    subtitle: 'Provision portal accounts and control role-based tab permissions.',
   },
 }
 

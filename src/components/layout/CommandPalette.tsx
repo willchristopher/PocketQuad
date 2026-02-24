@@ -3,7 +3,6 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Bot,
   CalendarRange,
   CalendarClock,
   ExternalLink,
@@ -29,7 +28,6 @@ const navigationItems = [
   { icon: CalendarRange, label: 'Calendar', href: '/calendar' },
   { icon: CalendarClock, label: 'Events', href: '/events' },
   { icon: Users2, label: 'Faculty', href: '/faculty-directory' },
-  { icon: Bot, label: 'AI Advisor', href: '/advisor' },
   { icon: MessageCircleMore, label: 'Chat', href: '/chatroom' },
   { icon: MapPinned, label: 'Map & Services', href: '/campus-map' },
   { icon: ExternalLink, label: 'Resources', href: '/links-directory' },

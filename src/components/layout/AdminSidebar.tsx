@@ -11,7 +11,9 @@ import {
   LayoutDashboard,
   LogOut,
   ShieldCheck,
+  ShieldUser,
   School,
+  Upload,
   UserCog,
   Wrench,
 } from 'lucide-react'
@@ -19,6 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth/context'
+import { getAllowedAdminTabs, type AdminTabValue } from '@/lib/auth/portalPermissions'
 import { cn } from '@/lib/utils'
 
 type AdminSidebarProps = {
@@ -27,15 +30,17 @@ type AdminSidebarProps = {
   onNavigate?: () => void
 }
 
-const adminLinks = [
+const adminLinks: Array<{ icon: React.ElementType; label: string; tab: AdminTabValue }> = [
   { icon: LayoutDashboard, label: 'Overview', tab: 'overview' },
   { icon: School, label: 'Universities', tab: 'universities' },
   { icon: UserCog, label: 'Faculty', tab: 'faculty' },
   { icon: Building2, label: 'Buildings', tab: 'buildings' },
+  { icon: Upload, label: 'Building Import', tab: 'building-import' },
   { icon: ExternalLink, label: 'Resource Links', tab: 'links' },
   { icon: Wrench, label: 'Services', tab: 'services' },
   { icon: Landmark, label: 'Clubs', tab: 'clubs' },
   { icon: CalendarDays, label: 'Events', tab: 'events' },
+  { icon: ShieldUser, label: 'IT Accounts', tab: 'it-accounts' },
 ]
 
 export function AdminSidebar({ className, mobile = false, onNavigate }: AdminSidebarProps) {
@@ -45,6 +50,24 @@ export function AdminSidebar({ className, mobile = false, onNavigate }: AdminSid
   const { profile, signOut } = useAuth()
 
   const currentTab = searchParams.get('tab') ?? 'overview'
+  const allowedTabs = React.useMemo(() => {
+    if (!profile) return adminLinks.map((item) => item.tab)
+    const resolved = getAllowedAdminTabs(profile)
+    return resolved.length > 0 ? resolved : ['overview']
+  }, [profile])
+  const visibleLinks = React.useMemo(
+    () => adminLinks.filter((item) => allowedTabs.includes(item.tab)),
+    [allowedTabs],
+  )
+  const defaultTab = visibleLinks[0]?.tab ?? 'overview'
+
+  React.useEffect(() => {
+    if (pathname !== '/admin') return
+    if (allowedTabs.includes(currentTab as AdminTabValue)) return
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', defaultTab)
+    router.replace(`/admin?${params.toString()}`, { scroll: false })
+  }, [allowedTabs, currentTab, defaultTab, pathname, router, searchParams])
 
   const handleLogout = async () => {
     await signOut()
@@ -64,7 +87,7 @@ export function AdminSidebar({ className, mobile = false, onNavigate }: AdminSid
       )}
     >
       <div className="flex h-14 items-center justify-between border-b border-border/50 px-5">
-        <Link href="/admin?tab=overview" onClick={onNavigate} className="flex items-center gap-3">
+        <Link href={`/admin?tab=${defaultTab}`} onClick={onNavigate} className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background">
             <ShieldCheck className="h-4 w-4" />
           </div>
@@ -74,12 +97,12 @@ export function AdminSidebar({ className, mobile = false, onNavigate }: AdminSid
           </div>
         </Link>
         <Badge variant="secondary" className="text-[9px] tracking-wide font-medium">
-          ADMIN
+          {profile?.adminAccessLevel?.replaceAll('_', ' ') ?? profile?.role ?? 'ADMIN'}
         </Badge>
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3 custom-scrollbar">
-        {adminLinks.map((item) => {
+        {visibleLinks.map((item) => {
           const isActive = pathname === '/admin' && currentTab === item.tab
           const Icon = item.icon
           const href = `/admin?tab=${item.tab}`

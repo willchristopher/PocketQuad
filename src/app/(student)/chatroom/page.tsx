@@ -49,6 +49,8 @@ export default function ChatroomPage() {
   const [loadingMessages, setLoadingMessages] = React.useState(false)
   const [sending, setSending] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const reloadTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastLocalSendAtRef = React.useRef(0)
 
   const loadChannels = React.useCallback(async () => {
     setLoadingChannels(true)
@@ -85,6 +87,23 @@ export default function ChatroomPage() {
     }
   }, [])
 
+  const clearScheduledReload = React.useCallback(() => {
+    if (!reloadTimerRef.current) return
+    clearTimeout(reloadTimerRef.current)
+    reloadTimerRef.current = null
+  }, [])
+
+  const scheduleMessagesReload = React.useCallback(
+    (channelId: string, delayMs = 300) => {
+      clearScheduledReload()
+      reloadTimerRef.current = setTimeout(() => {
+        reloadTimerRef.current = null
+        void loadMessages(channelId)
+      }, delayMs)
+    },
+    [clearScheduledReload, loadMessages],
+  )
+
   React.useEffect(() => {
     void loadChannels()
   }, [loadChannels])
@@ -97,14 +116,26 @@ export default function ChatroomPage() {
 
     void loadMessages(activeChannelId)
 
-    const realtime = subscribeToChannel(activeChannelId, () => {
-      void loadMessages(activeChannelId)
+    const realtime = subscribeToChannel(activeChannelId, (payload) => {
+      const nextUserId = (payload as { new?: { user_id?: string } })?.new?.user_id
+      if (nextUserId === profile?.id && Date.now() - lastLocalSendAtRef.current < 1200) {
+        return
+      }
+      scheduleMessagesReload(activeChannelId)
     })
 
     return () => {
+      clearScheduledReload()
       void realtime.unsubscribe()
     }
-  }, [activeChannelId, loadMessages])
+  }, [activeChannelId, clearScheduledReload, loadMessages, profile?.id, scheduleMessagesReload])
+
+  React.useEffect(
+    () => () => {
+      clearScheduledReload()
+    },
+    [clearScheduledReload],
+  )
 
   const createDefaultChannel = async () => {
     setError(null)
@@ -141,6 +172,7 @@ export default function ChatroomPage() {
         },
       })
 
+      lastLocalSendAtRef.current = Date.now()
       setMessages((previous) => [...previous, created])
       setDraft('')
     } catch (err) {

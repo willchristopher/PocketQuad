@@ -6,8 +6,34 @@ import { updateProfileSchema } from '@/lib/validations'
 
 export async function GET() {
   try {
-    const { profile } = await getAuthenticatedUser()
-    return successResponse(profile)
+    const { profile } = await getAuthenticatedUser({
+      includePreferences: true,
+      includeUniversity: true,
+    })
+
+    const fullProfile = await prisma.user.findUnique({
+      where: { id: profile.id },
+      include: {
+        notificationPreferences: true,
+        university: {
+          select: { id: true, name: true, domain: true },
+        },
+        managedClubs: {
+          select: {
+            clubId: true,
+            club: {
+              select: {
+                id: true,
+                universityId: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    return successResponse(fullProfile)
   } catch (error) {
     return handleApiError(error)
   }

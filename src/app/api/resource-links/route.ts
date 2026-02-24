@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server'
 import { ResourceLinkCategory } from '@prisma/client'
 
-import { prisma } from '@/lib/prisma'
 import { getAuthenticatedUser, handleApiError, successResponse } from '@/lib/api/utils'
+import { getResourceLinksCached } from '@/lib/server/universityData'
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,26 +19,7 @@ export async function GET(request: NextRequest) {
         ? requestedUniversityId
         : profile.universityId ?? undefined
 
-    const links = await prisma.campusResourceLink.findMany({
-      where: {
-        ...(universityId ? { universityId } : {}),
-        ...(categoryFilter ? { category: categoryFilter } : {}),
-        ...(query
-          ? {
-              OR: [
-                { label: { contains: query, mode: 'insensitive' } },
-                { description: { contains: query, mode: 'insensitive' } },
-              ],
-            }
-          : {}),
-      },
-      include: {
-        university: {
-          select: { id: true, name: true, slug: true },
-        },
-      },
-      orderBy: [{ category: 'asc' }, { label: 'asc' }],
-    })
+    const links = await getResourceLinksCached(universityId, categoryFilter, query)
 
     return successResponse(links)
   } catch (error) {

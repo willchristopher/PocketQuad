@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server'
 import { CampusServiceStatus } from '@prisma/client'
 
-import { prisma } from '@/lib/prisma'
 import { getAuthenticatedUser, handleApiError, successResponse } from '@/lib/api/utils'
+import { getCampusServicesCached } from '@/lib/server/universityData'
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,18 +18,7 @@ export async function GET(request: NextRequest) {
         ? requestedUniversityId
         : profile.universityId ?? undefined
 
-    const services = await prisma.campusService.findMany({
-      where: {
-        ...(universityId ? { universityId } : {}),
-        ...(statusFilter ? { status: statusFilter } : {}),
-      },
-      include: {
-        university: {
-          select: { id: true, name: true, slug: true },
-        },
-      },
-      orderBy: [{ name: 'asc' }],
-    })
+    const services = await getCampusServicesCached(universityId, statusFilter)
 
     return successResponse(services)
   } catch (error) {

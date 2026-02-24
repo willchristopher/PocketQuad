@@ -2,11 +2,12 @@ import { NextRequest } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse } from '@/lib/api/utils'
+import { invalidateUniversityData, UNIVERSITY_DATA_TAGS } from '@/lib/server/universityData'
 import { campusResourceLinkCreateSchema } from '@/lib/validations/admin'
 
 export async function GET(request: NextRequest) {
   try {
-    await getAuthenticatedAdmin()
+    await getAuthenticatedAdmin('ADMIN_TAB_LINKS')
     const universityId = request.nextUrl.searchParams.get('universityId') ?? undefined
 
     const records = await prisma.campusResourceLink.findMany({
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    await getAuthenticatedAdmin()
+    await getAuthenticatedAdmin('ADMIN_TAB_LINKS')
     const payload = campusResourceLinkCreateSchema.parse(await request.json())
 
     const university = await prisma.university.findUnique({
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
         },
       },
     })
+    invalidateUniversityData(UNIVERSITY_DATA_TAGS.resourceLinks)
 
     return successResponse(record, 201)
   } catch (error) {

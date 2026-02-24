@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 
-import { prisma } from '@/lib/prisma'
 import { getAuthenticatedUser, handleApiError, successResponse } from '@/lib/api/utils'
+import { getFacultyCached } from '@/lib/server/universityData'
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,38 +14,14 @@ export async function GET(request: NextRequest) {
         ? requestedUniversityId
         : profile.universityId ?? undefined
 
-    const faculty = await prisma.faculty.findMany({
-      where: {
-        ...(universityId ? { universityId } : {}),
-        ...(department ? { department } : {}),
-        ...(search
-          ? {
-              OR: [
-                { name: { contains: search, mode: 'insensitive' } },
-                { title: { contains: search, mode: 'insensitive' } },
-              ],
-            }
-          : {}),
-      },
-      include: {
-        favorites: {
-          where: {
-            userId: profile.id,
-          },
-          select: {
-            id: true,
-          },
-        },
-      },
-      orderBy: [{ department: 'asc' }, { name: 'asc' }],
-    })
-
-    return successResponse(
-      faculty.map((item) => ({
-        ...item,
-        isFavorited: item.favorites.length > 0,
-      })),
+    const faculty = await getFacultyCached(
+      universityId,
+      department ?? undefined,
+      search ?? undefined,
+      profile.id,
     )
+
+    return successResponse(faculty)
   } catch (error) {
     return handleApiError(error)
   }

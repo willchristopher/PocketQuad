@@ -7,6 +7,7 @@ import {
   handleApiError,
   successResponse,
 } from '@/lib/api/utils'
+import { ALL_UNIVERSITY_DATA_TAGS, invalidateUniversityData } from '@/lib/server/universityData'
 import { universityUpdateSchema } from '@/lib/validations/admin'
 import { slugifyUniversityName } from '@/lib/university'
 
@@ -16,7 +17,7 @@ type RouteContext = {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    await getAuthenticatedAdmin()
+    await getAuthenticatedAdmin('ADMIN_TAB_UNIVERSITIES')
     const { id } = await context.params
     const payload = universityUpdateSchema.parse(await request.json())
 
@@ -31,6 +32,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             : {}),
       },
     })
+    invalidateUniversityData(...ALL_UNIVERSITY_DATA_TAGS)
 
     return successResponse(updated)
   } catch (error) {
@@ -40,7 +42,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
-    await getAuthenticatedAdmin()
+    await getAuthenticatedAdmin('ADMIN_TAB_UNIVERSITIES')
     const { id } = await context.params
 
     const target = await prisma.university.findUnique({
@@ -72,6 +74,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     }
 
     await prisma.university.delete({ where: { id } })
+    invalidateUniversityData(...ALL_UNIVERSITY_DATA_TAGS)
 
     return successResponse({ deleted: true })
   } catch (error) {

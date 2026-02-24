@@ -1,9 +1,14 @@
 'use client'
 
 import React from 'react'
+import dynamic from 'next/dynamic'
 import { FacultySidebar } from '@/components/layout/FacultySidebar'
 import { FacultyHeader } from '@/components/layout/FacultyHeader'
-import { AIChatWidget } from '@/components/ai/AIChatWidget'
+
+const AIChatWidget = dynamic(
+  () => import('@/components/ai/AIChatWidget').then((module) => module.AIChatWidget),
+  { ssr: false },
+)
 
 export default function FacultyLayout({ children }: { children: React.ReactNode }) {
   return (

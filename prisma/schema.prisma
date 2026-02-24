@@ -14,6 +14,30 @@ enum UserRole {
   ADMIN
 }
 
+enum AdminAccessLevel {
+  OWNER
+  IT_ADMIN
+  CLUB_PRESIDENT
+  CONTENT_MANAGER
+}
+
+enum PortalPermission {
+  ADMIN_PORTAL_ACCESS
+  ADMIN_TAB_OVERVIEW
+  ADMIN_TAB_UNIVERSITIES
+  ADMIN_TAB_FACULTY
+  ADMIN_TAB_BUILDINGS
+  ADMIN_TAB_BUILDING_IMPORT
+  ADMIN_TAB_LINKS
+  ADMIN_TAB_SERVICES
+  ADMIN_TAB_CLUBS
+  ADMIN_TAB_EVENTS
+  ADMIN_TAB_IT_ACCOUNTS
+  CAN_PUBLISH_ANNOUNCEMENTS
+  CAN_MANAGE_CLUB_PROFILE
+  CAN_MANAGE_CLUB_CONTACT
+}
+
 enum NotificationType {
   OFFICE_HOUR
   NEW_EVENT
@@ -93,6 +117,8 @@ model User {
   avatar                  String?
   role                    UserRole                 @default(STUDENT)
   canPublishCampusAnnouncements Boolean            @default(false) @map("can_publish_campus_announcements")
+  adminAccessLevel        AdminAccessLevel?        @map("admin_access_level")
+  portalPermissions       PortalPermission[]       @default([]) @map("portal_permissions")
   major                   String?
   department              String?
   bio                     String?
@@ -119,6 +145,7 @@ model User {
   deadlines               Deadline[]
   aiConversations         AIConversation[]
   aiMessages              AIMessage[]
+  managedClubs            ClubManagerAssignment[]
   university              University?              @relation(fields: [universityId], references: [id], onDelete: SetNull)
 
   @@index([universityId])
@@ -155,6 +182,7 @@ model Notification {
   user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, read, createdAt(sort: Desc)])
   @@map("notifications")
 }
 
@@ -184,6 +212,7 @@ model ChannelMember {
 
   @@unique([channelId, userId])
   @@index([userId])
+  @@index([userId, joinedAt(sort: Desc)])
   @@map("channel_members")
 }
 
@@ -244,6 +273,7 @@ model Event {
   university   University?     @relation(fields: [universityId], references: [id], onDelete: SetNull)
 
   @@index([universityId, date])
+  @@index([universityId, isPublished, isCancelled, date])
   @@index([date])
   @@index([category])
   @@map("events")
@@ -317,6 +347,10 @@ model CampusBuilding {
   type         String
   address      String
   mapQuery     String     @map("map_query")
+  description  String?
+  categories   String[]   @default([])
+  services     String[]   @default([])
+  departments  String[]   @default([])
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
   university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
@@ -367,10 +401,26 @@ model ClubOrganization {
   meetingInfo  String?    @map("meeting_info")
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
+  managers     ClubManagerAssignment[]
   university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
 
   @@index([universityId, name])
   @@map("club_organizations")
+}
+
+model ClubManagerAssignment {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  clubId    String           @map("club_id")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  club      ClubOrganization @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clubId])
+  @@index([clubId])
+  @@index([userId])
+  @@map("club_manager_assignments")
 }
 
 model FacultyFavorite {
@@ -423,6 +473,8 @@ model OfficeHourQueue {
   student      User        @relation("QueueStudent", fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([officeHourId, position])
+  @@index([officeHourId, status, position])
+  @@index([officeHourId, studentId, status])
   @@index([studentId, joinedAt(sort: Desc)])
   @@map("office_hour_queue")
 }
@@ -459,6 +511,7 @@ model Deadline {
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, dueDate])
+  @@index([userId, completed, dueDate])
   @@map("deadlines")
 }
 
@@ -511,5 +564,6 @@ model Announcement {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@index([isActive, createdAt(sort: Desc)])
   @@map("announcements")
 }

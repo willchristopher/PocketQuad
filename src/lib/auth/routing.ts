@@ -1,8 +1,32 @@
-export type AppRole = 'STUDENT' | 'FACULTY' | 'ADMIN'
+import {
+  canAccessAdminPortal,
+  type AdminAccessLevel,
+  type AppRole,
+  type PortalPermission,
+} from '@/lib/auth/portalPermissions'
 
-export function getHomeForRole(role: AppRole | undefined | null) {
-  if (role === 'FACULTY') return '/faculty/dashboard'
-  if (role === 'ADMIN') return '/admin'
+type HomeRouteProfile = {
+  role: AppRole
+  adminAccessLevel?: AdminAccessLevel | null
+  portalPermissions?: PortalPermission[] | null
+  canPublishCampusAnnouncements?: boolean
+}
+
+export function getHomeForRole(
+  roleOrProfile: AppRole | HomeRouteProfile | undefined | null,
+) {
+  if (!roleOrProfile) {
+    return '/dashboard'
+  }
+
+  if (typeof roleOrProfile !== 'string') {
+    if (canAccessAdminPortal(roleOrProfile)) return '/admin'
+    if (roleOrProfile.role === 'FACULTY') return '/faculty/dashboard'
+    return '/dashboard'
+  }
+
+  if (roleOrProfile === 'FACULTY') return '/faculty/dashboard'
+  if (roleOrProfile === 'ADMIN') return '/admin'
   return '/dashboard'
 }
 

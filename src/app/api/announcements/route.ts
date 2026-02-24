@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
         id: {
           not: profile.id,
         },
+        ...(profile.universityId ? { universityId: profile.universityId } : {}),
       },
       select: {
         id: true,

@@ -23,6 +23,19 @@ export async function GET() {
       },
       include: {
         notificationPreferences: true,
+        university: { select: { id: true, name: true, domain: true } },
+        managedClubs: {
+          select: {
+            clubId: true,
+            club: {
+              select: {
+                id: true,
+                universityId: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     })
 

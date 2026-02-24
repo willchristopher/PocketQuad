@@ -1,35 +1,49 @@
 'use client'
 
 import * as React from 'react'
-import { Sparkles, MessageSquare, Send, X, CalendarDays, Users2, BookOpen } from 'lucide-react'
+import { Sparkles, MessageSquare, Send, X } from 'lucide-react'
 
 import { ApiClientError, apiRequest } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { useScrollDirection } from '@/hooks/useScrollDirection'
+import { useAuth } from '@/lib/auth/context'
 import { AIChatDialog, AIMessage } from './AIChatDialog'
-
-const quickActions = [
-  { label: 'Events this week', icon: CalendarDays },
-  { label: 'Find study groups', icon: Users2 },
-  { label: 'Library hours', icon: BookOpen },
-]
 
 type ChatResponse = {
   conversationId: string
   text: string
 }
 
+const MAX_PAYLOAD_MESSAGES = 12
+
 export function AIChatWidget() {
   const isMobile = useMediaQuery('(max-width: 768px)')
+  const scrollingDown = useScrollDirection()
+  const { profile } = useAuth()
   const [open, setOpen] = React.useState(false)
   const [conversationId, setConversationId] = React.useState<string | undefined>(undefined)
-  const [messages, setMessages] = React.useState<AIMessage[]>([
-    { id: 'welcome', role: 'assistant', content: 'Hi! I’m your MyQuad assistant. How can I help today?' },
-  ])
+  const [messages, setMessages] = React.useState<AIMessage[]>([])
   const [input, setInput] = React.useState('')
   const [isTyping, setIsTyping] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const listRef = React.useRef<HTMLDivElement>(null)
+
+  // Set a personalized welcome message once profile is available
+  const welcomeSet = React.useRef(false)
+  React.useEffect(() => {
+    if (welcomeSet.current) return
+    const name = profile?.displayName?.split(' ')[0] ?? profile?.firstName ?? ''
+    const greeting = name ? `Hi ${name}!` : 'Hi there!'
+    setMessages([
+      {
+        id: 'welcome',
+        role: 'assistant',
+        content: `${greeting} I'm your MyQuad campus assistant. I have access to your university's events, faculty, services, buildings, clubs, and your personal schedule. What can I help you with?`,
+      },
+    ])
+    if (profile) welcomeSet.current = true
+  }, [profile])
 
   React.useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
@@ -51,7 +65,7 @@ export function AIChatWidget() {
       const payloadMessages = nextMessages.map((message) => ({
         role: message.role,
         content: message.content,
-      }))
+      })).slice(-MAX_PAYLOAD_MESSAGES)
 
       const response = await apiRequest<ChatResponse>('/api/ai/chat?stream=false', {
         method: 'POST',
@@ -74,18 +88,13 @@ export function AIChatWidget() {
     }
   }
 
-  const handleQuickAction = (label: string) => {
-    setInput(label)
-    setOpen(true)
-    void sendMessage(label)
-  }
-
   if (isMobile) {
     return (
       <>
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-24 right-4 z-40 w-12 h-12 rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/30 flex items-center justify-center hover:scale-105 transition-transform"
+          style={{ bottom: scrollingDown ? 48 : 80 }}
+          className="fixed right-4 z-40 w-12 h-12 rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/30 flex items-center justify-center hover:scale-105 transition-all duration-300"
           aria-label="Open AI Assistant"
         >
           <Sparkles className="w-5 h-5" />
@@ -108,17 +117,6 @@ export function AIChatWidget() {
   return (
     <>
       <div className="fixed bottom-6 right-6 z-40 flex items-center gap-2">
-        <div className="hidden md:flex items-center gap-2">
-          {quickActions.map(action => (
-            <button
-              key={action.label}
-              onClick={() => handleQuickAction(action.label)}
-              className="pill-btn bg-card border border-border/60 text-xs font-semibold hover:bg-muted transition-colors"
-            >
-              <action.icon className="w-3.5 h-3.5 mr-1" /> {action.label}
-            </button>
-          ))}
-        </div>
         <button
           onClick={() => setOpen(prev => !prev)}
           className="w-12 h-12 rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/30 flex items-center justify-center hover:scale-105 transition-transform"
@@ -136,7 +134,7 @@ export function AIChatWidget() {
             </div>
             <div>
               <p className="text-sm font-bold">AI Campus Assistant</p>
-              <p className="text-[11px] text-muted-foreground">Ask about events, schedules, or resources</p>
+              <p className="text-[11px] text-muted-foreground">Powered by your university&apos;s live data</p>
             </div>
           </div>
 
@@ -181,7 +179,7 @@ export function AIChatWidget() {
                     void sendMessage()
                   }
                 }}
-                placeholder="Ask the assistant..."
+                placeholder="Ask about events, faculty, clubs, services..."
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
               />
               <button

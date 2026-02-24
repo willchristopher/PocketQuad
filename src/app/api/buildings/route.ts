@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 
-import { prisma } from '@/lib/prisma'
 import { getAuthenticatedUser, handleApiError, successResponse } from '@/lib/api/utils'
+import { getBuildingsCached } from '@/lib/server/universityData'
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,26 +13,7 @@ export async function GET(request: NextRequest) {
         ? requestedUniversityId
         : profile.universityId ?? undefined
 
-    const buildings = await prisma.campusBuilding.findMany({
-      where: {
-        ...(universityId ? { universityId } : {}),
-        ...(query
-          ? {
-              OR: [
-                { name: { contains: query, mode: 'insensitive' } },
-                { address: { contains: query, mode: 'insensitive' } },
-                { type: { contains: query, mode: 'insensitive' } },
-              ],
-            }
-          : {}),
-      },
-      include: {
-        university: {
-          select: { id: true, name: true, slug: true },
-        },
-      },
-      orderBy: [{ name: 'asc' }],
-    })
+    const buildings = await getBuildingsCached(universityId, query)
 
     return successResponse(buildings)
   } catch (error) {

@@ -10,7 +10,7 @@ type RouteContext = {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    await getAuthenticatedAdmin()
+    await getAuthenticatedAdmin('ADMIN_TAB_EVENTS')
     const { id } = await context.params
     const payload = adminEventUpdateSchema.parse(await request.json())
 
@@ -43,7 +43,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
-    await getAuthenticatedAdmin()
+    await getAuthenticatedAdmin('ADMIN_TAB_EVENTS')
     const { id } = await context.params
 
     await prisma.event.delete({ where: { id } })

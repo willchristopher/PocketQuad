@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse } from '@/lib/api/utils'
+import { invalidateUniversityData, UNIVERSITY_DATA_TAGS } from '@/lib/server/universityData'
 import { campusServiceUpdateSchema } from '@/lib/validations/admin'
 
 type RouteContext = {
@@ -10,7 +11,7 @@ type RouteContext = {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    await getAuthenticatedAdmin()
+    await getAuthenticatedAdmin('ADMIN_TAB_SERVICES')
     const { id } = await context.params
     const payload = campusServiceUpdateSchema.parse(await request.json())
 
@@ -34,6 +35,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         },
       },
     })
+    invalidateUniversityData(UNIVERSITY_DATA_TAGS.services)
 
     return successResponse(updated)
   } catch (error) {
@@ -43,10 +45,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
-    await getAuthenticatedAdmin()
+    await getAuthenticatedAdmin('ADMIN_TAB_SERVICES')
     const { id } = await context.params
 
     await prisma.campusService.delete({ where: { id } })
+    invalidateUniversityData(UNIVERSITY_DATA_TAGS.services)
 
     return successResponse({ deleted: true })
   } catch (error) {

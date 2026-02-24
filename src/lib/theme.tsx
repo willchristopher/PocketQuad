@@ -76,16 +76,16 @@ function adjustHexLightness(hex: string, amount: number): string {
 
 function applyUniversityColors(colors: UniversityColors) {
   const root = document.documentElement
-  const primaryHSL = hexToHSL(colors.mainColor)
+  const mainHSL = hexToHSL(colors.mainColor)
   const accentHSL = hexToHSL(colors.accentColor)
-  const primaryIsLight = getLuminance(colors.mainColor) > 0.5
   const accentIsLight = getLuminance(colors.accentColor) > 0.5
 
-  root.style.setProperty('--primary', primaryHSL)
-  root.style.setProperty('--primary-foreground', primaryIsLight ? '224 71% 4%' : '0 0% 100%')
-  root.style.setProperty('--ring', primaryHSL)
+  // Use accent color (e.g. gold) as the primary so toggles, tabs, badges, etc. show it
+  root.style.setProperty('--primary', accentHSL)
+  root.style.setProperty('--primary-foreground', accentIsLight ? '224 71% 4%' : '0 0% 100%')
+  root.style.setProperty('--ring', accentHSL)
 
-  // Build gradient from main color
+  // Build gradient from main color (e.g. navy)
   const lighterMain = adjustHexLightness(colors.mainColor, 40)
   root.style.setProperty(
     '--gradient-primary',
@@ -96,9 +96,10 @@ function applyUniversityColors(colors: UniversityColors) {
     `linear-gradient(135deg, ${colors.mainColor} 0%, ${colors.accentColor} 100%)`,
   )
 
-  // Set accent as a custom property for components that use it
+  // Keep uni-specific custom properties for components that need the raw values
   root.style.setProperty('--uni-accent', accentHSL)
   root.style.setProperty('--uni-accent-fg', accentIsLight ? '224 71% 4%' : '0 0% 100%')
+  root.style.setProperty('--uni-main', mainHSL)
   root.style.setProperty('--uni-main-hex', colors.mainColor)
   root.style.setProperty('--uni-accent-hex', colors.accentColor)
 
@@ -115,6 +116,7 @@ function removeUniversityColors() {
     '--gradient-cool',
     '--uni-accent',
     '--uni-accent-fg',
+    '--uni-main',
     '--uni-main-hex',
     '--uni-accent-hex',
   ]
@@ -167,7 +169,7 @@ export function UniversityThemeProvider({ children }: { children: React.ReactNod
     const universityId = (profile as Record<string, unknown> | null)?.universityId as string | null | undefined
     if (!universityId) return
 
-    apiRequest<ThemeResponse>(`/api/admin/universities/${universityId}`)
+    apiRequest<ThemeResponse>(`/api/universities/${universityId}/theme`)
       .then((data) => {
         if (data.themeMainColor && data.themeAccentColor) {
           const colors = { mainColor: data.themeMainColor, accentColor: data.themeAccentColor }

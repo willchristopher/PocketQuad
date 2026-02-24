@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server'
 import { ZodError } from 'zod'
+import type { UserRole } from '@prisma/client'
 
 import { prisma } from '@/lib/prisma'
+import {
+  canAccessAdminPortal,
+  hasAnyPortalPermission,
+  hasPortalPermission,
+  resolvePortalPermissions,
+  type AdminAccessLevel,
+  type PortalPermission,
+} from '@/lib/auth/portalPermissions'
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server'
 
 export class ApiError extends Error {
@@ -14,7 +23,65 @@ export class ApiError extends Error {
   }
 }
 
-export async function getAuthenticatedUser() {
+type GetAuthenticatedUserOptions = {
+  includePreferences?: boolean
+  includeUniversity?: boolean
+  includeManagedClubs?: boolean
+}
+
+type AuthenticatedProfile = {
+  id: string
+  supabaseId: string | null
+  universityId: string | null
+  email: string
+  displayName: string
+  firstName: string
+  lastName: string
+  avatar: string | null
+  role: UserRole
+  canPublishCampusAnnouncements: boolean
+  adminAccessLevel: AdminAccessLevel | null
+  portalPermissions: PortalPermission[]
+  managedClubs?: Array<{
+    clubId: string
+    club: {
+      id: string
+      universityId: string
+      name: string
+    }
+  }>
+  notificationPreferences?: {
+    officeHourChanges: boolean
+    newEvents: boolean
+    eventReminders: boolean
+    deadlineReminders: boolean
+    emailDigest: boolean
+    pushEnabled: boolean
+    theme: string
+  } | null
+  university?: {
+    id: string
+    name: string
+    domain: string | null
+  } | null
+}
+
+const BASE_PROFILE_SELECT = {
+  id: true,
+  supabaseId: true,
+  universityId: true,
+  email: true,
+  displayName: true,
+  firstName: true,
+  lastName: true,
+  avatar: true,
+  role: true,
+  canPublishCampusAnnouncements: true,
+  adminAccessLevel: true,
+  portalPermissions: true,
+} as const
+
+export async function getAuthenticatedUser(options: GetAuthenticatedUserOptions = {}) {
   const supabase = await createSupabaseRouteHandlerClient()
   const { data, error } = await supabase.auth.getUser()
 
@@ -22,19 +89,64 @@ export async function getAuthenticatedUser() {
     throw new ApiError(401, 'Unauthorized')
   }
 
-  const where = data.user.email
+  const normalizedEmail = data.user.email?.toLowerCase()
+  const where = normalizedEmail
     ? {
         OR: [
           { supabaseId: data.user.id },
-          { email: data.user.email },
+          { email: normalizedEmail },
         ],
       }
     : { supabaseId: data.user.id }
 
   const profile = await prisma.user.findFirst({
     where,
-    include: { notificationPreferences: true },
-  })
+    select: {
+      ...BASE_PROFILE_SELECT,
+      ...(options.includePreferences
+        ? {
+            notificationPreferences: {
+              select: {
+                officeHourChanges: true,
+                newEvents: true,
+                eventReminders: true,
+                deadlineReminders: true,
+                emailDigest: true,
+                pushEnabled: true,
+                theme: true,
+              },
+            },
+          }
+        : {}),
+      ...(options.includeUniversity
+        ? {
+            university: {
+              select: {
+                id: true,
+                name: true,
+                domain: true,
+              },
+            },
+          }
+        : {}),
+      ...(options.includeManagedClubs
+        ? {
+            managedClubs: {
+              select: {
+                clubId: true,
+                club: {
+                  select: {
+                    id: true,
+                    universityId: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          }
+        : {}),
+    },
+  }) as AuthenticatedProfile | null
 
   if (!profile) {
     throw new ApiError(404, 'User profile not found')
@@ -50,14 +162,55 @@ export async function getAuthenticatedUser() {
   return { supabaseUser: data.user, profile }
 }
 
-export async function getAuthenticatedAdmin() {
-  const authenticated = await getAuthenticatedUser()
+export async function getAuthenticatedAdmin(
+  requiredPermission?: PortalPermission | PortalPermission[],
+) {
+  return getAuthenticatedPortalUser(requiredPermission)
+}
 
-  if (authenticated.profile.role !== 'ADMIN') {
-    throw new ApiError(403, 'Admin access required')
+export async function getAuthenticatedPortalUser(
+  requiredPermission?: PortalPermission | PortalPermission[],
+) {
+  const authenticated = await getAuthenticatedUser({
+    includeManagedClubs: true,
+  })
+
+  if (!canAccessAdminPortal(authenticated.profile)) {
+    throw new ApiError(403, 'Portal access required')
   }
 
-  return authenticated
+  if (requiredPermission) {
+    const required = Array.isArray(requiredPermission)
+      ? requiredPermission
+      : [requiredPermission]
+
+    const hasAll = required.every((permission) =>
+      hasPortalPermission(authenticated.profile, permission),
+    )
+
+    if (!hasAll) {
+      throw new ApiError(403, 'You do not have permission for this action')
+    }
+  }
+
+  return {
+    ...authenticated,
+    resolvedPermissions: resolvePortalPermissions(authenticated.profile),
+  }
+}
+
+export function requireAnyPortalPermission(
+  profile: {
+    role: 'STUDENT' | 'FACULTY' | 'ADMIN'
+    adminAccessLevel?: AdminAccessLevel | null
+    portalPermissions?: PortalPermission[] | null
+    canPublishCampusAnnouncements?: boolean
+  },
+  permissions: PortalPermission[],
+) {
+  if (!hasAnyPortalPermission(profile, permissions)) {
+    throw new ApiError(403, 'You do not have permission for this action')
+  }
 }
 
 export function successResponse<T>(data: T, status = 200) {
@@ -66,10 +219,16 @@ export function successResponse<T>(data: T, status = 200) {
 
 export function handleApiError(error: unknown) {
   if (error instanceof ZodError) {
+    const flat = error.flatten()
+    const fieldMessages = Object.entries(flat.fieldErrors)
+      .map(([field, messages]) => `${field}: ${(messages as string[]).join(', ')}`)
+    const formMessages = flat.formErrors
+    const firstMessage = fieldMessages[0] ?? formMessages[0] ?? 'Validation failed'
+
     return NextResponse.json(
       {
-        error: 'Validation failed',
-        issues: error.flatten(),
+        error: firstMessage,
+        issues: flat,
       },
       { status: 400 },
     )

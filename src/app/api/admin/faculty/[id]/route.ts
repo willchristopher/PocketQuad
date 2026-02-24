@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse } from '@/lib/api/utils'
+import { invalidateUniversityData, UNIVERSITY_DATA_TAGS } from '@/lib/server/universityData'
 import { adminFacultyUpdateSchema } from '@/lib/validations/admin'
 
 type RouteContext = {
@@ -17,7 +18,7 @@ function splitName(name: string) {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    await getAuthenticatedAdmin()
+    await getAuthenticatedAdmin('ADMIN_TAB_FACULTY')
     const { id } = await context.params
     const payload = adminFacultyUpdateSchema.parse(await request.json())
 
@@ -88,6 +89,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         },
       })
     })
+    invalidateUniversityData(UNIVERSITY_DATA_TAGS.faculty)
 
     return successResponse(updated)
   } catch (error) {
@@ -97,7 +99,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
-    await getAuthenticatedAdmin()
+    await getAuthenticatedAdmin('ADMIN_TAB_FACULTY')
     const { id } = await context.params
 
     const existing = await prisma.faculty.findUnique({
@@ -110,6 +112,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     }
 
     await prisma.faculty.delete({ where: { id } })
+    invalidateUniversityData(UNIVERSITY_DATA_TAGS.faculty)
 
     return successResponse({ deleted: true })
   } catch (error) {

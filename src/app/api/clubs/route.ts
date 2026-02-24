@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 
-import { prisma } from '@/lib/prisma'
 import { getAuthenticatedUser, handleApiError, successResponse } from '@/lib/api/utils'
+import { getClubsCached } from '@/lib/server/universityData'
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,26 +14,7 @@ export async function GET(request: NextRequest) {
         ? requestedUniversityId
         : profile.universityId ?? undefined
 
-    const clubs = await prisma.clubOrganization.findMany({
-      where: {
-        ...(universityId ? { universityId } : {}),
-        ...(category ? { category } : {}),
-        ...(query
-          ? {
-              OR: [
-                { name: { contains: query, mode: 'insensitive' } },
-                { description: { contains: query, mode: 'insensitive' } },
-              ],
-            }
-          : {}),
-      },
-      include: {
-        university: {
-          select: { id: true, name: true, slug: true },
-        },
-      },
-      orderBy: [{ name: 'asc' }],
-    })
+    const clubs = await getClubsCached(universityId, category ?? undefined, query)
 
     return successResponse(clubs)
   } catch (error) {

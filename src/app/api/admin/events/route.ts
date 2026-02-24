@@ -6,7 +6,7 @@ import { adminEventCreateSchema } from '@/lib/validations/admin'
 
 export async function GET(request: NextRequest) {
   try {
-    await getAuthenticatedAdmin()
+    await getAuthenticatedAdmin('ADMIN_TAB_EVENTS')
     const universityId = request.nextUrl.searchParams.get('universityId') ?? undefined
 
     const events = await prisma.event.findMany({
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    await getAuthenticatedAdmin()
+    await getAuthenticatedAdmin('ADMIN_TAB_EVENTS')
     const payload = adminEventCreateSchema.parse(await request.json())
 
     const university = await prisma.university.findUnique({

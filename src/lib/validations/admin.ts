@@ -1,4 +1,8 @@
 import { z } from 'zod'
+import {
+  ADMIN_ACCESS_LEVELS,
+  PORTAL_PERMISSIONS,
+} from '@/lib/auth/portalPermissions'
 
 const optionalTrimmed = z.string().trim().optional().transform((value) => value || undefined)
 
@@ -65,6 +69,10 @@ export const campusBuildingCreateSchema = z.object({
   type: z.string().trim().min(2).max(80),
   address: z.string().trim().min(2).max(240),
   mapQuery: z.string().trim().min(2).max(240),
+  description: z.string().trim().max(2000).optional(),
+  categories: z.array(z.string().trim().min(1).max(120)).max(30).default([]),
+  services: z.array(z.string().trim().min(1).max(200)).max(50).default([]),
+  departments: z.array(z.string().trim().min(1).max(200)).max(50).default([]),
 })
 
 export const campusBuildingUpdateSchema = z.object({
@@ -74,6 +82,15 @@ export const campusBuildingUpdateSchema = z.object({
   type: z.string().trim().min(2).max(80).optional(),
   address: z.string().trim().min(2).max(240).optional(),
   mapQuery: z.string().trim().min(2).max(240).optional(),
+  description: z.string().trim().max(2000).optional().nullable(),
+  categories: z.array(z.string().trim().min(1).max(120)).max(30).optional(),
+  services: z.array(z.string().trim().min(1).max(200)).max(50).optional(),
+  departments: z.array(z.string().trim().min(1).max(200)).max(50).optional(),
+})
+
+export const buildingImportRequestSchema = z.object({
+  universityId: z.string().cuid(),
+  csvContent: z.string().trim().min(1),
 })
 
 export const campusResourceLinkCreateSchema = z.object({
@@ -152,4 +169,29 @@ export const adminEventUpdateSchema = z.object({
   category: z.enum(['ACADEMIC', 'SOCIAL', 'SPORTS', 'ARTS', 'CAREER', 'CLUBS', 'WELLNESS', 'OTHER']).optional(),
   organizer: z.string().trim().min(2).max(120).optional(),
   isPublished: z.boolean().optional(),
+})
+
+const portalPermissionSchema = z.enum(PORTAL_PERMISSIONS)
+const accessLevelSchema = z.enum(ADMIN_ACCESS_LEVELS)
+
+export const adminPortalAccountCreateSchema = z.object({
+  universityId: z.string().cuid(),
+  firstName: z.string().trim().min(1).max(80),
+  lastName: z.string().trim().min(1).max(80),
+  email: z.string().trim().toLowerCase().email(),
+  role: z.enum(['STUDENT', 'FACULTY', 'ADMIN']).optional(),
+  accessLevel: accessLevelSchema.default('IT_ADMIN'),
+  portalPermissions: z.array(portalPermissionSchema).max(40).optional(),
+  managedClubIds: z.array(z.string().cuid()).max(100).optional(),
+  password: z.string().min(12).max(120).optional(),
+})
+
+export const adminPortalAccountUpdateSchema = z.object({
+  firstName: z.string().trim().min(1).max(80).optional(),
+  lastName: z.string().trim().min(1).max(80).optional(),
+  role: z.enum(['STUDENT', 'FACULTY', 'ADMIN']).optional(),
+  accessLevel: accessLevelSchema.optional().nullable(),
+  portalPermissions: z.array(portalPermissionSchema).max(40).optional(),
+  managedClubIds: z.array(z.string().cuid()).max(100).optional(),
+  canPublishCampusAnnouncements: z.boolean().optional(),
 })
