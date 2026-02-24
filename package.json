@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "launch": "bash ./scripts/launch.sh",
-    "build": "next build",
+    "build": "prisma generate && next build",
+    "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint"
   },
