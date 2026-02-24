@@ -22,8 +22,8 @@ export const metadata: Metadata = {
   title: "PocketQuad | Campus Hub",
   description: "Intelligent university campus hub application.",
   icons: {
-    icon: "/transparentPocketQuad.png",
-    apple: "/transparentPocketQuad.png",
+    icon: "/transparentlogo.png",
+    apple: "/transparentlogo.png",
   },
 };
 

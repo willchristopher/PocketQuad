@@ -162,7 +162,7 @@ function LoginForm() {
         <section className="flex w-full flex-col items-center text-center lg:w-1/2 lg:items-start lg:text-left">
           <Link href="/login" className="inline-flex items-center gap-2.5">
             <Image
-              src="/transparentPocketQuad.png"
+              src="/transparentlogo.png"
               alt="PocketQuad logo"
               width={44}
               height={44}
