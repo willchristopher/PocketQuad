@@ -45,6 +45,8 @@ function LoginForm() {
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [focusedField, setFocusedField] = React.useState<string | null>(null)
+  const [activeFeature, setActiveFeature] = React.useState(0)
+  const [isTransitioning, setIsTransitioning] = React.useState(false)
 
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -53,6 +55,18 @@ function LoginForm() {
   React.useEffect(() => {
     const rememberedEmail = window.localStorage.getItem('pocketquad:last-login-email')
     if (rememberedEmail) setEmail(rememberedEmail)
+  }, [])
+
+  // Cycle through feature chips with smooth animation
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setIsTransitioning(true)
+      setTimeout(() => {
+        setActiveFeature((prev) => (prev + 1) % FEATURE_CHIPS.length)
+        setIsTransitioning(false)
+      }, 400)
+    }, 3000)
+    return () => clearInterval(interval)
   }, [])
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -135,17 +149,36 @@ function LoginForm() {
             One login unlocks everything — AI advisor, live chatrooms, office hours, events, and more.
           </p>
 
-          {/* Feature chips */}
-          <div className="mt-8 flex flex-wrap gap-2 justify-center lg:justify-start">
-            {FEATURE_CHIPS.map((chip) => (
-              <span
-                key={chip}
-                className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs font-medium text-blue-200/70 backdrop-blur-sm transition-all hover:bg-white/10 hover:text-white"
+          {/* Animated feature rotator */}
+          <div className="mt-8 flex items-center gap-3 justify-center lg:justify-start">
+            <span className="text-xs font-medium text-blue-200/40 uppercase tracking-widest shrink-0">Explore</span>
+            <div className="relative h-9 overflow-hidden">
+              <div
+                className={`inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 backdrop-blur-sm transition-all duration-400 ease-in-out ${
+                  isTransitioning
+                    ? 'opacity-0 translate-y-3 blur-[2px]'
+                    : 'opacity-100 translate-y-0 blur-0'
+                }`}
               >
-                <Sparkles className="h-3 w-3 text-blue-400/60" />
-                {chip}
-              </span>
-            ))}
+                <Sparkles className="h-3.5 w-3.5 text-blue-400/80" />
+                <span className="text-sm font-medium text-blue-100/90 whitespace-nowrap">
+                  {FEATURE_CHIPS[activeFeature]}
+                </span>
+              </div>
+            </div>
+            {/* Progress dots */}
+            <div className="hidden sm:flex items-center gap-1 ml-1">
+              {FEATURE_CHIPS.map((_, i) => (
+                <span
+                  key={i}
+                  className={`block h-1 rounded-full transition-all duration-500 ${
+                    i === activeFeature
+                      ? 'w-4 bg-blue-400/70'
+                      : 'w-1 bg-white/15'
+                  }`}
+                />
+              ))}
+            </div>
           </div>
         </section>
 

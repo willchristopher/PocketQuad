@@ -66,6 +66,38 @@ type AuthenticatedProfile = {
   } | null
 }
 
+async function ensureFacultyProfile(profile: AuthenticatedProfile) {
+  if (profile.role !== 'FACULTY') {
+    return
+  }
+
+  const normalizedDisplayName = profile.displayName.trim()
+  const fallbackName = `${profile.firstName} ${profile.lastName}`.trim()
+  const name = normalizedDisplayName || fallbackName || profile.email
+
+  await prisma.faculty.upsert({
+    where: {
+      userId: profile.id,
+    },
+    update: {
+      email: profile.email,
+      universityId: profile.universityId,
+    },
+    create: {
+      userId: profile.id,
+      universityId: profile.universityId,
+      name,
+      title: 'Faculty Member',
+      department: 'General',
+      email: profile.email,
+      officeLocation: 'TBD',
+      officeHours: 'TBD',
+      courses: [],
+      tags: [],
+    },
+  })
+}
+
 const BASE_PROFILE_SELECT = {
   id: true,
   supabaseId: true,
@@ -158,6 +190,8 @@ export async function getAuthenticatedUser(options: GetAuthenticatedUserOptions 
       data: { supabaseId: data.user.id },
     })
   }
+
+  await ensureFacultyProfile(profile)
 
   return { supabaseUser: data.user, profile }
 }
