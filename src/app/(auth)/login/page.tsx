@@ -1,12 +1,13 @@
 'use client'
 
 import React, { Suspense } from 'react'
-import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import { apiRequest, ApiClientError } from '@/lib/api/client'
+import { useAuth } from '@/lib/auth/context'
 import {
   type AdminAccessLevel,
   type PortalPermission,
@@ -19,29 +20,14 @@ type SessionResponse = {
     adminAccessLevel: AdminAccessLevel | null
     portalPermissions: PortalPermission[]
     canPublishCampusAnnouncements: boolean
+    onboardingComplete: boolean
   } | null
 }
 
-const SLOT_KEYWORDS = [
-  'campus news',
-  'faculty office hours',
-  'student chatroom',
-  'personal AI advisor',
-  'your own event calendar',
-  'building directions',
-  'accessibility updates',
-  'campus closures',
-  'dining locations',
-  'facility hours',
-  'faculty information',
-  'list of clubs',
-  'directories',
-] as const
-
-const SLOT_DURATION_MS = 8000
-const SLOT_ROW_HEIGHT_PX = 64
-const SLOT_CYCLES = 3
-const SLOT_FADE_OUT_MS = 400
+const FEATURE_CHIPS = [
+  'Campus Map', 'AI Advisor', 'Office Hours', 'Clubs', 'Events',
+  'Chatroom', 'Notifications', 'Calendar', 'Faculty Directory',
+]
 
 export default function LoginPage() {
   return (
@@ -58,62 +44,16 @@ function LoginForm() {
   const [rememberMe, setRememberMe] = React.useState(true)
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [slotOffset, setSlotOffset] = React.useState(0)
-  const [slotSettled, setSlotSettled] = React.useState(false)
-  const [slotFadingOut, setSlotFadingOut] = React.useState(false)
-  const [prefersReducedMotion, setPrefersReducedMotion] = React.useState(false)
+  const [focusedField, setFocusedField] = React.useState<string | null>(null)
 
   const router = useRouter()
   const searchParams = useSearchParams()
-  const slotSequence = React.useMemo(() => {
-    const loops = Array.from({ length: SLOT_CYCLES }, () => SLOT_KEYWORDS).flat()
-    return [...loops, 'it all.']
-  }, [])
+  const { refreshProfile } = useAuth()
 
   React.useEffect(() => {
     const rememberedEmail = window.localStorage.getItem('pocketquad:last-login-email')
-    if (rememberedEmail) {
-      setEmail(rememberedEmail)
-    }
+    if (rememberedEmail) setEmail(rememberedEmail)
   }, [])
-
-  React.useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const updatePreference = () => setPrefersReducedMotion(mediaQuery.matches)
-    updatePreference()
-    mediaQuery.addEventListener('change', updatePreference)
-    return () => mediaQuery.removeEventListener('change', updatePreference)
-  }, [])
-
-  React.useEffect(() => {
-    const maxOffset = (slotSequence.length - 1) * SLOT_ROW_HEIGHT_PX
-    if (prefersReducedMotion) {
-      setSlotOffset(maxOffset)
-      setSlotSettled(true)
-      setSlotFadingOut(false)
-      return
-    }
-
-    setSlotSettled(false)
-    setSlotFadingOut(false)
-    setSlotOffset(0)
-    const frame = window.requestAnimationFrame(() => {
-      setSlotOffset(maxOffset)
-    })
-    const fadeTimer = window.setTimeout(() => {
-      setSlotFadingOut(true)
-    }, SLOT_DURATION_MS)
-    const settleTimer = window.setTimeout(() => {
-      setSlotSettled(true)
-      setSlotFadingOut(false)
-    }, SLOT_DURATION_MS + SLOT_FADE_OUT_MS)
-
-    return () => {
-      window.cancelAnimationFrame(frame)
-      window.clearTimeout(fadeTimer)
-      window.clearTimeout(settleTimer)
-    }
-  }, [prefersReducedMotion, slotSequence.length])
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -123,11 +63,7 @@ function LoginForm() {
     try {
       await apiRequest('/api/auth/login', {
         method: 'POST',
-        body: {
-          email,
-          password,
-          rememberMe,
-        },
+        body: { email, password, rememberMe },
       })
 
       if (rememberMe) {
@@ -138,8 +74,15 @@ function LoginForm() {
 
       const session = await apiRequest<SessionResponse>('/api/auth/session')
       const redirectTarget = getSafeRedirectTarget(searchParams.get('redirect'))
-      const destination = redirectTarget ?? getHomeForRole(session.profile)
 
+      if (session.profile && !session.profile.onboardingComplete) {
+        try { await refreshProfile() } catch { /* continue anyway */ }
+        router.push('/onboarding')
+        router.refresh()
+        return
+      }
+
+      const destination = redirectTarget ?? getHomeForRole(session.profile)
       router.push(destination)
       router.refresh()
     } catch (err) {
@@ -151,170 +94,193 @@ function LoginForm() {
   }
 
   return (
-    <div className="relative isolate min-h-screen overflow-hidden bg-background px-4 py-8 sm:px-6 lg:px-10">
+    <div className="relative isolate min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950/80 to-slate-950">
+      {/* Animated background elements */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(59,130,246,0.16),transparent_35%),radial-gradient(circle_at_80%_65%,rgba(6,182,212,0.16),transparent_40%)]" />
-        <div className="absolute -top-24 left-[15%] h-72 w-72 rounded-full bg-sky-500/10 blur-3xl" />
-        <div className="absolute -bottom-20 right-[10%] h-80 w-80 rounded-full bg-blue-600/10 blur-3xl" />
+        <div className="absolute top-0 left-1/4 h-[500px] w-[500px] rounded-full bg-blue-500/15 blur-[120px] animate-pulse" />
+        <div className="absolute bottom-0 right-1/4 h-[400px] w-[400px] rounded-full bg-cyan-500/10 blur-[100px] animate-pulse [animation-delay:2s]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-indigo-500/[0.08] blur-[150px]" />
+        {/* Grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:60px_60px]" />
       </div>
 
-      <main className="relative mx-auto flex w-full max-w-6xl flex-col gap-8 lg:min-h-[calc(100vh-4rem)] lg:flex-row lg:items-center lg:gap-14">
+      <main className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col items-center justify-center gap-10 px-4 py-10 lg:flex-row lg:gap-20 lg:px-10">
+        {/* Left - Branding */}
         <section className="flex w-full flex-col items-center text-center lg:w-1/2 lg:items-start lg:text-left">
-          <Link href="/login" className="inline-flex items-center gap-2.5">
-            <Image
-              src="/transparentlogo.png"
-              alt="PocketQuad logo"
-              width={44}
-              height={44}
-              className="rounded-xl"
-              priority
-            />
-            <span className="font-display text-3xl font-extrabold tracking-tight">PocketQuad</span>
+          <Link href="/login" className="group inline-flex items-center gap-3 mb-8">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-2xl bg-blue-500/20 blur-lg group-hover:bg-blue-500/30 transition-all" />
+              <Image
+                src="/transparentlogo.png"
+                alt="PocketQuad logo"
+                width={56}
+                height={56}
+                className="relative rounded-2xl"
+                priority
+              />
+            </div>
+            <span className="font-display text-4xl font-black tracking-tight text-white">
+              Pocket<span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Quad</span>
+            </span>
           </Link>
 
-          <h1 className="mt-6 text-3xl font-display font-black leading-tight tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-            One login. Infinite opportunity.
+          <h1 className="text-4xl font-display font-black leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-6xl">
+            Your campus,{' '}
+            <span className="bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent">
+              your way.
+            </span>
           </h1>
-          <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-            One account unlocks your campus tools, updates, and connections in seconds.
+
+          <p className="mt-5 max-w-lg text-lg leading-relaxed text-blue-100/60">
+            One login unlocks everything — AI advisor, live chatrooms, office hours, events, and more.
           </p>
 
-          <div className="mt-8 w-full max-w-xl rounded-3xl border border-border/70 bg-card/90 p-4 shadow-2xl shadow-black/5 backdrop-blur sm:p-6">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/80">PocketQuad Highlights</p>
-            <div className="mt-3 flex flex-col gap-3 items-center lg:items-start">
-              <div className={`flex w-full justify-center gap-2 lg:justify-start ${slotSettled ? 'items-baseline' : 'items-center'}`}>
-                <p className="shrink-0 text-xl font-display font-bold leading-none tracking-tight text-foreground sm:text-2xl">PocketQuad has</p>
-                {slotSettled ? (
-                  <span className="text-xl font-display font-extrabold leading-none tracking-tight text-primary sm:text-2xl">it all.</span>
-                ) : (
-                  <div
-                    className={`relative h-16 min-w-0 flex-1 overflow-hidden rounded-2xl border border-primary/25 bg-background transition-opacity duration-500 ${
-                      slotFadingOut ? 'opacity-0' : 'opacity-100'
-                    }`}
-                  >
-                    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-4 bg-gradient-to-b from-background to-transparent" />
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-4 bg-gradient-to-t from-background to-transparent" />
-                    <div
-                      className="will-change-transform subpixel-antialiased [transform:translateZ(0)]"
-                      style={{
-                        transform: `translate3d(0, -${slotOffset}px, 0)`,
-                        transition: prefersReducedMotion
-                          ? 'none'
-                          : `transform ${SLOT_DURATION_MS}ms cubic-bezier(0.16, 1, 0.3, 1)`,
-                        backfaceVisibility: 'hidden',
-                      }}
-                    >
-                      {slotSequence.map((phrase, index) => (
-                        <div
-                          key={`${phrase}-${index}`}
-                          className="flex h-16 items-center px-4 text-xl font-semibold tracking-tight text-foreground sm:text-2xl"
-                        >
-                          {phrase}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground sm:text-base lg:text-left">Everything students and faculty need, all in one place.</p>
-            </div>
+          {/* Feature chips */}
+          <div className="mt-8 flex flex-wrap gap-2 justify-center lg:justify-start">
+            {FEATURE_CHIPS.map((chip) => (
+              <span
+                key={chip}
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs font-medium text-blue-200/70 backdrop-blur-sm transition-all hover:bg-white/10 hover:text-white"
+              >
+                <Sparkles className="h-3 w-3 text-blue-400/60" />
+                {chip}
+              </span>
+            ))}
           </div>
         </section>
 
-        <section className="w-full lg:w-1/2">
-          <div className="mx-auto w-full max-w-md rounded-3xl border border-border/60 bg-card p-6 shadow-2xl shadow-black/10 sm:p-8">
-            <div className="mb-6">
-              <h2 className="text-2xl font-display font-extrabold tracking-tight text-foreground">Sign in</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Use your email and password to continue.</p>
-            </div>
+        {/* Right - Login Card */}
+        <section className="w-full lg:w-[440px]">
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-7 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-9">
+            {/* Glow effect */}
+            <div className="pointer-events-none absolute -top-20 -right-20 h-40 w-40 rounded-full bg-blue-500/20 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-20 -left-20 h-40 w-40 rounded-full bg-cyan-500/10 blur-3xl" />
 
-            <form className="space-y-4" onSubmit={onSubmit}>
-              <div>
-                <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/70">Email</label>
-                <div className="flex items-center gap-2.5 rounded-xl border border-border/70 bg-muted/20 px-3.5 py-3 transition-all focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/30">
-                  <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="you@university.edu"
-                    className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
-                    required
-                    autoComplete="email"
-                    disabled={submitting}
-                  />
+            <div className="relative">
+              <h2 className="font-display text-2xl font-extrabold tracking-tight text-white">Welcome back</h2>
+              <p className="mt-1.5 text-sm text-blue-200/50">Sign in to continue to your campus hub.</p>
+
+              <form className="mt-7 space-y-5" onSubmit={onSubmit}>
+                <div>
+                  <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.22em] text-blue-200/40">Email</label>
+                  <div className={`flex items-center gap-3 rounded-2xl border bg-white/[0.03] px-4 py-3.5 transition-all ${
+                    focusedField === 'email'
+                      ? 'border-blue-400/50 ring-2 ring-blue-400/20 bg-white/[0.06]'
+                      : 'border-white/10 hover:border-white/20'
+                  }`}>
+                    <Mail className="h-4 w-4 shrink-0 text-blue-400/50" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      onFocus={() => setFocusedField('email')}
+                      onBlur={() => setFocusedField(null)}
+                      placeholder="you@university.edu"
+                      className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/20"
+                      required
+                      autoComplete="email"
+                      disabled={submitting}
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/70">Password</label>
-                <div className="flex items-center gap-2.5 rounded-xl border border-border/70 bg-muted/20 px-3.5 py-3 transition-all focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/30">
-                  <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="••••••••"
-                    className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
-                    required
-                    autoComplete="current-password"
-                    disabled={submitting}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="text-muted-foreground transition-colors hover:text-foreground"
-                    disabled={submitting}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+                <div>
+                  <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.22em] text-blue-200/40">Password</label>
+                  <div className={`flex items-center gap-3 rounded-2xl border bg-white/[0.03] px-4 py-3.5 transition-all ${
+                    focusedField === 'password'
+                      ? 'border-blue-400/50 ring-2 ring-blue-400/20 bg-white/[0.06]'
+                      : 'border-white/10 hover:border-white/20'
+                  }`}>
+                    <Lock className="h-4 w-4 shrink-0 text-blue-400/50" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onFocus={() => setFocusedField('password')}
+                      onBlur={() => setFocusedField(null)}
+                      placeholder="••••••••"
+                      className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/20"
+                      required
+                      autoComplete="current-password"
+                      disabled={submitting}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="text-white/30 transition-colors hover:text-white/60"
+                      disabled={submitting}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {error && (
-                <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-700 dark:text-red-300">
-                  {error}
+                {error && (
+                  <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 backdrop-blur">
+                    <p className="text-xs font-medium text-red-300">{error}</p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <label className="inline-flex items-center gap-2.5 text-xs text-white/40 cursor-pointer group">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        disabled={submitting}
+                        className="peer sr-only"
+                      />
+                      <div className="h-5 w-5 rounded-lg border border-white/15 bg-white/5 transition-all peer-checked:border-blue-400/50 peer-checked:bg-blue-500/20" />
+                      <svg className="absolute top-0.5 left-0.5 h-4 w-4 text-blue-400 opacity-0 peer-checked:opacity-100 transition-opacity" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z" />
+                      </svg>
+                    </div>
+                    <span className="group-hover:text-white/60 transition-colors">Remember me</span>
+                  </label>
+                  <Link href="/forgot-password" className="text-xs font-semibold text-blue-400/70 hover:text-blue-300 transition-colors">
+                    Forgot password?
+                  </Link>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="group relative flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-gradient-to-r from-blue-500 to-cyan-500 py-4 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition-all hover:shadow-blue-500/40 hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <span className="relative z-10 flex items-center gap-2">
+                    {submitting ? (
+                      <>
+                        <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Signing in...
+                      </>
+                    ) : (
+                      <>
+                        Sign In <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                      </>
+                    )}
+                  </span>
+                </button>
+              </form>
+
+              <div className="mt-8 border-t border-white/10 pt-6 text-center space-y-2.5">
+                <p className="text-sm text-white/40">
+                  Don&apos;t have an account?{' '}
+                  <Link href="/register" className="font-semibold text-blue-400 hover:text-blue-300 transition-colors">
+                    Sign up
+                  </Link>
                 </p>
-              )}
-
-              <div className="flex items-center justify-between">
-                <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(event) => setRememberMe(event.target.checked)}
-                    disabled={submitting}
-                  />
-                  Remember email
-                </label>
-                <Link href="/forgot-password" className="text-xs font-semibold text-primary hover:underline">
-                  Forgot password?
-                </Link>
+                <p className="text-xs text-white/30">
+                  Faculty first time?{' '}
+                  <Link href="/register" className="font-semibold text-cyan-400/70 hover:text-cyan-300 transition-colors">
+                    Activate account
+                  </Link>
+                </p>
               </div>
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:brightness-110 hover:shadow-primary/35 disabled:opacity-70"
-              >
-                {submitting ? 'Signing In...' : 'Sign In'} <ArrowRight className="h-4 w-4" />
-              </button>
-            </form>
-
-            <div className="mt-6 border-t border-border/60 pt-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                Don&apos;t have an account?{' '}
-                <Link href="/register" className="font-semibold text-primary hover:underline">
-                  Sign up
-                </Link>
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Faculty first-time setup?{' '}
-                <Link href="/register" className="font-semibold text-primary hover:underline">
-                  Activate faculty account
-                </Link>
-              </p>
             </div>
           </div>
         </section>

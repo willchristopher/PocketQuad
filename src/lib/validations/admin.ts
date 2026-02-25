@@ -223,3 +223,16 @@ export const adminPortalAccountUpdateSchema = z.object({
   managedClubIds: z.array(z.string().cuid()).max(100).optional(),
   canPublishCampusAnnouncements: z.boolean().optional(),
 })
+
+export const adminUserUpdateSchema = z.object({
+  firstName: z.string().trim().min(1).max(80).optional(),
+  lastName: z.string().trim().min(1).max(80).optional(),
+  email: z.string().trim().toLowerCase().email().optional(),
+  role: z.enum(['STUDENT', 'FACULTY', 'ADMIN']).optional(),
+  major: z.string().trim().max(120).optional().nullable(),
+  department: z.string().trim().max(120).optional().nullable(),
+  year: z.string().trim().max(40).optional().nullable(),
+  bio: z.string().trim().max(1000).optional().nullable(),
+  adminAccessLevel: accessLevelSchema.optional().nullable(),
+  onboardingComplete: z.boolean().optional(),
+})

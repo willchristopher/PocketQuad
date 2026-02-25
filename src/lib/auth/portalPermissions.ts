@@ -19,6 +19,7 @@ export const PORTAL_PERMISSIONS = [
   'ADMIN_TAB_CLUBS',
   'ADMIN_TAB_EVENTS',
   'ADMIN_TAB_IT_ACCOUNTS',
+  'ADMIN_TAB_USERS',
   'CAN_PUBLISH_ANNOUNCEMENTS',
   'CAN_MANAGE_CLUB_PROFILE',
   'CAN_MANAGE_CLUB_CONTACT',
@@ -46,6 +47,7 @@ export type AdminTabValue =
   | 'clubs'
   | 'events'
   | 'it-accounts'
+  | 'users'
 
 export const ADMIN_TAB_PERMISSION: Record<AdminTabValue, PortalPermission> = {
   overview: 'ADMIN_TAB_OVERVIEW',
@@ -58,6 +60,7 @@ export const ADMIN_TAB_PERMISSION: Record<AdminTabValue, PortalPermission> = {
   clubs: 'ADMIN_TAB_CLUBS',
   events: 'ADMIN_TAB_EVENTS',
   'it-accounts': 'ADMIN_TAB_IT_ACCOUNTS',
+  users: 'ADMIN_TAB_USERS',
 }
 
 const OWNER_PERMISSIONS: PortalPermission[] = [
@@ -72,6 +75,7 @@ const OWNER_PERMISSIONS: PortalPermission[] = [
   'ADMIN_TAB_CLUBS',
   'ADMIN_TAB_EVENTS',
   'ADMIN_TAB_IT_ACCOUNTS',
+  'ADMIN_TAB_USERS',
   'CAN_PUBLISH_ANNOUNCEMENTS',
   'CAN_MANAGE_CLUB_PROFILE',
   'CAN_MANAGE_CLUB_CONTACT',
@@ -86,6 +90,7 @@ const IT_ADMIN_PERMISSIONS: PortalPermission[] = [
   'ADMIN_TAB_LINKS',
   'ADMIN_TAB_SERVICES',
   'ADMIN_TAB_EVENTS',
+  'ADMIN_TAB_USERS',
 ]
 
 const CLUB_PRESIDENT_PERMISSIONS: PortalPermission[] = [

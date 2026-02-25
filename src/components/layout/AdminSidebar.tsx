@@ -14,6 +14,7 @@ import {
   ShieldUser,
   School,
   UserCog,
+  Users,
   Wrench,
 } from 'lucide-react'
 
@@ -38,6 +39,7 @@ const adminLinks: Array<{ icon: React.ElementType; label: string; tab: AdminTabV
   { icon: Landmark, label: 'Clubs', tab: 'clubs' },
   { icon: CalendarDays, label: 'Events', tab: 'events' },
   { icon: ShieldUser, label: 'IT Accounts', tab: 'it-accounts' },
+  { icon: Users, label: 'Users', tab: 'users' },
 ]
 
 export function AdminSidebar({ className, mobile = false, onNavigate }: AdminSidebarProps) {

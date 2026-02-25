@@ -67,6 +67,7 @@ type TabValue =
   | 'clubs'
   | 'events'
   | 'it-accounts'
+  | 'users'
 
 const tabItems: Array<{ value: TabValue; label: string; icon: React.ElementType }> = [
   { value: 'overview', label: 'Overview', icon: Landmark },
@@ -79,6 +80,7 @@ const tabItems: Array<{ value: TabValue; label: string; icon: React.ElementType 
   { value: 'clubs', label: 'Clubs', icon: Users },
   { value: 'events', label: 'Events', icon: CalendarDays },
   { value: 'it-accounts', label: 'IT Accounts', icon: ShieldUser },
+  { value: 'users', label: 'Users', icon: Users },
 ]
 
 type University = {
@@ -248,6 +250,25 @@ type PortalAccountCreateResult = {
   temporaryPassword: string | null
 }
 
+type UserRecord = {
+  id: string
+  universityId?: string | null
+  email: string
+  firstName: string
+  lastName: string
+  displayName: string
+  role: 'STUDENT' | 'FACULTY' | 'ADMIN'
+  adminAccessLevel: AdminAccessLevel | null
+  major: string | null
+  department: string | null
+  year: string | null
+  emailVerified: boolean
+  onboardingComplete: boolean
+  createdAt: string
+  lastLogin: string | null
+  university?: { id: string; name: string; slug: string } | null
+}
+
 const resourceCategories: LinkCategory[] = [
   'LEARNING',
   'COMMUNICATION',
@@ -303,6 +324,7 @@ const portalPermissionOptions: PortalPermission[] = [
   'ADMIN_TAB_CLUBS',
   'ADMIN_TAB_EVENTS',
   'ADMIN_TAB_IT_ACCOUNTS',
+  'ADMIN_TAB_USERS',
   'CAN_PUBLISH_ANNOUNCEMENTS',
   'CAN_MANAGE_CLUB_PROFILE',
   'CAN_MANAGE_CLUB_CONTACT',
@@ -320,6 +342,7 @@ const portalPermissionLabels: Record<PortalPermission, string> = {
   ADMIN_TAB_CLUBS: 'Tab: Clubs',
   ADMIN_TAB_EVENTS: 'Tab: Events',
   ADMIN_TAB_IT_ACCOUNTS: 'Tab: IT Accounts',
+  ADMIN_TAB_USERS: 'Tab: Users',
   CAN_PUBLISH_ANNOUNCEMENTS: 'Publish Announcements',
   CAN_MANAGE_CLUB_PROFILE: 'Manage Club Profile',
   CAN_MANAGE_CLUB_CONTACT: 'Manage Club Contact',
@@ -388,6 +411,9 @@ export function AdminDashboard() {
   const [events, setEvents] = React.useState<EventRecord[]>([])
   const [portalAccounts, setPortalAccounts] = React.useState<PortalAccountRecord[]>([])
   const [temporaryAccountPassword, setTemporaryAccountPassword] = React.useState<string | null>(null)
+  const [allUsers, setAllUsers] = React.useState<UserRecord[]>([])
+  const [userSearchQuery, setUserSearchQuery] = React.useState('')
+  const [userRoleFilter, setUserRoleFilter] = React.useState<string>('')
 
   // UI expansion state
   const [expandedFacultyId, setExpandedFacultyId] = React.useState<string | null>(null)
@@ -497,6 +523,7 @@ export function AdminDashboard() {
   const canManageClubs = !profile || hasPortalPermission(profile, 'ADMIN_TAB_CLUBS')
   const canManageEvents = !profile || hasPortalPermission(profile, 'ADMIN_TAB_EVENTS')
   const canManageAccounts = !profile || hasPortalPermission(profile, 'ADMIN_TAB_IT_ACCOUNTS')
+  const canManageUsers = !profile || hasPortalPermission(profile, 'ADMIN_TAB_USERS')
 
   const fallbackUniversityFromProfile = React.useMemo<University[]>(() => {
     if (!profile?.university) return []
@@ -539,6 +566,7 @@ export function AdminDashboard() {
         setClubs([])
         setEvents([])
         setPortalAccounts([])
+        setAllUsers([])
         return
       }
 
@@ -552,6 +580,7 @@ export function AdminDashboard() {
         nextClubs,
         nextEvents,
         nextAccounts,
+        nextUsers,
       ] = await Promise.all([
         canManageFaculty
           ? apiRequest<FacultyRecord[]>(`/api/admin/faculty${universityQuery}`)
@@ -579,6 +608,9 @@ export function AdminDashboard() {
         canManageAccounts
           ? apiRequest<PortalAccountRecord[]>(`/api/admin/accounts${universityQuery}`)
           : Promise.resolve([]),
+        canManageUsers
+          ? apiRequest<UserRecord[]>(`/api/admin/users${universityQuery}`)
+          : Promise.resolve([]),
       ])
 
       setFaculty(nextFaculty)
@@ -589,6 +621,7 @@ export function AdminDashboard() {
       setClubs(nextClubs)
       setEvents(nextEvents)
       setPortalAccounts(nextAccounts)
+      setAllUsers(nextUsers)
     } catch (error) {
       toast.error(asErrorMessage(error, 'Unable to load admin data'))
     } finally {
@@ -603,6 +636,7 @@ export function AdminDashboard() {
     canManageLinks,
     canManageServices,
     canManageUniversities,
+    canManageUsers,
     fallbackUniversityFromProfile,
     selectedUniversityId,
   ])
@@ -877,6 +911,7 @@ export function AdminDashboard() {
               { label: 'Events', value: events.length, icon: CalendarDays, tab: 'events' as TabValue },
               { label: 'Links', value: resourceLinks.length, icon: ExternalLink, tab: 'links' as TabValue },
               { label: 'Services', value: services.length, icon: Wrench, tab: 'services' as TabValue },
+              { label: 'Users', value: allUsers.length, icon: Users, tab: 'users' as TabValue },
             ] as const).map((stat) => (
               <button
                 key={stat.label}
@@ -2653,6 +2688,84 @@ export function AdminDashboard() {
             }
           />
         </TabsContent>
+
+        <TabsContent value="users" className="mt-0 space-y-4">
+          {/* Filters */}
+          <Card className="rounded-2xl border-border/60">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">All Users</CardTitle>
+              <CardDescription>
+                View and manage every user account for {selectedUniversity?.name ?? 'this university'}. Use the search and filter to narrow down results.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-3">
+              <Input
+                className="max-w-xs"
+                placeholder="Search by name or email…"
+                value={userSearchQuery}
+                onChange={(event) => setUserSearchQuery(event.target.value)}
+              />
+              <select
+                value={userRoleFilter}
+                onChange={(event) => setUserRoleFilter(event.target.value)}
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">All Roles</option>
+                <option value="STUDENT">Student</option>
+                <option value="FACULTY">Faculty</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+              <Badge variant="outline" className="self-center">
+                {(() => {
+                  const filtered = allUsers.filter((u) => {
+                    const matchesRole = !userRoleFilter || u.role === userRoleFilter
+                    const q = userSearchQuery.toLowerCase()
+                    const matchesSearch =
+                      !q ||
+                      u.email.toLowerCase().includes(q) ||
+                      u.firstName.toLowerCase().includes(q) ||
+                      u.lastName.toLowerCase().includes(q) ||
+                      u.displayName.toLowerCase().includes(q)
+                    return matchesRole && matchesSearch
+                  })
+                  return `${filtered.length} user${filtered.length !== 1 ? 's' : ''}`
+                })()}
+              </Badge>
+            </CardContent>
+          </Card>
+
+          <CrudUsersTable
+            records={allUsers}
+            searchQuery={userSearchQuery}
+            roleFilter={userRoleFilter}
+            saving={saving}
+            onChange={setAllUsers}
+            onSave={(record) =>
+              runMutation(async () => {
+                await apiRequest(`/api/admin/users/${record.id}`, {
+                  method: 'PATCH',
+                  body: {
+                    firstName: record.firstName,
+                    lastName: record.lastName,
+                    role: record.role,
+                    major: record.major || null,
+                    department: record.department || null,
+                    year: record.year || null,
+                    adminAccessLevel: record.adminAccessLevel || null,
+                    onboardingComplete: record.onboardingComplete,
+                  },
+                })
+              }, 'User updated')
+            }
+            onDelete={(recordId) =>
+              runMutation(async () => {
+                await apiRequest(`/api/admin/users/${recordId}`, {
+                  method: 'DELETE',
+                })
+              }, 'User deleted')
+            }
+          />
+        </TabsContent>
         </Tabs>
       ) : (
         <Card className="mx-auto w-full max-w-2xl rounded-2xl border-border/60">
@@ -3139,6 +3252,229 @@ function CrudPortalAccountsTable({
                 </TableRow>
               )
             })}
+          </TableBody>
+        </Table>
+      </div>
+    </CrudCard>
+  )
+}
+
+function CrudUsersTable({
+  records,
+  searchQuery,
+  roleFilter,
+  saving,
+  onChange,
+  onSave,
+  onDelete,
+}: {
+  records: UserRecord[]
+  searchQuery: string
+  roleFilter: string
+  saving: boolean
+  onChange: React.Dispatch<React.SetStateAction<UserRecord[]>>
+  onSave: (record: UserRecord) => Promise<void>
+  onDelete: (recordId: string) => Promise<void>
+}) {
+  const q = searchQuery.toLowerCase()
+  const filtered = records.filter((u) => {
+    const matchesRole = !roleFilter || u.role === roleFilter
+    const matchesSearch =
+      !q ||
+      u.email.toLowerCase().includes(q) ||
+      u.firstName.toLowerCase().includes(q) ||
+      u.lastName.toLowerCase().includes(q) ||
+      u.displayName.toLowerCase().includes(q)
+    return matchesRole && matchesSearch
+  })
+
+  const roleBadgeVariant = (role: string) => {
+    switch (role) {
+      case 'ADMIN':
+        return 'destructive' as const
+      case 'FACULTY':
+        return 'default' as const
+      default:
+        return 'secondary' as const
+    }
+  }
+
+  return (
+    <CrudCard title="Manage Users" description="Edit user profiles, roles, and metadata directly.">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name / Email</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Details</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="w-[220px]">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  No users found.
+                </TableCell>
+              </TableRow>
+            )}
+            {filtered.map((record) => (
+              <TableRow key={record.id}>
+                <TableCell className="space-y-2 min-w-[260px]">
+                  <Input
+                    value={record.firstName}
+                    placeholder="First name"
+                    onChange={(event) =>
+                      onChange((current) =>
+                        current.map((item) =>
+                          item.id === record.id
+                            ? {
+                                ...item,
+                                firstName: event.target.value,
+                                displayName: `${event.target.value} ${item.lastName}`.trim(),
+                              }
+                            : item,
+                        ),
+                      )
+                    }
+                  />
+                  <Input
+                    value={record.lastName}
+                    placeholder="Last name"
+                    onChange={(event) =>
+                      onChange((current) =>
+                        current.map((item) =>
+                          item.id === record.id
+                            ? {
+                                ...item,
+                                lastName: event.target.value,
+                                displayName: `${item.firstName} ${event.target.value}`.trim(),
+                              }
+                            : item,
+                        ),
+                      )
+                    }
+                  />
+                  <Input value={record.email} disabled className="text-xs text-muted-foreground" />
+                </TableCell>
+                <TableCell className="space-y-2 min-w-[160px]">
+                  <select
+                    value={record.role}
+                    onChange={(event) =>
+                      onChange((current) =>
+                        current.map((item) =>
+                          item.id === record.id
+                            ? { ...item, role: event.target.value as 'STUDENT' | 'FACULTY' | 'ADMIN' }
+                            : item,
+                        ),
+                      )
+                    }
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="STUDENT">Student</option>
+                    <option value="FACULTY">Faculty</option>
+                    <option value="ADMIN">Admin</option>
+                  </select>
+                  {record.role === 'ADMIN' && (
+                    <select
+                      value={record.adminAccessLevel ?? ''}
+                      onChange={(event) =>
+                        onChange((current) =>
+                          current.map((item) =>
+                            item.id === record.id
+                              ? {
+                                  ...item,
+                                  adminAccessLevel: (event.target.value || null) as AdminAccessLevel | null,
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">No Access Level</option>
+                      <option value="OWNER">Owner</option>
+                      <option value="IT_ADMIN">IT Admin</option>
+                      <option value="CLUB_PRESIDENT">Club President</option>
+                    </select>
+                  )}
+                </TableCell>
+                <TableCell className="space-y-2 min-w-[220px]">
+                  <Input
+                    value={record.major ?? ''}
+                    placeholder="Major"
+                    onChange={(event) =>
+                      onChange((current) =>
+                        current.map((item) =>
+                          item.id === record.id ? { ...item, major: event.target.value || null } : item,
+                        ),
+                      )
+                    }
+                  />
+                  <Input
+                    value={record.department ?? ''}
+                    placeholder="Department"
+                    onChange={(event) =>
+                      onChange((current) =>
+                        current.map((item) =>
+                          item.id === record.id ? { ...item, department: event.target.value || null } : item,
+                        ),
+                      )
+                    }
+                  />
+                  <Input
+                    value={record.year ?? ''}
+                    placeholder="Year"
+                    onChange={(event) =>
+                      onChange((current) =>
+                        current.map((item) =>
+                          item.id === record.id ? { ...item, year: event.target.value || null } : item,
+                        ),
+                      )
+                    }
+                  />
+                </TableCell>
+                <TableCell className="space-y-1.5 min-w-[140px]">
+                  <Badge variant={roleBadgeVariant(record.role)}>{record.role}</Badge>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    {record.emailVerified ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    ) : (
+                      <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                    )}
+                    {record.emailVerified ? 'Verified' : 'Unverified'}
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    {record.onboardingComplete ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    ) : (
+                      <Clock className="h-3.5 w-3.5 text-amber-500" />
+                    )}
+                    {record.onboardingComplete ? 'Onboarded' : 'Pending'}
+                  </div>
+                  {record.createdAt && (
+                    <p className="text-[10px] text-muted-foreground/70">
+                      Joined {new Date(record.createdAt).toLocaleDateString()}
+                    </p>
+                  )}
+                  {record.lastLogin && (
+                    <p className="text-[10px] text-muted-foreground/70">
+                      Last login {new Date(record.lastLogin).toLocaleDateString()}
+                    </p>
+                  )}
+                </TableCell>
+                <TableCell className="space-x-2">
+                  <Button size="sm" variant="outline" disabled={saving} onClick={() => void onSave(record)}>
+                    Save
+                  </Button>
+                  <Button size="sm" variant="destructive" disabled={saving} onClick={() => void onDelete(record.id)}>
+                    Delete
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>

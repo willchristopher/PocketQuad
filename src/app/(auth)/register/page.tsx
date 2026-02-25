@@ -1,16 +1,17 @@
 'use client'
 
 import React from 'react'
-import { Mail, Lock, Eye, EyeOff, User, ArrowRight, GraduationCap } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, User, ArrowRight, GraduationCap, Sparkles } from 'lucide-react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 import { ApiClientError, apiRequest } from '@/lib/api/client'
+import { useAuth } from '@/lib/auth/context'
 import {
   type AdminAccessLevel,
   type PortalPermission,
 } from '@/lib/auth/portalPermissions'
-import { getHomeForRole } from '@/lib/auth/routing'
 
 type Role = 'STUDENT' | 'FACULTY'
 type StudentStep = 'details' | 'code'
@@ -22,6 +23,7 @@ type SessionResponse = {
     adminAccessLevel: AdminAccessLevel | null
     portalPermissions: PortalPermission[]
     canPublishCampusAnnouncements: boolean
+    onboardingComplete: boolean
   } | null
 }
 
@@ -53,6 +55,7 @@ export default function RegisterPage() {
   const [checkingDomain, setCheckingDomain] = React.useState(false)
 
   const router = useRouter()
+  const { refreshProfile } = useAuth()
   const domainCheckTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isFaculty = role === 'FACULTY'
@@ -110,8 +113,9 @@ export default function RegisterPage() {
   }, [email])
 
   const redirectToSessionHome = async () => {
-    const session = await apiRequest<SessionResponse>('/api/auth/session')
-    router.push(getHomeForRole(session.profile))
+    // Ensure auth context has the fresh profile before navigating
+    try { await refreshProfile() } catch { /* continue anyway */ }
+    router.push('/onboarding')
     router.refresh()
   }
 
@@ -279,246 +283,283 @@ export default function RegisterPage() {
   })()
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-32 w-96 h-96 bg-blue-500/8 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-sky-500/8 rounded-full blur-3xl" />
+    <div className="relative isolate min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950/80 to-slate-950">
+      {/* Animated background */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute top-0 right-1/4 h-[500px] w-[500px] rounded-full bg-blue-500/15 blur-[120px] animate-pulse" />
+        <div className="absolute bottom-0 left-1/4 h-[400px] w-[400px] rounded-full bg-cyan-500/10 blur-[100px] animate-pulse [animation-delay:2s]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:60px_60px]" />
       </div>
 
-      <div className="relative w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md">
-              <span className="text-lg font-extrabold text-primary-foreground">Q</span>
-            </div>
-            <span className="font-display text-2xl font-extrabold tracking-tight">PocketQuad</span>
-          </Link>
-          <p className="text-sm text-muted-foreground mt-2">
-            {isFaculty
-              ? 'Activate your faculty account.'
-              : 'Create your campus account.'}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-border/60 bg-card p-6 md:p-8 shadow-xl shadow-black/5">
-          <form className="space-y-4" onSubmit={onSubmit}>
-            <div>
-              <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 block mb-1.5">I am a…</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleRoleChange('STUDENT')}
-                  className={`py-3 rounded-xl border text-sm font-semibold transition-all ${
-                    role === 'STUDENT'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border/60 text-muted-foreground hover:bg-muted'
-                  }`}
-                  disabled={submitting || resendingCode}
-                >
-                  Student
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleRoleChange('FACULTY')}
-                  className={`py-3 rounded-xl border text-sm font-semibold transition-all ${
-                    role === 'FACULTY'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border/60 text-muted-foreground hover:bg-muted'
-                  }`}
-                  disabled={submitting || resendingCode}
-                >
-                  Faculty
-                </button>
-              </div>
-            </div>
-
-            {isFaculty && (
-              <div className="space-y-2">
-                <div className="grid grid-cols-3 gap-2">
-                  {[1, 2, 3].map((stepNumber) => {
-                    const currentStep = getFacultyStepNumber(facultyStep)
-                    const active = stepNumber === currentStep
-                    const completed = stepNumber < currentStep
-                    return (
-                      <div
-                        key={stepNumber}
-                        className={`rounded-lg border px-2 py-1 text-center text-[11px] font-semibold ${
-                          active
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : completed
-                              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
-                              : 'border-border/60 text-muted-foreground'
-                        }`}
-                      >
-                        Step {stepNumber}
-                      </div>
-                    )
-                  })}
-                </div>
-                <div className="rounded-xl border border-primary/20 bg-primary/8 px-3 py-2">
-                  <p className="text-xs text-foreground">
-                    {facultyStep === 'email' && 'Enter the associated university email with this account to get started.'}
-                    {facultyStep === 'code' && 'Validation is required. A one time passcode has been sent to the associated email, enter the associated code here.'}
-                    {facultyStep === 'password' && 'Enter the password you would like for your account.'}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {isStudent && studentStep === 'code' && (
-              <div className="space-y-2">
-                <div className="rounded-xl border border-primary/20 bg-primary/8 px-3 py-2">
-                  <p className="text-xs text-foreground">
-                    One more step: enter the one-time passcode sent to your university email to
-                    verify you are a student before we finish creating your account.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {isStudent && studentStep === 'details' && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 block mb-1.5">First Name</label>
-                  <div className={`flex items-center gap-2.5 rounded-xl border bg-muted/20 px-3.5 py-3 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all ${fieldErrors.firstName ? 'border-red-500/60' : 'border-border/60'}`}>
-                    <User className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <input
-                      type="text"
-                      value={firstName}
-                      onChange={(event) => setFirstName(event.target.value)}
-                      placeholder="Alex"
-                      className="bg-transparent text-sm outline-none w-full placeholder:text-muted-foreground/50"
-                      required
-                      disabled={submitting}
-                    />
-                  </div>
-                  {fieldErrors.firstName && <p className="mt-1 text-[11px] text-red-500">{fieldErrors.firstName[0]}</p>}
-                </div>
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 block mb-1.5">Last Name</label>
-                  <div className={`flex items-center gap-2.5 rounded-xl border bg-muted/20 px-3.5 py-3 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all ${fieldErrors.lastName ? 'border-red-500/60' : 'border-border/60'}`}>
-                    <input
-                      type="text"
-                      value={lastName}
-                      onChange={(event) => setLastName(event.target.value)}
-                      placeholder="Johnson"
-                      className="bg-transparent text-sm outline-none w-full placeholder:text-muted-foreground/50"
-                      required
-                      disabled={submitting}
-                    />
-                  </div>
-                  {fieldErrors.lastName && <p className="mt-1 text-[11px] text-red-500">{fieldErrors.lastName[0]}</p>}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 block mb-1.5">University Email</label>
-              <div className={`flex items-center gap-2.5 rounded-xl border bg-muted/20 px-3.5 py-3 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all ${fieldErrors.email ? 'border-red-500/60' : 'border-border/60'}`}>
-                <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value.toLowerCase())}
-                  placeholder="you@university.edu"
-                  className="bg-transparent text-sm outline-none w-full placeholder:text-muted-foreground/50"
-                  required
-                  autoComplete="email"
-                  disabled={
-                    submitting ||
-                    (isFaculty && facultyStep !== 'email') ||
-                    (isStudent && studentStep !== 'details')
-                  }
+      <div className="relative flex min-h-screen items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <Link href="/login" className="group inline-flex items-center gap-3 mb-6">
+              <div className="relative">
+                <div className="absolute inset-0 rounded-2xl bg-blue-500/20 blur-lg group-hover:bg-blue-500/30 transition-all" />
+                <Image
+                  src="/transparentlogo.png"
+                  alt="PocketQuad logo"
+                  width={48}
+                  height={48}
+                  className="relative rounded-2xl"
+                  priority
                 />
               </div>
-              {fieldErrors.email && (
-                <p className="mt-1 text-[11px] text-red-500">{fieldErrors.email[0]}</p>
-              )}
-              {(detectedUniversity || checkingDomain) && (
-                <div className="mt-2 flex items-center gap-2 rounded-lg bg-primary/8 px-3 py-2">
-                  <GraduationCap className="h-4 w-4 text-primary shrink-0" />
-                  {checkingDomain ? (
-                    <span className="text-xs text-muted-foreground">Checking university...</span>
-                  ) : (
-                    <span className="text-xs font-semibold text-primary">
-                      You&apos;ll be joining {detectedUniversity}
-                    </span>
+              <span className="font-display text-3xl font-black tracking-tight text-white">
+                Pocket<span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Quad</span>
+              </span>
+            </Link>
+            <p className="text-sm text-blue-200/50">
+              {isFaculty ? 'Activate your faculty account.' : 'Create your campus account.'}
+            </p>
+          </div>
+
+          {/* Card */}
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-8">
+            <div className="pointer-events-none absolute -top-20 -right-20 h-40 w-40 rounded-full bg-blue-500/20 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-20 -left-20 h-40 w-40 rounded-full bg-cyan-500/10 blur-3xl" />
+
+            <div className="relative">
+              <form className="space-y-4" onSubmit={onSubmit}>
+                {/* Role selector */}
+                <div>
+                  <label className="text-[10px] uppercase tracking-[0.22em] font-bold text-blue-200/40 block mb-2">I am a…</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleRoleChange('STUDENT')}
+                      className={`py-3 rounded-2xl border text-sm font-semibold transition-all ${
+                        role === 'STUDENT'
+                          ? 'border-blue-400/50 bg-blue-500/15 text-blue-300'
+                          : 'border-white/10 text-white/40 hover:bg-white/5 hover:text-white/60'
+                      }`}
+                      disabled={submitting || resendingCode}
+                    >
+                      <Sparkles className="h-3.5 w-3.5 inline mr-1.5" />Student
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRoleChange('FACULTY')}
+                      className={`py-3 rounded-2xl border text-sm font-semibold transition-all ${
+                        role === 'FACULTY'
+                          ? 'border-cyan-400/50 bg-cyan-500/15 text-cyan-300'
+                          : 'border-white/10 text-white/40 hover:bg-white/5 hover:text-white/60'
+                      }`}
+                      disabled={submitting || resendingCode}
+                    >
+                      <GraduationCap className="h-3.5 w-3.5 inline mr-1.5" />Faculty
+                    </button>
+                  </div>
+                </div>
+
+                {/* Faculty step indicator */}
+                {isFaculty && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-3 gap-2">
+                      {[1, 2, 3].map((stepNumber) => {
+                        const currentStep = getFacultyStepNumber(facultyStep)
+                        const active = stepNumber === currentStep
+                        const completed = stepNumber < currentStep
+                        return (
+                          <div
+                            key={stepNumber}
+                            className={`rounded-xl border px-2 py-1.5 text-center text-[11px] font-semibold transition-all ${
+                              active
+                                ? 'border-blue-400/50 bg-blue-500/15 text-blue-300'
+                                : completed
+                                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                                  : 'border-white/10 text-white/30'
+                            }`}
+                          >
+                            Step {stepNumber}
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="rounded-2xl border border-blue-400/20 bg-blue-500/10 px-3 py-2">
+                      <p className="text-xs text-blue-200/70">
+                        {facultyStep === 'email' && 'Enter your university email to get started.'}
+                        {facultyStep === 'code' && 'A one-time passcode has been sent to your email.'}
+                        {facultyStep === 'password' && 'Choose a password for your account.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Student OTP step info */}
+                {isStudent && studentStep === 'code' && (
+                  <div className="rounded-2xl border border-blue-400/20 bg-blue-500/10 px-3 py-2">
+                    <p className="text-xs text-blue-200/70">
+                      Enter the one-time passcode sent to your university email to verify your account.
+                    </p>
+                  </div>
+                )}
+
+                {/* Student name fields */}
+                {isStudent && studentStep === 'details' && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] uppercase tracking-[0.22em] font-bold text-blue-200/40 block mb-2">First Name</label>
+                      <div className={`flex items-center gap-2.5 rounded-2xl border bg-white/[0.03] px-4 py-3.5 transition-all focus-within:border-blue-400/50 focus-within:ring-2 focus-within:ring-blue-400/20 ${fieldErrors.firstName ? 'border-red-500/50' : 'border-white/10 hover:border-white/20'}`}>
+                        <User className="w-4 h-4 text-blue-400/50 shrink-0" />
+                        <input
+                          type="text"
+                          value={firstName}
+                          onChange={(event) => setFirstName(event.target.value)}
+                          placeholder="Alex"
+                          className="bg-transparent text-sm text-white outline-none w-full placeholder:text-white/20"
+                          required
+                          disabled={submitting}
+                        />
+                      </div>
+                      {fieldErrors.firstName && <p className="mt-1 text-[11px] text-red-400">{fieldErrors.firstName[0]}</p>}
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-[0.22em] font-bold text-blue-200/40 block mb-2">Last Name</label>
+                      <div className={`flex items-center gap-2.5 rounded-2xl border bg-white/[0.03] px-4 py-3.5 transition-all focus-within:border-blue-400/50 focus-within:ring-2 focus-within:ring-blue-400/20 ${fieldErrors.lastName ? 'border-red-500/50' : 'border-white/10 hover:border-white/20'}`}>
+                        <input
+                          type="text"
+                          value={lastName}
+                          onChange={(event) => setLastName(event.target.value)}
+                          placeholder="Johnson"
+                          className="bg-transparent text-sm text-white outline-none w-full placeholder:text-white/20"
+                          required
+                          disabled={submitting}
+                        />
+                      </div>
+                      {fieldErrors.lastName && <p className="mt-1 text-[11px] text-red-400">{fieldErrors.lastName[0]}</p>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Email */}
+                <div>
+                  <label className="text-[10px] uppercase tracking-[0.22em] font-bold text-blue-200/40 block mb-2">University Email</label>
+                  <div className={`flex items-center gap-2.5 rounded-2xl border bg-white/[0.03] px-4 py-3.5 transition-all focus-within:border-blue-400/50 focus-within:ring-2 focus-within:ring-blue-400/20 ${fieldErrors.email ? 'border-red-500/50' : 'border-white/10 hover:border-white/20'}`}>
+                    <Mail className="w-4 h-4 text-blue-400/50 shrink-0" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value.toLowerCase())}
+                      placeholder="you@university.edu"
+                      className="bg-transparent text-sm text-white outline-none w-full placeholder:text-white/20"
+                      required
+                      autoComplete="email"
+                      disabled={
+                        submitting ||
+                        (isFaculty && facultyStep !== 'email') ||
+                        (isStudent && studentStep !== 'details')
+                      }
+                    />
+                  </div>
+                  {fieldErrors.email && (
+                    <p className="mt-1 text-[11px] text-red-400">{fieldErrors.email[0]}</p>
+                  )}
+                  {(detectedUniversity || checkingDomain) && (
+                    <div className="mt-2 flex items-center gap-2 rounded-xl bg-blue-500/10 border border-blue-400/20 px-3 py-2">
+                      <GraduationCap className="h-4 w-4 text-blue-400 shrink-0" />
+                      {checkingDomain ? (
+                        <span className="text-xs text-blue-200/50">Checking university...</span>
+                      ) : (
+                        <span className="text-xs font-semibold text-blue-300">
+                          You&apos;ll be joining {detectedUniversity}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
 
-            {((isFaculty && facultyStep === 'code') || (isStudent && studentStep === 'code')) && (
-              <div>
-                <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 block mb-1.5">One-Time Passcode</label>
-                <input
-                  type="text"
-                  value={otpCode}
-                  onChange={(event) => setOtpCode(event.target.value.trim())}
-                  placeholder="Enter code"
-                  className={`w-full rounded-xl border bg-muted/20 px-3.5 py-3 text-sm outline-none placeholder:text-muted-foreground/50 transition-all focus:border-primary/50 focus:ring-2 focus:ring-primary/30 ${fieldErrors.code ? 'border-red-500/60' : 'border-border/60'}`}
-                  required
-                  autoComplete="one-time-code"
-                  inputMode="numeric"
-                  disabled={submitting || resendingCode}
-                />
-                {fieldErrors.code && <p className="mt-1 text-[11px] text-red-500">{fieldErrors.code[0]}</p>}
+                {/* OTP field */}
+                {((isFaculty && facultyStep === 'code') || (isStudent && studentStep === 'code')) && (
+                  <div>
+                    <label className="text-[10px] uppercase tracking-[0.22em] font-bold text-blue-200/40 block mb-2">One-Time Passcode</label>
+                    <input
+                      type="text"
+                      value={otpCode}
+                      onChange={(event) => setOtpCode(event.target.value.trim())}
+                      placeholder="Enter code"
+                      className={`w-full rounded-2xl border bg-white/[0.03] px-4 py-3.5 text-sm text-white outline-none placeholder:text-white/20 transition-all focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 ${fieldErrors.code ? 'border-red-500/50' : 'border-white/10'}`}
+                      required
+                      autoComplete="one-time-code"
+                      inputMode="numeric"
+                      disabled={submitting || resendingCode}
+                    />
+                    {fieldErrors.code && <p className="mt-1 text-[11px] text-red-400">{fieldErrors.code[0]}</p>}
+                    <button
+                      type="button"
+                      onClick={isFaculty ? resendFacultyCode : resendStudentCode}
+                      className="mt-2 text-xs font-semibold text-blue-400/70 hover:text-blue-300 transition-colors disabled:opacity-70"
+                      disabled={submitting || resendingCode}
+                    >
+                      {resendingCode ? 'Resending code...' : 'Resend code'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Password field */}
+                {((isStudent && studentStep === 'details') || (isFaculty && facultyStep === 'password')) && (
+                  <div>
+                    <label className="text-[10px] uppercase tracking-[0.22em] font-bold text-blue-200/40 block mb-2">Password</label>
+                    <div className={`flex items-center gap-2.5 rounded-2xl border bg-white/[0.03] px-4 py-3.5 transition-all focus-within:border-blue-400/50 focus-within:ring-2 focus-within:ring-blue-400/20 ${fieldErrors.password ? 'border-red-500/50' : 'border-white/10 hover:border-white/20'}`}>
+                      <Lock className="w-4 h-4 text-blue-400/50 shrink-0" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        placeholder="Min 8 chars, 1 uppercase, 1 number"
+                        className="bg-transparent text-sm text-white outline-none w-full placeholder:text-white/20"
+                        required
+                        autoComplete="new-password"
+                        disabled={submitting}
+                      />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-white/30 hover:text-white/60 transition-colors" disabled={submitting}>
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {fieldErrors.password && <p className="mt-1 text-[11px] text-red-400">{fieldErrors.password[0]}</p>}
+                  </div>
+                )}
+
+                {error && (
+                  <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 backdrop-blur">
+                    <p className="text-xs font-medium text-red-300">{error}</p>
+                  </div>
+                )}
+
                 <button
-                  type="button"
-                  onClick={isFaculty ? resendFacultyCode : resendStudentCode}
-                  className="mt-2 text-xs font-semibold text-primary hover:underline disabled:opacity-70"
+                  type="submit"
                   disabled={submitting || resendingCode}
+                  className="group relative flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-gradient-to-r from-blue-500 to-cyan-500 py-4 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition-all hover:shadow-blue-500/40 hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {resendingCode ? 'Resending code...' : 'Resend code'}
+                  <span className="relative z-10 flex items-center gap-2">
+                    {submitting ? (
+                      <>
+                        <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        {submitLabel}
+                      </>
+                    ) : (
+                      <>
+                        {submitLabel} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                      </>
+                    )}
+                  </span>
                 </button>
+              </form>
+
+              <div className="mt-8 border-t border-white/10 pt-6 text-center">
+                <p className="text-sm text-white/40">
+                  Already have an account?{' '}
+                  <Link href="/login" className="font-semibold text-blue-400 hover:text-blue-300 transition-colors">
+                    Sign in
+                  </Link>
+                </p>
               </div>
-            )}
-
-            {((isStudent && studentStep === 'details') || (isFaculty && facultyStep === 'password')) && (
-              <div>
-                <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 block mb-1.5">Password</label>
-                <div className={`flex items-center gap-2.5 rounded-xl border bg-muted/20 px-3.5 py-3 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all ${fieldErrors.password ? 'border-red-500/60' : 'border-border/60'}`}>
-                  <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Min 8 chars, 1 uppercase, 1 number"
-                    className="bg-transparent text-sm outline-none w-full placeholder:text-muted-foreground/50"
-                    required
-                    autoComplete="new-password"
-                    disabled={submitting}
-                  />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-muted-foreground hover:text-foreground transition-colors" disabled={submitting}>
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {fieldErrors.password && <p className="mt-1 text-[11px] text-red-500">{fieldErrors.password[0]}</p>}
-              </div>
-            )}
-
-            {error && (
-              <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-700 dark:text-red-300">
-                {error}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={submitting || resendingCode}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm shadow-lg shadow-primary/25 hover:shadow-primary/35 hover:brightness-110 transition-all disabled:opacity-70"
-            >
-              {submitLabel} <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
-
-          <div className="mt-6 pt-6 border-t border-border/60 text-center">
-            <p className="text-sm text-muted-foreground">
-              Already have an account?{' '}
-              <Link href="/login" className="text-primary font-semibold hover:underline">
-                Sign in
-              </Link>
-            </p>
+            </div>
           </div>
         </div>
       </div>

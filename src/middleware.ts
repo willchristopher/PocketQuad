@@ -21,6 +21,7 @@ const PUBLIC_ROUTES = new Set([
   '/register',
   '/forgot-password',
   '/verify-email',
+  '/onboarding',
 ])
 
 const AUTH_ROUTES = new Set(['/login', '/register'])

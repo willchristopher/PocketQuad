@@ -39,7 +39,11 @@ type UserProfile = {
     emailDigest: boolean
     pushEnabled: boolean
     theme: 'system' | 'light' | 'dark' | 'university'
+    buildingAlerts: boolean
+    buildingIds: string[]
+    clubInterestIds: string[]
   } | null
+  onboardingComplete: boolean
 }
 
 type AuthSessionPayload = {

@@ -17,6 +17,9 @@ export const updatePreferencesSchema = z.object({
   emailDigest: z.boolean().optional(),
   pushEnabled: z.boolean().optional(),
   theme: z.enum(['system', 'light', 'dark', 'university']).optional(),
+  buildingAlerts: z.boolean().optional(),
+  buildingIds: z.array(z.string()).optional(),
+  clubInterestIds: z.array(z.string()).optional(),
 })
 
 export const sendMessageSchema = z.object({

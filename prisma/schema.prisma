@@ -33,6 +33,7 @@ enum PortalPermission {
   ADMIN_TAB_CLUBS
   ADMIN_TAB_EVENTS
   ADMIN_TAB_IT_ACCOUNTS
+  ADMIN_TAB_USERS
   CAN_PUBLISH_ANNOUNCEMENTS
   CAN_MANAGE_CLUB_PROFILE
   CAN_MANAGE_CLUB_CONTACT
@@ -128,6 +129,7 @@ model User {
   website                 String?
   year                    String?
   emailVerified           Boolean                  @default(false) @map("email_verified")
+  onboardingComplete      Boolean                  @default(false) @map("onboarding_complete")
   createdAt               DateTime                 @default(now()) @map("created_at")
   updatedAt               DateTime                 @updatedAt @map("updated_at")
   lastLogin               DateTime?                @map("last_login")
@@ -164,6 +166,9 @@ model NotificationPreferences {
   deadlineReminders Boolean  @default(true) @map("deadline_reminders")
   emailDigest       Boolean  @default(true) @map("email_digest")
   pushEnabled       Boolean  @default(false) @map("push_enabled")
+  buildingAlerts    Boolean  @default(false) @map("building_alerts")
+  buildingIds       String[] @default([]) @map("building_ids")
+  clubInterestIds   String[] @default([]) @map("club_interest_ids")
   theme             String   @default("system")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
