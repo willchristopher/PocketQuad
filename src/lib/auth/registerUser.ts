@@ -4,21 +4,37 @@ import { ApiError } from '@/lib/api/utils'
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server'
 import { extractEmailDomain } from '@/lib/university'
 
-async function ensureGeneralChannelMembership(userId: string) {
+async function ensureCampusRoomMembership(userId: string) {
   const existingChannel = await prisma.channel.findFirst({
     where: {
       type: 'PUBLIC',
-      name: 'General',
+      name: {
+        in: ['Campus Chat', 'General'],
+      },
     },
-    select: { id: true },
+    select: { id: true, name: true, description: true },
+    orderBy: { createdAt: 'asc' },
   })
 
-  const channel =
-    existingChannel ??
+  const channel = existingChannel
+    ? (
+        existingChannel.name === 'Campus Chat'
+          ? existingChannel
+          : await prisma.channel.update({
+              where: { id: existingChannel.id },
+              data: {
+                name: 'Campus Chat',
+                description:
+                  existingChannel.description || 'Campus-wide respectful conversation and updates',
+              },
+              select: { id: true },
+            })
+      )
+    :
     (await prisma.channel.create({
       data: {
-        name: 'General',
-        description: 'Campus-wide updates and conversation',
+        name: 'Campus Chat',
+        description: 'Campus-wide respectful conversation and updates',
         type: 'PUBLIC',
         createdById: userId,
       },
@@ -42,20 +58,6 @@ async function ensureGeneralChannelMembership(userId: string) {
 }
 
 function assertSupportedSelfRegistrationRole(role: 'STUDENT' | 'FACULTY' | 'ADMIN') {
-  if (role === 'STUDENT') {
-    throw new ApiError(
-      400,
-      'Student onboarding requires one-time email verification. Use the student signup OTP flow.',
-    )
-  }
-
-  if (role === 'FACULTY') {
-    throw new ApiError(
-      400,
-      'Faculty onboarding requires account validation. Use the faculty activation flow instead.',
-    )
-  }
-
   if (role === 'ADMIN') {
     throw new ApiError(
       403,
@@ -68,7 +70,7 @@ export async function registerUser(rawPayload: unknown) {
   const payload = registerSchema.parse(rawPayload)
   assertSupportedSelfRegistrationRole(payload.role)
 
-  const email = payload.email.toLowerCase()
+  const email = payload.email
   const emailDomain = extractEmailDomain(email)
 
   const existingUser = await prisma.user.findUnique({
@@ -126,6 +128,7 @@ export async function registerUser(rawPayload: unknown) {
       adminAccessLevel: null,
       portalPermissions: [],
       universityId: matchedUniversity?.id,
+      emailVerified: Boolean(data.user.email_confirmed_at),
     },
   })
 
@@ -135,7 +138,7 @@ export async function registerUser(rawPayload: unknown) {
     },
   })
 
-  await ensureGeneralChannelMembership(createdUser.id)
+  await ensureCampusRoomMembership(createdUser.id)
 
   return {
     id: createdUser.id,
@@ -143,5 +146,6 @@ export async function registerUser(rawPayload: unknown) {
     universityId: matchedUniversity?.id ?? null,
     universityName: matchedUniversity?.name ?? null,
     role: createdUser.role,
+    emailVerified: createdUser.emailVerified,
   }
 }

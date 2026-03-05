@@ -11,14 +11,33 @@ export async function GET() {
     const { profile } = await getAuthenticatedUser()
 
     const universityId = profile.universityId ?? undefined
+    const preferences = await prisma.notificationPreferences.findUnique({
+      where: { userId: profile.id },
+      select: {
+        buildingIds: true,
+        clubInterestIds: true,
+      },
+    })
+    const pinnedBuildingIds = preferences?.buildingIds ?? []
+    const pinnedClubIds = preferences?.clubInterestIds ?? []
 
-    const [upcomingEvents, upcomingDeadlines, serviceSnapshot, quickLinks, clubSnapshot, favoriteFaculty] =
-      await Promise.all([
+    const [
+      upcomingEvents,
+      upcomingDeadlines,
+      serviceSnapshot,
+      quickLinks,
+      clubSnapshot,
+      favoriteFaculty,
+      campusNews,
+      pinnedBuildings,
+      pinnedClubs,
+    ] = await Promise.all([
         prisma.event.findMany({
           where: {
             ...(universityId ? { universityId } : {}),
             date: { gte: new Date() },
             isPublished: true,
+            isCancelled: false,
           },
           select: {
             id: true,
@@ -47,7 +66,22 @@ export async function GET() {
         }),
         getCampusServicesCached(universityId, undefined).then((records) => records.slice(0, 3)),
         getResourceLinksCached(universityId, undefined, undefined).then((records) => records.slice(0, 4)),
-        getClubsCached(universityId, undefined, undefined).then((records) => records.slice(0, 3)),
+        pinnedClubIds.length > 0
+          ? prisma.clubOrganization.findMany({
+              where: {
+                id: { in: pinnedClubIds },
+                ...(universityId ? { universityId } : {}),
+              },
+              select: {
+                id: true,
+                name: true,
+                category: true,
+              },
+            }).then((records) => {
+              const byId = new Map(records.map((record) => [record.id, record]))
+              return pinnedClubIds.map((id) => byId.get(id)).filter(Boolean).slice(0, 3)
+            })
+          : getClubsCached(universityId, undefined, undefined).then((records) => records.slice(0, 3)),
         prisma.facultyFavorite.findMany({
           where: { userId: profile.id },
           select: {
@@ -64,6 +98,52 @@ export async function GET() {
           orderBy: { createdAt: 'desc' },
           take: 5,
         }).then((rows) => rows.map((r) => r.faculty)),
+        prisma.announcement.findMany({
+          where: { isActive: true },
+          select: {
+            id: true,
+            title: true,
+            message: true,
+            linkUrl: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 4,
+        }),
+        pinnedBuildingIds.length > 0
+          ? prisma.campusBuilding.findMany({
+              where: {
+                id: { in: pinnedBuildingIds },
+                ...(universityId ? { universityId } : {}),
+              },
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                address: true,
+                operationalStatus: true,
+              },
+            }).then((records) => {
+              const byId = new Map(records.map((record) => [record.id, record]))
+              return pinnedBuildingIds.map((id) => byId.get(id)).filter(Boolean)
+            })
+          : Promise.resolve([]),
+        pinnedClubIds.length > 0
+          ? prisma.clubOrganization.findMany({
+              where: {
+                id: { in: pinnedClubIds },
+                ...(universityId ? { universityId } : {}),
+              },
+              select: {
+                id: true,
+                name: true,
+                category: true,
+              },
+            }).then((records) => {
+              const byId = new Map(records.map((record) => [record.id, record]))
+              return pinnedClubIds.map((id) => byId.get(id)).filter(Boolean)
+            })
+          : Promise.resolve([]),
       ])
 
     return successResponse({
@@ -73,6 +153,9 @@ export async function GET() {
       quickLinks,
       clubSnapshot,
       favoriteFaculty,
+      campusNews,
+      pinnedBuildings,
+      pinnedClubs,
     })
   } catch (error) {
     return handleApiError(error)

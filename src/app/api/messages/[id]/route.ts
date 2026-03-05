@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { z } from 'zod'
 
 import { prisma } from '@/lib/prisma'
+import { moderateCampusChatMessage } from '@/lib/chat/moderation'
 import {
   ApiError,
   getAuthenticatedUser,
@@ -27,6 +28,11 @@ export async function PATCH(
     const { profile } = await getAuthenticatedUser()
     const { id } = await resolveParams(context)
     const payload = editMessageSchema.parse(await request.json())
+    const moderation = await moderateCampusChatMessage(payload.content)
+
+    if (!moderation.allowed) {
+      throw new ApiError(400, moderation.reason)
+    }
 
     const message = await prisma.chatMessage.findUnique({
       where: { id },

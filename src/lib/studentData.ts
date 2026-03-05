@@ -65,7 +65,7 @@ export interface CampusMapPin {
 
 export interface FavoriteItem {
   id: string
-  kind: 'event' | 'faculty' | 'resource'
+  kind: 'building' | 'resource' | 'club'
   label: string
   subtitle: string
   href: string
@@ -328,37 +328,17 @@ export const campusMapPins: CampusMapPin[] = [
   },
 ]
 
-export const defaultFavorites: FavoriteItem[] = [
-  {
-    id: 'fav-1',
-    kind: 'event',
-    label: 'Career Fair: Technology and Engineering',
-    subtitle: 'Student Union Ballroom',
-    href: '/events/event-1',
-  },
-  {
-    id: 'fav-2',
-    kind: 'faculty',
-    label: 'Dr. Sarah Chen',
-    subtitle: 'Computer Science | Office hours Mon/Wed',
-    href: '/faculty-directory/faculty-1',
-  },
-  {
-    id: 'fav-3',
-    kind: 'resource',
-    label: 'Canvas',
-    subtitle: 'Learning portal',
-    href: '/links-directory',
-  },
-]
+export const defaultFavorites: FavoriteItem[] = []
 
 export const dashboardModuleIds = [
   'favorites',
   'deadlines',
   'events',
+  'faculty',
   'news',
   'services',
   'links',
+  'clubs',
 ] as const
 
 export type DashboardModuleId = (typeof dashboardModuleIds)[number]

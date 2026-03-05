@@ -1,6 +1,7 @@
 import type { FavoriteItem } from '@/lib/studentData'
 
 const FAVORITES_KEY = 'pocketquad-favorites'
+const ALLOWED_KINDS: FavoriteItem['kind'][] = ['building', 'resource', 'club']
 
 function safeParseFavorites(value: string | null): FavoriteItem[] {
   if (!value) return []
@@ -12,9 +13,10 @@ function safeParseFavorites(value: string | null): FavoriteItem[] {
       (item) =>
         typeof item?.id === 'string' &&
         typeof item?.kind === 'string' &&
+        ALLOWED_KINDS.includes(item.kind as FavoriteItem['kind']) &&
         typeof item?.label === 'string' &&
         typeof item?.subtitle === 'string' &&
-        typeof item?.href === 'string'
+        typeof item?.href === 'string',
     )
   } catch {
     return []

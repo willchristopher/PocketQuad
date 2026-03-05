@@ -8,21 +8,37 @@ import { studentVerifyOtpSchema } from '@/lib/validations/auth'
 
 export const runtime = 'nodejs'
 
-async function ensureGeneralChannelMembership(userId: string) {
+async function ensureCampusRoomMembership(userId: string) {
   const existingChannel = await prisma.channel.findFirst({
     where: {
       type: 'PUBLIC',
-      name: 'General',
+      name: {
+        in: ['Campus Chat', 'General'],
+      },
     },
-    select: { id: true },
+    select: { id: true, name: true, description: true },
+    orderBy: { createdAt: 'asc' },
   })
 
-  const channel =
-    existingChannel ??
+  const channel = existingChannel
+    ? (
+        existingChannel.name === 'Campus Chat'
+          ? existingChannel
+          : await prisma.channel.update({
+              where: { id: existingChannel.id },
+              data: {
+                name: 'Campus Chat',
+                description:
+                  existingChannel.description || 'Campus-wide respectful conversation and updates',
+              },
+              select: { id: true },
+            })
+      )
+    :
     (await prisma.channel.create({
       data: {
-        name: 'General',
-        description: 'Campus-wide updates and conversation',
+        name: 'Campus Chat',
+        description: 'Campus-wide respectful conversation and updates',
         type: 'PUBLIC',
         createdById: userId,
       },
@@ -141,7 +157,7 @@ export async function POST(request: NextRequest) {
       return user
     })
 
-    await ensureGeneralChannelMembership(createdUser.id)
+    await ensureCampusRoomMembership(createdUser.id)
 
     return successResponse({
       id: createdUser.id,

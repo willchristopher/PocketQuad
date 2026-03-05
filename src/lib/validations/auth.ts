@@ -16,7 +16,7 @@ export const registerSchema = z
   .object({
     firstName: z.string().trim().min(1, 'First name is required'),
     lastName: z.string().trim().min(1, 'Last name is required'),
-    email: z.string().email('Invalid email address'),
+    email: z.string().trim().toLowerCase().email('Invalid email address'),
     password: passwordSchema,
     role: z.enum(['STUDENT', 'FACULTY', 'ADMIN']).default('STUDENT'),
   })
@@ -25,7 +25,7 @@ export const registerSchema = z
       return
     }
 
-    if (!email.toLowerCase().endsWith('.edu')) {
+    if (!email.endsWith('.edu')) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['email'],
