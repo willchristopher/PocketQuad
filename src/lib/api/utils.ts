@@ -15,11 +15,13 @@ import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server'
 
 export class ApiError extends Error {
   statusCode: number
+  headers?: HeadersInit
 
-  constructor(statusCode: number, message: string) {
+  constructor(statusCode: number, message: string, headers?: HeadersInit) {
     super(message)
     this.name = 'ApiError'
     this.statusCode = statusCode
+    this.headers = headers
   }
 }
 
@@ -42,6 +44,7 @@ type AuthenticatedProfile = {
   canPublishCampusAnnouncements: boolean
   adminAccessLevel: AdminAccessLevel | null
   portalPermissions: PortalPermission[]
+  department?: string | null
   managedClubs?: Array<{
     clubId: string
     club: {
@@ -82,13 +85,15 @@ async function ensureFacultyProfile(profile: AuthenticatedProfile) {
     update: {
       email: profile.email,
       universityId: profile.universityId,
+      name,
+      department: profile.department ?? 'General',
     },
     create: {
       userId: profile.id,
       universityId: profile.universityId,
       name,
       title: 'Faculty Member',
-      department: 'General',
+      department: profile.department ?? 'General',
       email: profile.email,
       officeLocation: 'TBD',
       officeHours: 'TBD',
@@ -111,6 +116,7 @@ const BASE_PROFILE_SELECT = {
   canPublishCampusAnnouncements: true,
   adminAccessLevel: true,
   portalPermissions: true,
+  department: true,
 } as const
 
 export async function getAuthenticatedUser(options: GetAuthenticatedUserOptions = {}) {
@@ -273,7 +279,7 @@ export function handleApiError(error: unknown) {
       {
         error: error.message,
       },
-      { status: error.statusCode },
+      { status: error.statusCode, headers: error.headers },
     )
   }
 

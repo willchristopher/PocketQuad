@@ -1,20 +1,42 @@
 'use client'
 
 import React from 'react'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import {
-  Heart, Building2, Users, Palette, ArrowRight, ArrowLeft,
-  Check, Search, X, Clock, MapPin, Sparkles, ChevronRight,
+  Building2,
+  Check,
+  Clock,
+  Heart,
+  MapPin,
+  Monitor,
+  Moon,
+  Palette,
+  Sparkles,
+  Sun,
+  Users,
+  X,
 } from 'lucide-react'
 
+import {
+  ChoiceTile,
+  DayChip,
+  OnboardingShell,
+  SearchField,
+  SelectionRow,
+  StatusPill,
+  StepCard,
+  StepFooter,
+  StepHeader,
+  StepToggle,
+} from '@/components/onboarding/OnboardingShell'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { apiRequest } from '@/lib/api/client'
 import { useAuth } from '@/lib/auth/context'
 import { getHomeForRole } from '@/lib/auth/routing'
-
-/* ------------------------------------------------------------------ */
-/*  Types                                                               */
-/* ------------------------------------------------------------------ */
+import { useUniversityTheme } from '@/lib/theme'
+import { cn } from '@/lib/utils'
 
 type Faculty = {
   id: string
@@ -38,32 +60,41 @@ type Club = {
   description: string | null
 }
 
-type OnboardingStep = 'welcome' | 'faculty' | 'buildings' | 'clubs' | 'theme' | 'officeHours' | 'permissions'
-
-type UserProfileForPermissions = {
-  portalPermissions: string[]
-  role: string
-  managedClubs?: Array<{ clubId: string; club: { id: string; universityId: string; name: string } }> | null
-}
-
-const THEMES = [
-  { value: 'light' as const, label: 'Light', icon: '☀️', desc: 'Clean and bright' },
-  { value: 'dark' as const, label: 'Dark', icon: '🌙', desc: 'Easy on the eyes' },
-  { value: 'system' as const, label: 'System', icon: '💻', desc: 'Match your device' },
-  { value: 'university' as const, label: 'University', icon: '🎓', desc: 'Your school colors' },
-]
+type OnboardingStep = 'welcome' | 'faculty' | 'buildings' | 'clubs' | 'theme' | 'officeHours'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-/* ------------------------------------------------------------------ */
-/*  Main Component                                                      */
-/* ------------------------------------------------------------------ */
+const THEME_OPTIONS = [
+  {
+    value: 'light' as const,
+    label: 'Light',
+    description: 'Bright surfaces with clear structure.',
+    icon: <Sun className="h-5 w-5" />,
+  },
+  {
+    value: 'dark' as const,
+    label: 'Dark',
+    description: 'A lower-glare look for longer sessions.',
+    icon: <Moon className="h-5 w-5" />,
+  },
+  {
+    value: 'system' as const,
+    label: 'System',
+    description: 'Follow your device preference automatically.',
+    icon: <Monitor className="h-5 w-5" />,
+  },
+  {
+    value: 'university' as const,
+    label: 'University',
+    description: 'Use your school colors when available.',
+    icon: <Palette className="h-5 w-5" />,
+  },
+]
 
 export default function OnboardingPage() {
   const { profile, loading, refreshProfile } = useAuth()
   const router = useRouter()
 
-  const isStudent = profile?.role === 'STUDENT'
   const isFaculty = profile?.role === 'FACULTY'
 
   const studentSteps: OnboardingStep[] = ['welcome', 'faculty', 'buildings', 'clubs', 'theme']
@@ -73,14 +104,12 @@ export default function OnboardingPage() {
   const [currentStepIdx, setCurrentStepIdx] = React.useState(0)
   const [direction, setDirection] = React.useState<'forward' | 'backward'>('forward')
 
-  // Student selections
   const [favoriteFacultyIds, setFavoriteFacultyIds] = React.useState<string[]>([])
   const [buildingAlerts, setBuildingAlerts] = React.useState(false)
   const [selectedBuildingIds, setSelectedBuildingIds] = React.useState<string[]>([])
   const [selectedClubIds, setSelectedClubIds] = React.useState<string[]>([])
   const [selectedTheme, setSelectedTheme] = React.useState<'system' | 'light' | 'dark' | 'university'>('system')
 
-  // Faculty office hours
   const [officeHours, setOfficeHours] = React.useState<Array<{
     dayOfWeek: number
     startTime: string
@@ -89,7 +118,6 @@ export default function OnboardingPage() {
     mode: 'IN_PERSON' | 'VIRTUAL' | 'HYBRID'
   }>>([])
 
-  // Data fetching
   const [facultyList, setFacultyList] = React.useState<Faculty[]>([])
   const [buildingList, setBuildingList] = React.useState<CampusBuilding[]>([])
   const [clubList, setClubList] = React.useState<Club[]>([])
@@ -99,10 +127,6 @@ export default function OnboardingPage() {
 
   const currentStep = steps[currentStepIdx]
 
-  // Redirect if not logged in or already onboarded.
-  // When navigating here right after login/register, the auth context may not
-  // have the profile yet (race condition). Attempt a refreshProfile() once
-  // before giving up and redirecting to /login.
   React.useEffect(() => {
     if (loading) return
 
@@ -120,7 +144,6 @@ export default function OnboardingPage() {
     }
   }, [loading, profile, router, authChecked, refreshProfile])
 
-  // Fetch data when reaching relevant steps
   React.useEffect(() => {
     if (currentStep === 'faculty' && facultyList.length === 0) {
       apiRequest<Faculty[]>('/api/faculty?limit=50')
@@ -139,7 +162,6 @@ export default function OnboardingPage() {
     }
   }, [currentStep, facultyList.length, buildingList.length, clubList.length])
 
-  // Reset search when changing steps
   React.useEffect(() => {
     setSearchQuery('')
   }, [currentStepIdx])
@@ -147,14 +169,14 @@ export default function OnboardingPage() {
   const goNext = () => {
     if (currentStepIdx < steps.length - 1) {
       setDirection('forward')
-      setCurrentStepIdx((i) => i + 1)
+      setCurrentStepIdx((index) => index + 1)
     }
   }
 
   const goBack = () => {
     if (currentStepIdx > 0) {
       setDirection('backward')
-      setCurrentStepIdx((i) => i - 1)
+      setCurrentStepIdx((index) => index - 1)
     }
   }
 
@@ -176,7 +198,6 @@ export default function OnboardingPage() {
       router.push(getHomeForRole(profile))
       router.refresh()
     } catch {
-      // Still navigate on error — onboarding is not blocking
       router.push(getHomeForRole(profile))
       router.refresh()
     } finally {
@@ -193,214 +214,155 @@ export default function OnboardingPage() {
       })
       await refreshProfile()
     } catch {
-      // continue anyway
+      // Continue anyway.
     }
     router.push(getHomeForRole(profile))
     router.refresh()
   }
 
-  const isLastStep = currentStepIdx === steps.length - 1
-
   if (loading || !profile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950/80 to-slate-950 flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Preparing your setup...</p>
+        </div>
       </div>
     )
   }
 
+  const isLastStep = currentStepIdx === steps.length - 1
+
   return (
-    <div className="relative isolate min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950/80 to-slate-950">
-      {/* Background */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-0 left-1/3 h-[500px] w-[500px] rounded-full bg-blue-500/15 blur-[120px] animate-pulse" />
-        <div className="absolute bottom-0 right-1/3 h-[400px] w-[400px] rounded-full bg-cyan-500/10 blur-[100px] animate-pulse [animation-delay:2s]" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:60px_60px]" />
-      </div>
-
-      <div className="relative flex min-h-screen flex-col items-center justify-center px-4 py-8">
-        {/* Logo */}
-        <div className="mb-6 flex items-center gap-3">
-          <Image src="/transparentlogo.png" alt="PocketQuad" width={40} height={40} className="rounded-xl" />
-          <span className="font-display text-2xl font-black text-white">
-            Pocket<span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Quad</span>
-          </span>
-        </div>
-
-        {/* Progress bar */}
-        <div className="mb-8 flex items-center gap-2">
-          {steps.map((_, i) => (
-            <div
-              key={i}
-              className={`h-1.5 rounded-full transition-all duration-500 ${
-                i <= currentStepIdx ? 'w-10 bg-gradient-to-r from-blue-400 to-cyan-400' : 'w-6 bg-white/10'
-              }`}
-            />
-          ))}
-        </div>
-
-        {/* Card container with animation */}
-        <div className="w-full max-w-lg">
-          <div
-            key={currentStep}
-            className={`relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-8 ${
-              direction === 'forward'
-                ? 'animate-[slideInRight_0.3s_ease-out]'
-                : 'animate-[slideInLeft_0.3s_ease-out]'
-            }`}
-          >
-            <div className="pointer-events-none absolute -top-20 -right-20 h-40 w-40 rounded-full bg-blue-500/15 blur-3xl" />
-
-            <div className="relative">
-              {currentStep === 'welcome' && <WelcomeCard name={profile.firstName} role={profile.role} />}
-              {currentStep === 'faculty' && (
-                <FacultyPickerCard
-                  facultyList={facultyList}
-                  selected={favoriteFacultyIds}
-                  onToggle={(id) =>
-                    setFavoriteFacultyIds((prev) =>
-                      prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id],
-                    )
-                  }
-                  searchQuery={searchQuery}
-                  onSearch={setSearchQuery}
-                />
-              )}
-              {currentStep === 'buildings' && (
-                <BuildingAlertCard
-                  buildings={buildingList}
-                  enabled={buildingAlerts}
-                  onToggle={setBuildingAlerts}
-                  selected={selectedBuildingIds}
-                  onSelect={(id) =>
-                    setSelectedBuildingIds((prev) =>
-                      prev.includes(id) ? prev.filter((b) => b !== id) : [...prev, id],
-                    )
-                  }
-                  searchQuery={searchQuery}
-                  onSearch={setSearchQuery}
-                />
-              )}
-              {currentStep === 'clubs' && (
-                <ClubInterestCard
-                  clubs={clubList}
-                  selected={selectedClubIds}
-                  onToggle={(id) =>
-                    setSelectedClubIds((prev) =>
-                      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
-                    )
-                  }
-                  searchQuery={searchQuery}
-                  onSearch={setSearchQuery}
-                />
-              )}
-              {currentStep === 'theme' && (
-                <ThemeCard selected={selectedTheme} onSelect={setSelectedTheme} />
-              )}
-              {currentStep === 'officeHours' && (
-                <OfficeHoursCard officeHours={officeHours} onChange={setOfficeHours} />
-              )}
-              {currentStep === 'permissions' && <PermissionsCard profile={profile} />}
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <div className="mt-6 flex w-full max-w-lg items-center justify-between gap-3">
-          <button
-            onClick={goBack}
-            disabled={currentStepIdx === 0 || submitting}
-            className="flex items-center gap-1.5 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white/60 transition-all hover:bg-white/10 hover:text-white disabled:opacity-0 disabled:pointer-events-none"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back
-          </button>
-
-          <button
-            onClick={skipOnboarding}
-            disabled={submitting}
-            className="text-xs text-white/30 hover:text-white/50 transition-colors"
-          >
-            Skip for now
-          </button>
-
-          <button
-            onClick={isLastStep ? finishOnboarding : goNext}
-            disabled={submitting}
-            className="group flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-cyan-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition-all hover:shadow-blue-500/40 hover:brightness-110 disabled:opacity-60"
-          >
-            {submitting ? (
-              <>
-                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Finishing...
-              </>
-            ) : isLastStep ? (
-              <>
-                Let&apos;s Go! <Sparkles className="h-4 w-4" />
-              </>
-            ) : (
-              <>
-                Next <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Global animation keyframes */}
-      <style jsx global>{`
-        @keyframes slideInRight {
-          from { opacity: 0; transform: translateX(40px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes slideInLeft {
-          from { opacity: 0; transform: translateX(-40px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-      `}</style>
-    </div>
+    <OnboardingShell
+      currentStep={currentStepIdx}
+      totalSteps={steps.length}
+      footer={
+        <StepFooter
+          onBack={goBack}
+          onSkip={skipOnboarding}
+          onNext={isLastStep ? finishOnboarding : goNext}
+          disableBack={currentStepIdx === 0 || submitting}
+          disableNext={submitting}
+          isLastStep={isLastStep}
+          submitting={submitting}
+        />
+      }
+    >
+      <StepCard direction={direction}>
+        {currentStep === 'welcome' ? (
+          <WelcomeStep name={profile.firstName} role={profile.role} />
+        ) : null}
+        {currentStep === 'faculty' ? (
+          <FacultyStep
+            facultyList={facultyList}
+            selected={favoriteFacultyIds}
+            onToggle={(id) =>
+              setFavoriteFacultyIds((previous) =>
+                previous.includes(id) ? previous.filter((facultyId) => facultyId !== id) : [...previous, id],
+              )
+            }
+            searchQuery={searchQuery}
+            onSearch={setSearchQuery}
+          />
+        ) : null}
+        {currentStep === 'buildings' ? (
+          <BuildingsStep
+            buildings={buildingList}
+            enabled={buildingAlerts}
+            onToggle={setBuildingAlerts}
+            selected={selectedBuildingIds}
+            onSelect={(id) =>
+              setSelectedBuildingIds((previous) =>
+                previous.includes(id) ? previous.filter((buildingId) => buildingId !== id) : [...previous, id],
+              )
+            }
+            searchQuery={searchQuery}
+            onSearch={setSearchQuery}
+          />
+        ) : null}
+        {currentStep === 'clubs' ? (
+          <ClubsStep
+            clubs={clubList}
+            selected={selectedClubIds}
+            onToggle={(id) =>
+              setSelectedClubIds((previous) =>
+                previous.includes(id) ? previous.filter((clubId) => clubId !== id) : [...previous, id],
+              )
+            }
+            searchQuery={searchQuery}
+            onSearch={setSearchQuery}
+          />
+        ) : null}
+        {currentStep === 'theme' ? (
+          <ThemeStep selected={selectedTheme} onSelect={setSelectedTheme} />
+        ) : null}
+        {currentStep === 'officeHours' ? (
+          <OfficeHoursStep officeHours={officeHours} onChange={setOfficeHours} />
+        ) : null}
+      </StepCard>
+    </OnboardingShell>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Welcome Card                                                        */
-/* ------------------------------------------------------------------ */
+function WelcomeStep({ name, role }: { name: string; role: string }) {
+  const highlights =
+    role === 'FACULTY'
+      ? [
+          {
+            title: 'Set office hours',
+            description: 'Publish your weekly availability so students know where to find you.',
+          },
+          {
+            title: 'Use campus tools',
+            description: 'Access faculty workflows, updates, and resource links from one place.',
+          },
+          {
+            title: 'Keep your theme',
+            description: 'Choose a look that fits your day, including university colors as an option.',
+          },
+        ]
+      : [
+          {
+            title: 'Follow faculty',
+            description: 'Keep your most relevant professors easy to find as the term gets busy.',
+          },
+          {
+            title: 'Track important places',
+            description: 'Watch key buildings and get closure alerts when campus operations change.',
+          },
+          {
+            title: 'Personalize the app',
+            description: 'Choose clubs and a visual theme so PocketQuad feels tailored from day one.',
+          },
+        ]
 
-function WelcomeCard({ name, role }: { name: string; role: string }) {
   return (
-    <div className="text-center py-4">
-      <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-400/30">
-        <Sparkles className="h-7 w-7 text-blue-400" />
-      </div>
-      <h2 className="font-display text-2xl font-extrabold text-white sm:text-3xl">
-        Hey {name}! 👋
-      </h2>
-      <p className="mt-3 text-sm text-blue-200/50 max-w-sm mx-auto leading-relaxed">
-        {role === 'FACULTY'
-          ? "Let's set up your faculty profile. We'll walk you through configuring your office hours and preferences."
-          : "Let's personalize your experience. Pick your favorite faculty, buildings to watch, clubs to follow, and choose your theme."}
-      </p>
-      <div className="mt-6 flex justify-center gap-3">
-        {['⚡ Quick Setup', '🎨 Personalized', '🔔 Smart Alerts'].map((badge) => (
-          <span
-            key={badge}
-            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-medium text-blue-200/60"
-          >
-            {badge}
-          </span>
+    <div className="space-y-6">
+      <StepHeader
+        badge="Welcome"
+        icon={<Sparkles className="h-5 w-5" />}
+        title={`Hey ${name}`}
+        description={
+          role === 'FACULTY'
+            ? 'We will get your faculty profile ready in a couple of quick steps.'
+            : 'We will tune PocketQuad to the people, places, and communities you care about most.'
+        }
+      />
+
+      <div className="grid gap-3 md:grid-cols-3">
+        {highlights.map((highlight) => (
+          <div key={highlight.title} className="rounded-2xl border border-border/70 bg-card/80 p-5 shadow-surface">
+            <Badge variant="subtle">{highlight.title}</Badge>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">{highlight.description}</p>
+          </div>
         ))}
       </div>
     </div>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Faculty Picker Card                                                 */
-/* ------------------------------------------------------------------ */
-
-function FacultyPickerCard({
+function FacultyStep({
   facultyList,
   selected,
   onToggle,
@@ -411,81 +373,62 @@ function FacultyPickerCard({
   selected: string[]
   onToggle: (id: string) => void
   searchQuery: string
-  onSearch: (q: string) => void
+  onSearch: (query: string) => void
 }) {
   const filtered = facultyList.filter(
-    (f) =>
-      f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (f.department ?? '').toLowerCase().includes(searchQuery.toLowerCase()),
+    (faculty) =>
+      faculty.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (faculty.department ?? '').toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
   return (
-    <div>
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-pink-500/15 border border-pink-400/30">
-          <Heart className="h-5 w-5 text-pink-400" />
-        </div>
-        <div>
-          <h3 className="font-display text-lg font-bold text-white">Favorite Faculty</h3>
-          <p className="text-xs text-blue-200/40">Follow professors for updates & office hours</p>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <StepHeader
+        badge="Favorite Faculty"
+        icon={<Heart className="h-5 w-5" />}
+        title="Choose faculty to follow"
+        description="Pick professors you want quick access to for updates, office hours, and contact info."
+      />
 
-      <div className="relative mb-3">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => onSearch(e.target.value)}
-          placeholder="Search faculty..."
-          className="w-full rounded-xl border border-white/10 bg-white/[0.03] py-2.5 pl-9 pr-3 text-sm text-white outline-none placeholder:text-white/20 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20"
-        />
-      </div>
+      <SearchField value={searchQuery} onChange={onSearch} placeholder="Search faculty by name or department" />
 
-      <div className="max-h-[280px] space-y-1.5 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 pr-1">
+      <div className="max-h-[320px] space-y-3 overflow-y-auto pr-1 custom-scrollbar">
         {filtered.length === 0 ? (
-          <p className="py-6 text-center text-xs text-white/30">No faculty found</p>
+          <EmptyState label="No faculty found." />
         ) : (
-          filtered.map((f) => {
-            const isSelected = selected.includes(f.id)
+          filtered.map((faculty) => {
+            const isSelected = selected.includes(faculty.id)
+
             return (
-              <button
-                key={f.id}
-                onClick={() => onToggle(f.id)}
-                className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all ${
-                  isSelected
-                    ? 'border-pink-400/40 bg-pink-500/10'
-                    : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'
-                }`}
-              >
-                <div className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold ${
-                  isSelected ? 'bg-pink-500/20 text-pink-300' : 'bg-white/10 text-white/50'
-                }`}>
-                  {f.name.charAt(0)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium truncate ${isSelected ? 'text-white' : 'text-white/70'}`}>{f.name}</p>
-                  {f.department && <p className="text-[11px] text-white/30 truncate">{f.department}</p>}
-                </div>
-                {isSelected && <Check className="h-4 w-4 text-pink-400 shrink-0" />}
-              </button>
+              <SelectionRow
+                key={faculty.id}
+                selected={isSelected}
+                onClick={() => onToggle(faculty.id)}
+                leading={
+                  <div className={cn(
+                    'flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold',
+                    isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground',
+                  )}>
+                    {faculty.name.charAt(0)}
+                  </div>
+                }
+                title={faculty.name}
+                description={faculty.department ?? faculty.title ?? 'Faculty member'}
+                trailing={isSelected ? <Check className="h-4 w-4 text-primary" /> : null}
+              />
             )
           })
         )}
       </div>
 
-      {selected.length > 0 && (
-        <p className="mt-3 text-xs text-pink-300/60 text-center">{selected.length} faculty selected</p>
-      )}
+      {selected.length > 0 ? (
+        <p className="text-sm text-muted-foreground">{selected.length} faculty selected</p>
+      ) : null}
     </div>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Building Alert Card                                                 */
-/* ------------------------------------------------------------------ */
-
-function BuildingAlertCard({
+function BuildingsStep({
   buildings,
   enabled,
   onToggle,
@@ -496,94 +439,77 @@ function BuildingAlertCard({
 }: {
   buildings: CampusBuilding[]
   enabled: boolean
-  onToggle: (v: boolean) => void
+  onToggle: (next: boolean) => void
   selected: string[]
   onSelect: (id: string) => void
   searchQuery: string
-  onSearch: (q: string) => void
+  onSearch: (query: string) => void
 }) {
   const filtered = buildings.filter(
-    (b) =>
-      b.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (b.code ?? '').toLowerCase().includes(searchQuery.toLowerCase()),
+    (building) =>
+      building.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (building.code ?? '').toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
   return (
-    <div>
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 border border-amber-400/30">
-          <Building2 className="h-5 w-5 text-amber-400" />
-        </div>
-        <div>
-          <h3 className="font-display text-lg font-bold text-white">Building Alerts</h3>
-          <p className="text-xs text-blue-200/40">Get notified about closures & status changes</p>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <StepHeader
+        badge="Building Alerts"
+        icon={<Building2 className="h-5 w-5" />}
+        title="Keep an eye on campus spaces"
+        description="Turn on alerts for building closures, service changes, and the places you depend on most."
+      />
 
-      {/* Toggle */}
-      <button
-        onClick={() => onToggle(!enabled)}
-        className={`mb-4 flex w-full items-center justify-between rounded-2xl border px-4 py-3 transition-all ${
-          enabled ? 'border-amber-400/40 bg-amber-500/10' : 'border-white/10 bg-white/[0.03]'
-        }`}
-      >
-        <span className="text-sm font-medium text-white">Enable building closure alerts</span>
-        <div className={`relative h-6 w-11 rounded-full transition-all ${enabled ? 'bg-amber-500' : 'bg-white/15'}`}>
-          <div className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${enabled ? 'left-[22px]' : 'left-0.5'}`} />
-        </div>
-      </button>
+      <StepToggle
+        enabled={enabled}
+        onToggle={onToggle}
+        title="Enable building closure alerts"
+        description="Receive updates when important buildings close or change operating status."
+      />
 
-      {enabled && (
+      {enabled ? (
         <>
-          <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => onSearch(e.target.value)}
-              placeholder="Search buildings..."
-              className="w-full rounded-xl border border-white/10 bg-white/[0.03] py-2.5 pl-9 pr-3 text-sm text-white outline-none placeholder:text-white/20 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20"
-            />
+          <SearchField value={searchQuery} onChange={onSearch} placeholder="Search buildings by name or code" />
+
+          <div className="max-h-[280px] space-y-3 overflow-y-auto pr-1 custom-scrollbar">
+            {filtered.length === 0 ? (
+              <EmptyState label="No buildings found." />
+            ) : (
+              filtered.map((building) => {
+                const isSelected = selected.includes(building.id)
+
+                return (
+                  <SelectionRow
+                    key={building.id}
+                    selected={isSelected}
+                    onClick={() => onSelect(building.id)}
+                    leading={
+                      <div className={cn(
+                        'flex h-10 w-10 items-center justify-center rounded-2xl',
+                        isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+                      )}>
+                        <Building2 className="h-4 w-4" />
+                      </div>
+                    }
+                    title={building.name}
+                    description={building.code ?? building.category ?? 'Campus building'}
+                    trailing={isSelected ? <Check className="h-4 w-4 text-primary" /> : null}
+                  />
+                )
+              })
+            )}
           </div>
 
-          <div className="max-h-[220px] space-y-1.5 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 pr-1">
-            {filtered.map((b) => {
-              const isSelected = selected.includes(b.id)
-              return (
-                <button
-                  key={b.id}
-                  onClick={() => onSelect(b.id)}
-                  className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all ${
-                    isSelected
-                      ? 'border-amber-400/40 bg-amber-500/10'
-                      : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'
-                  }`}
-                >
-                  <Building2 className={`h-4 w-4 shrink-0 ${isSelected ? 'text-amber-400' : 'text-white/30'}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate ${isSelected ? 'text-white' : 'text-white/70'}`}>{b.name}</p>
-                    {b.code && <p className="text-[11px] text-white/30">{b.code}</p>}
-                  </div>
-                  {isSelected && <Check className="h-4 w-4 text-amber-400 shrink-0" />}
-                </button>
-              )
-            })}
-          </div>
-
-          {selected.length > 0 && (
-            <p className="mt-3 text-xs text-amber-300/60 text-center">{selected.length} buildings selected</p>
-          )}
+          {selected.length > 0 ? (
+            <p className="text-sm text-muted-foreground">{selected.length} buildings selected</p>
+          ) : null}
         </>
-      )}
+      ) : null}
     </div>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Club Interest Card                                                  */
-/* ------------------------------------------------------------------ */
-
-function ClubInterestCard({
+function ClubsStep({
   clubs,
   selected,
   onToggle,
@@ -594,123 +520,111 @@ function ClubInterestCard({
   selected: string[]
   onToggle: (id: string) => void
   searchQuery: string
-  onSearch: (q: string) => void
+  onSearch: (query: string) => void
 }) {
   const filtered = clubs.filter(
-    (c) =>
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (c.category ?? '').toLowerCase().includes(searchQuery.toLowerCase()),
+    (club) =>
+      club.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (club.category ?? '').toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
   return (
-    <div>
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-400/30">
-          <Users className="h-5 w-5 text-emerald-400" />
-        </div>
-        <div>
-          <h3 className="font-display text-lg font-bold text-white">Club Interests</h3>
-          <p className="text-xs text-blue-200/40">Follow clubs you&apos;re interested in</p>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <StepHeader
+        badge="Club Interests"
+        icon={<Users className="h-5 w-5" />}
+        title="Pick the communities that matter"
+        description="Following clubs makes it easier to see activity, events, and organizations you may want to join."
+      />
 
-      <div className="relative mb-3">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => onSearch(e.target.value)}
-          placeholder="Search clubs..."
-          className="w-full rounded-xl border border-white/10 bg-white/[0.03] py-2.5 pl-9 pr-3 text-sm text-white outline-none placeholder:text-white/20 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20"
-        />
-      </div>
+      <SearchField value={searchQuery} onChange={onSearch} placeholder="Search clubs by name or category" />
 
-      <div className="max-h-[280px] space-y-1.5 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 pr-1">
+      <div className="max-h-[320px] space-y-3 overflow-y-auto pr-1 custom-scrollbar">
         {filtered.length === 0 ? (
-          <p className="py-6 text-center text-xs text-white/30">No clubs found</p>
+          <EmptyState label="No clubs found." />
         ) : (
-          filtered.map((c) => {
-            const isSelected = selected.includes(c.id)
+          filtered.map((club) => {
+            const isSelected = selected.includes(club.id)
+
             return (
-              <button
-                key={c.id}
-                onClick={() => onToggle(c.id)}
-                className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all ${
-                  isSelected
-                    ? 'border-emerald-400/40 bg-emerald-500/10'
-                    : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'
-                }`}
-              >
-                <div className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold ${
-                  isSelected ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white/50'
-                }`}>
-                  {c.name.charAt(0)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium truncate ${isSelected ? 'text-white' : 'text-white/70'}`}>{c.name}</p>
-                  {c.category && (
-                    <span className="inline-block rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] text-white/30">{c.category}</span>
-                  )}
-                </div>
-                {isSelected && <Check className="h-4 w-4 text-emerald-400 shrink-0" />}
-              </button>
+              <SelectionRow
+                key={club.id}
+                selected={isSelected}
+                onClick={() => onToggle(club.id)}
+                leading={
+                  <div className={cn(
+                    'flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold',
+                    isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground',
+                  )}>
+                    {club.name.charAt(0)}
+                  </div>
+                }
+                title={club.name}
+                description={club.description ?? 'Student club'}
+                meta={club.category ? <Badge variant="subtle">{club.category}</Badge> : null}
+                trailing={isSelected ? <Check className="h-4 w-4 text-primary" /> : null}
+              />
             )
           })
         )}
       </div>
 
-      {selected.length > 0 && (
-        <p className="mt-3 text-xs text-emerald-300/60 text-center">{selected.length} clubs selected</p>
-      )}
+      {selected.length > 0 ? (
+        <p className="text-sm text-muted-foreground">{selected.length} clubs selected</p>
+      ) : null}
     </div>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Theme Card                                                          */
-/* ------------------------------------------------------------------ */
-
-function ThemeCard({
+function ThemeStep({
   selected,
   onSelect,
 }: {
   selected: string
   onSelect: (theme: 'system' | 'light' | 'dark' | 'university') => void
 }) {
-  return (
-    <div>
-      <div className="flex items-center gap-3 mb-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/15 border border-violet-400/30">
-          <Palette className="h-5 w-5 text-violet-400" />
-        </div>
-        <div>
-          <h3 className="font-display text-lg font-bold text-white">Choose Your Theme</h3>
-          <p className="text-xs text-blue-200/40">You can always change this later in settings</p>
-        </div>
-      </div>
+  const { universityColors, universityName } = useUniversityTheme()
 
-      <div className="grid grid-cols-2 gap-3">
-        {THEMES.map((theme) => {
-          const isSelected = selected === theme.value
+  return (
+    <div className="space-y-5">
+      <StepHeader
+        badge="Appearance"
+        icon={<Palette className="h-5 w-5" />}
+        title="Choose your visual theme"
+        description="Pick the presentation you want to use by default. You can always change this later in settings."
+      />
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {THEME_OPTIONS.map((theme) => {
+          const isUniversity = theme.value === 'university'
+          const detail = isUniversity && universityColors ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="inline-flex items-center gap-1">
+                <span
+                  className="h-3 w-3 rounded-full border border-border/70"
+                  style={{ backgroundColor: universityColors.mainColor }}
+                />
+                <span
+                  className="h-3 w-3 rounded-full border border-border/70"
+                  style={{ backgroundColor: universityColors.accentColor }}
+                />
+              </span>
+              {universityName ? `${universityName} colors` : 'School palette ready'}
+            </span>
+          ) : isUniversity ? (
+            'Uses your university palette when your school has configured one.'
+          ) : undefined
+
           return (
-            <button
+            <ChoiceTile
               key={theme.value}
+              selected={selected === theme.value}
               onClick={() => onSelect(theme.value)}
-              className={`relative flex flex-col items-center gap-2 rounded-2xl border p-5 transition-all ${
-                isSelected
-                  ? 'border-violet-400/50 bg-violet-500/10 shadow-lg shadow-violet-500/10'
-                  : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05]'
-              }`}
-            >
-              {isSelected && (
-                <div className="absolute top-2 right-2">
-                  <Check className="h-4 w-4 text-violet-400" />
-                </div>
-              )}
-              <span className="text-3xl">{theme.icon}</span>
-              <span className={`text-sm font-semibold ${isSelected ? 'text-white' : 'text-white/60'}`}>{theme.label}</span>
-              <span className="text-[11px] text-white/30">{theme.desc}</span>
-            </button>
+              icon={theme.icon}
+              title={theme.label}
+              description={theme.description}
+              detail={detail}
+            />
           )
         })}
       </div>
@@ -718,11 +632,7 @@ function ThemeCard({
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Office Hours Card (Faculty)                                         */
-/* ------------------------------------------------------------------ */
-
-function OfficeHoursCard({
+function OfficeHoursStep({
   officeHours,
   onChange,
 }: {
@@ -733,7 +643,13 @@ function OfficeHoursCard({
     location: string
     mode: 'IN_PERSON' | 'VIRTUAL' | 'HYBRID'
   }>
-  onChange: (hours: typeof officeHours) => void
+  onChange: (hours: Array<{
+    dayOfWeek: number
+    startTime: string
+    endTime: string
+    location: string
+    mode: 'IN_PERSON' | 'VIRTUAL' | 'HYBRID'
+  }>) => void
 }) {
   const addSlot = (dayOfWeek: number) => {
     onChange([
@@ -743,93 +659,97 @@ function OfficeHoursCard({
   }
 
   const removeSlot = (index: number) => {
-    onChange(officeHours.filter((_, i) => i !== index))
+    onChange(officeHours.filter((_, slotIndex) => slotIndex !== index))
   }
 
   const updateSlot = (index: number, field: string, value: string | number) => {
     onChange(
-      officeHours.map((slot, i) =>
-        i === index ? { ...slot, [field]: value } : slot,
+      officeHours.map((slot, slotIndex) =>
+        slotIndex === index ? { ...slot, [field]: value } : slot,
       ),
     )
   }
 
   return (
-    <div>
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/15 border border-blue-400/30">
-          <Clock className="h-5 w-5 text-blue-400" />
-        </div>
-        <div>
-          <h3 className="font-display text-lg font-bold text-white">Office Hours</h3>
-          <p className="text-xs text-blue-200/40">Set your weekly availability for students</p>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <StepHeader
+        badge="Office Hours"
+        icon={<Clock className="h-5 w-5" />}
+        title="Set your weekly availability"
+        description="Choose the days and times students can expect to find you, then add the location or meeting mode."
+      />
 
-      {/* Day chips */}
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        {DAYS.map((day, i) => {
-          const hasSlot = officeHours.some((oh) => oh.dayOfWeek === i)
+      <div className="flex flex-wrap gap-2">
+        {DAYS.map((day, index) => {
+          const hasSlot = officeHours.some((slot) => slot.dayOfWeek === index)
+
           return (
-            <button
-              key={day}
-              onClick={() => !hasSlot && addSlot(i)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                hasSlot
-                  ? 'bg-blue-500/20 text-blue-300 border border-blue-400/30'
-                  : 'bg-white/5 text-white/40 border border-white/10 hover:bg-white/10 hover:text-white/60'
-              }`}
-            >
+            <DayChip key={day} selected={hasSlot} onClick={() => !hasSlot && addSlot(index)}>
               {day}
-            </button>
+            </DayChip>
           )
         })}
       </div>
 
-      {/* Slots */}
-      <div className="max-h-[240px] space-y-2 overflow-y-auto pr-1">
+      <div className="space-y-3">
         {officeHours.length === 0 ? (
-          <div className="py-8 text-center">
-            <Clock className="mx-auto h-8 w-8 text-white/15 mb-2" />
-            <p className="text-xs text-white/30">Tap a day above to add office hours</p>
-            <p className="text-[10px] text-white/20 mt-1">You can always add more later</p>
-          </div>
+          <EmptyState label="Pick a day above to add office hours." />
         ) : (
-          officeHours.map((slot, i) => (
-            <div key={i} className="rounded-xl border border-white/10 bg-white/[0.03] p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-blue-300">{DAYS[slot.dayOfWeek]}</span>
-                <button onClick={() => removeSlot(i)} className="text-white/30 hover:text-red-400 transition-colors">
-                  <X className="h-3.5 w-3.5" />
-                </button>
+          officeHours.map((slot, index) => (
+            <div key={index} className="rounded-2xl border border-border/70 bg-card/85 p-4 shadow-surface">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Badge variant="section">{DAYS[slot.dayOfWeek]}</Badge>
+                  <StatusPill variant="granted">{slot.mode.replace('_', ' ')}</StatusPill>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeSlot(index)}
+                  className="text-muted-foreground hover:text-red-500"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <Input
                   type="time"
                   value={slot.startTime}
-                  onChange={(e) => updateSlot(i, 'startTime', e.target.value)}
-                  className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-xs text-white outline-none focus:border-blue-400/50 [color-scheme:dark]"
+                  onChange={(event) => updateSlot(index, 'startTime', event.target.value)}
+                  variant="soft"
+                  inputSize="lg"
+                  className="[color-scheme:light] dark:[color-scheme:dark]"
                 />
-                <input
+                <Input
                   type="time"
                   value={slot.endTime}
-                  onChange={(e) => updateSlot(i, 'endTime', e.target.value)}
-                  className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-xs text-white outline-none focus:border-blue-400/50 [color-scheme:dark]"
+                  onChange={(event) => updateSlot(index, 'endTime', event.target.value)}
+                  variant="soft"
+                  inputSize="lg"
+                  className="[color-scheme:light] dark:[color-scheme:dark]"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <MapPin className="h-3 w-3 text-white/30 shrink-0" />
-                <input
-                  type="text"
-                  value={slot.location}
-                  onChange={(e) => updateSlot(i, 'location', e.target.value)}
-                  placeholder="Location (optional)"
-                  className="flex-1 bg-transparent text-xs text-white outline-none placeholder:text-white/20"
-                />
+
+              <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+                <div className="relative">
+                  <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    value={slot.location}
+                    onChange={(event) => updateSlot(index, 'location', event.target.value)}
+                    placeholder="Location (optional)"
+                    variant="soft"
+                    inputSize="lg"
+                    className="pl-11"
+                  />
+                </div>
+
                 <select
                   value={slot.mode}
-                  onChange={(e) => updateSlot(i, 'mode', e.target.value)}
-                  className="rounded-md border border-white/10 bg-white/[0.05] px-2 py-1 text-[10px] text-white outline-none [color-scheme:dark]"
+                  onChange={(event) => updateSlot(index, 'mode', event.target.value)}
+                  className="h-12 rounded-2xl border border-border/70 bg-background/90 px-4 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-200 hover:border-primary/15 focus:border-primary/30 focus:ring-2 focus:ring-primary/10"
                 >
                   <option value="IN_PERSON">In Person</option>
                   <option value="VIRTUAL">Virtual</option>
@@ -844,57 +764,10 @@ function OfficeHoursCard({
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Permissions Card (Faculty)                                          */
-/* ------------------------------------------------------------------ */
-
-function PermissionsCard({ profile }: { profile: UserProfileForPermissions }) {
-  const canAnnounce = profile.portalPermissions.includes('CAN_PUBLISH_ANNOUNCEMENTS')
-  const hasClubs = (profile.managedClubs?.length ?? 0) > 0
-
-  const permissions = [
-    { key: 'announce', label: 'Campus Announcements', desc: 'Publish announcements to all students', granted: canAnnounce },
-    { key: 'clubs', label: 'Club Management', desc: 'Manage assigned student organizations', granted: hasClubs },
-  ]
-
+function EmptyState({ label }: { label: string }) {
   return (
-    <div>
-      <div className="flex items-center gap-3 mb-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15 border border-cyan-400/30">
-          <ChevronRight className="h-5 w-5 text-cyan-400" />
-        </div>
-        <div>
-          <h3 className="font-display text-lg font-bold text-white">Your Permissions</h3>
-          <p className="text-xs text-blue-200/40">What you can do in PocketQuad</p>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {permissions.map((perm) => (
-          <div
-            key={perm.key}
-            className={`rounded-xl border p-4 transition-all ${
-              perm.granted ? 'border-cyan-400/30 bg-cyan-500/10' : 'border-white/10 bg-white/[0.02]'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`text-sm font-semibold ${perm.granted ? 'text-white' : 'text-white/40'}`}>{perm.label}</p>
-                <p className="text-[11px] text-white/30 mt-0.5">{perm.desc}</p>
-              </div>
-              {perm.granted ? (
-                <span className="rounded-full bg-cyan-500/20 px-2.5 py-1 text-[10px] font-bold text-cyan-300">GRANTED</span>
-              ) : (
-                <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-bold text-white/30">NOT ASSIGNED</span>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <p className="mt-4 text-[11px] text-white/20 text-center">
-        Permissions are managed by your university admin. Contact them for changes.
-      </p>
+    <div className="rounded-2xl border border-dashed border-border/80 bg-card/70 px-4 py-8 text-center text-sm text-muted-foreground">
+      {label}
     </div>
   )
 }

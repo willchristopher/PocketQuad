@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 
+import { assertRateLimit, withRateLimitHeaders } from '@/lib/api/rateLimit'
 import { prisma } from '@/lib/prisma'
 import { ApiError, handleApiError, successResponse } from '@/lib/api/utils'
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server'
@@ -63,6 +64,13 @@ async function ensureCampusRoomMembership(userId: string) {
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimit = assertRateLimit({
+      key: 'auth:student-verify-otp',
+      limit: 10,
+      windowMs: 10 * 60_000,
+      request,
+      message: 'Too many student verification attempts. Please request a new code and try again later.',
+    })
     const payload = studentVerifyOtpSchema.parse(await request.json())
     const email = payload.email.toLowerCase()
     const emailDomain = extractEmailDomain(email)
@@ -159,13 +167,16 @@ export async function POST(request: NextRequest) {
 
     await ensureCampusRoomMembership(createdUser.id)
 
-    return successResponse({
-      id: createdUser.id,
-      email: createdUser.email,
-      universityId: matchedUniversity.id,
-      universityName: matchedUniversity.name,
-      role: createdUser.role,
-    })
+    return withRateLimitHeaders(
+      successResponse({
+        id: createdUser.id,
+        email: createdUser.email,
+        universityId: matchedUniversity.id,
+        universityName: matchedUniversity.name,
+        role: createdUser.role,
+      }),
+      rateLimit,
+    )
   } catch (error) {
     return handleApiError(error)
   }

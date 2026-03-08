@@ -30,6 +30,7 @@ type UserProfile = {
   location: string | null
   website: string | null
   major: string | null
+  department: string | null
   year: string | null
   notificationPreferences?: {
     officeHourChanges: boolean

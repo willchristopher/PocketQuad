@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import { NextRequest } from 'next/server'
 
+import { assertRateLimit, withRateLimitHeaders } from '@/lib/api/rateLimit'
 import { prisma } from '@/lib/prisma'
 import { ApiError, handleApiError, successResponse } from '@/lib/api/utils'
 import {
@@ -45,6 +46,13 @@ async function ensureSupabaseStudentAuthUser(seed: StudentAuthSeed) {
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimit = assertRateLimit({
+      key: 'auth:student-request-otp',
+      limit: 5,
+      windowMs: 10 * 60_000,
+      request,
+      message: 'Too many student verification requests. Please wait before trying again.',
+    })
     const payload = studentRequestOtpSchema.parse(await request.json())
     const email = payload.email.toLowerCase()
     const emailDomain = extractEmailDomain(email)
@@ -92,11 +100,14 @@ export async function POST(request: NextRequest) {
       throw new ApiError(400, error.message || 'Unable to send one-time passcode')
     }
 
-    return successResponse({
-      sent: true,
-      universityId: matchedUniversity.id,
-      universityName: matchedUniversity.name,
-    })
+    return withRateLimitHeaders(
+      successResponse({
+        sent: true,
+        universityId: matchedUniversity.id,
+        universityName: matchedUniversity.name,
+      }),
+      rateLimit,
+    )
   } catch (error) {
     return handleApiError(error)
   }

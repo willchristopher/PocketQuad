@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 
+import { assertRateLimit, withRateLimitHeaders } from '@/lib/api/rateLimit'
 import { prisma } from '@/lib/prisma'
 import { moderateCampusChatMessage } from '@/lib/chat/moderation'
 import { sendMessageSchema } from '@/lib/validations'
@@ -76,6 +77,14 @@ export async function POST(
 ) {
   try {
     const { profile } = await getAuthenticatedUser()
+    const rateLimit = assertRateLimit({
+      key: 'channels:messages:create',
+      limit: 40,
+      windowMs: 60_000,
+      request,
+      identifier: profile.id,
+      message: 'Too many messages sent too quickly. Please slow down and try again.',
+    })
     const { id } = await resolveParams(context)
 
     await assertMembership(id, profile.id)
@@ -117,7 +126,7 @@ export async function POST(
       },
     })
 
-    return successResponse(message, 201)
+    return withRateLimitHeaders(successResponse(message, 201), rateLimit)
   } catch (error) {
     return handleApiError(error)
   }

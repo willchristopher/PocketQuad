@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 
+import { assertRateLimit, withRateLimitHeaders } from '@/lib/api/rateLimit'
 import { prisma } from '@/lib/prisma'
 import { ApiError, handleApiError, successResponse } from '@/lib/api/utils'
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server'
@@ -9,6 +10,13 @@ export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimit = assertRateLimit({
+      key: 'auth:faculty-verify-otp',
+      limit: 10,
+      windowMs: 10 * 60_000,
+      request,
+      message: 'Too many faculty verification attempts. Please request a new code and try again later.',
+    })
     const payload = facultyVerifyOtpSchema.parse(await request.json())
 
     const facultyUser = await prisma.user.findFirst({
@@ -55,7 +63,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return successResponse({ verified: true })
+    return withRateLimitHeaders(successResponse({ verified: true }), rateLimit)
   } catch (error) {
     return handleApiError(error)
   }

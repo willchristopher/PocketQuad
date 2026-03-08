@@ -2,11 +2,12 @@ import { z } from 'zod'
 
 export const updateProfileSchema = z.object({
   displayName: z.string().trim().min(1).max(80).optional(),
-  bio: z.string().max(280).optional().nullable(),
-  location: z.string().max(100).optional().nullable(),
-  website: z.string().url().optional().nullable(),
-  major: z.string().max(100).optional().nullable(),
-  year: z.string().max(30).optional().nullable(),
+  bio: z.string().trim().max(280).optional().nullable(),
+  location: z.string().trim().max(100).optional().nullable(),
+  website: z.string().trim().url().optional().nullable(),
+  major: z.string().trim().max(100).optional().nullable(),
+  department: z.string().trim().max(100).optional().nullable(),
+  year: z.string().trim().max(30).optional().nullable(),
 })
 
 export const updatePreferencesSchema = z.object({

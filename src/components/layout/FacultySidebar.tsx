@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutGrid, LogOut, School } from 'lucide-react'
+import { LayoutGrid, LogOut, School, UserCircle2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -11,7 +11,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuth } from '@/lib/auth/context'
 
-const navigationItems = [{ icon: LayoutGrid, label: 'Dashboard', href: '/faculty/dashboard' }]
+const navigationItems = [
+  { icon: LayoutGrid, label: 'Dashboard', href: '/faculty/dashboard' },
+  { icon: UserCircle2, label: 'Profile', href: '/faculty/profile' },
+]
 
 export function FacultySidebar() {
   const pathname = usePathname()
