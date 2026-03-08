@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 
+import { assertRateLimit, withRateLimitHeaders } from '@/lib/api/rateLimit'
 import { prisma } from '@/lib/prisma'
 import { ApiError, handleApiError, successResponse } from '@/lib/api/utils'
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server'
@@ -9,6 +10,13 @@ export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimit = assertRateLimit({
+      key: 'auth:faculty-set-password',
+      limit: 5,
+      windowMs: 10 * 60_000,
+      request,
+      message: 'Too many faculty password setup attempts. Please wait before trying again.',
+    })
     const payload = facultySetPasswordSchema.parse(await request.json())
     const supabase = await createSupabaseRouteHandlerClient()
 
@@ -55,7 +63,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return successResponse({ success: true })
+    return withRateLimitHeaders(successResponse({ success: true }), rateLimit)
   } catch (error) {
     return handleApiError(error)
   }

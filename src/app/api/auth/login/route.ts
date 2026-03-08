@@ -1,12 +1,20 @@
 import { NextRequest } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
+import { assertRateLimit, withRateLimitHeaders } from '@/lib/api/rateLimit'
 import { loginSchema } from '@/lib/validations/auth'
 import { ApiError, handleApiError, successResponse } from '@/lib/api/utils'
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimit = assertRateLimit({
+      key: 'auth:login',
+      limit: 8,
+      windowMs: 60_000,
+      request,
+      message: 'Too many login attempts. Please wait a minute and try again.',
+    })
     const payload = loginSchema.parse(await request.json())
     const supabase = await createSupabaseRouteHandlerClient()
 
@@ -42,10 +50,13 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return successResponse({
-      user: data.user,
-      session: data.session,
-    })
+    return withRateLimitHeaders(
+      successResponse({
+        user: data.user,
+        session: data.session,
+      }),
+      rateLimit,
+    )
   } catch (error) {
     return handleApiError(error)
   }

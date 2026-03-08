@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import { NextRequest } from 'next/server'
 
+import { assertRateLimit, withRateLimitHeaders } from '@/lib/api/rateLimit'
 import { prisma } from '@/lib/prisma'
 import { ApiError, handleApiError, successResponse } from '@/lib/api/utils'
 import {
@@ -65,6 +66,13 @@ async function ensureSupabaseFacultyAuthUser(user: FacultyAccountRecord) {
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimit = assertRateLimit({
+      key: 'auth:faculty-request-otp',
+      limit: 5,
+      windowMs: 10 * 60_000,
+      request,
+      message: 'Too many faculty verification requests. Please wait before trying again.',
+    })
     const payload = facultyRequestOtpSchema.parse(await request.json())
 
     const user = await prisma.user.findFirst({
@@ -102,7 +110,7 @@ export async function POST(request: NextRequest) {
       throw new ApiError(400, error.message || 'Unable to send one-time passcode')
     }
 
-    return successResponse({ sent: true })
+    return withRateLimitHeaders(successResponse({ sent: true }), rateLimit)
   } catch (error) {
     return handleApiError(error)
   }

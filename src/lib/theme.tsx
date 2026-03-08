@@ -74,34 +74,53 @@ function adjustHexLightness(hex: string, amount: number): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
 }
 
+function hexToRGB(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+
+  return `${r}, ${g}, ${b}`
+}
+
 function applyUniversityColors(colors: UniversityColors) {
   const root = document.documentElement
   const mainHSL = hexToHSL(colors.mainColor)
   const accentHSL = hexToHSL(colors.accentColor)
   const accentIsLight = getLuminance(colors.accentColor) > 0.5
+  const mainRgb = hexToRGB(colors.mainColor)
+  const accentRgb = hexToRGB(colors.accentColor)
 
   // Use accent color (e.g. gold) as the primary so toggles, tabs, badges, etc. show it
   root.style.setProperty('--primary', accentHSL)
-  root.style.setProperty('--primary-foreground', accentIsLight ? '224 71% 4%' : '0 0% 100%')
+  root.style.setProperty('--primary-foreground', accentIsLight ? '222 47% 11%' : '0 0% 100%')
   root.style.setProperty('--ring', accentHSL)
+  root.style.setProperty('--brand-primary', colors.mainColor)
+  root.style.setProperty('--brand-secondary', colors.accentColor)
 
-  // Build gradient from main color (e.g. navy)
-  const lighterMain = adjustHexLightness(colors.mainColor, 40)
+  // Build brand gradients that keep the school's main color present.
+  const lighterMain = adjustHexLightness(colors.mainColor, 32)
   root.style.setProperty(
     '--gradient-primary',
-    `linear-gradient(135deg, ${colors.mainColor} 0%, ${lighterMain} 100%)`,
+    `linear-gradient(135deg, ${colors.mainColor} 0%, ${colors.accentColor} 100%)`,
   )
   root.style.setProperty(
     '--gradient-cool',
     `linear-gradient(135deg, ${colors.mainColor} 0%, ${colors.accentColor} 100%)`,
   )
+  root.style.setProperty(
+    '--gradient-surface',
+    `linear-gradient(180deg, rgba(${mainRgb}, 0.08) 0%, rgba(${accentRgb}, 0.03) 100%)`,
+  )
+  root.style.setProperty('--shadow-accent', `0 10px 24px rgba(${accentRgb}, 0.24)`)
+  root.style.setProperty('--shadow-accent-lg', `0 18px 36px rgba(${accentRgb}, 0.32)`)
 
   // Keep uni-specific custom properties for components that need the raw values
   root.style.setProperty('--uni-accent', accentHSL)
-  root.style.setProperty('--uni-accent-fg', accentIsLight ? '224 71% 4%' : '0 0% 100%')
+  root.style.setProperty('--uni-accent-fg', accentIsLight ? '222 47% 11%' : '0 0% 100%')
   root.style.setProperty('--uni-main', mainHSL)
   root.style.setProperty('--uni-main-hex', colors.mainColor)
   root.style.setProperty('--uni-accent-hex', colors.accentColor)
+  root.style.setProperty('--uni-main-soft', lighterMain)
 
   root.setAttribute('data-university-theme', 'true')
 }
@@ -112,13 +131,19 @@ function removeUniversityColors() {
     '--primary',
     '--primary-foreground',
     '--ring',
+    '--brand-primary',
+    '--brand-secondary',
     '--gradient-primary',
     '--gradient-cool',
+    '--gradient-surface',
+    '--shadow-accent',
+    '--shadow-accent-lg',
     '--uni-accent',
     '--uni-accent-fg',
     '--uni-main',
     '--uni-main-hex',
     '--uni-accent-hex',
+    '--uni-main-soft',
   ]
   props.forEach((prop) => root.style.removeProperty(prop))
   root.removeAttribute('data-university-theme')
@@ -133,6 +158,7 @@ type ThemeResponse = {
 export function UniversityThemeProvider({ children }: { children: React.ReactNode }) {
   const { setTheme: setNextTheme } = useTheme()
   const { profile } = useAuth()
+  const universityId = (profile as Record<string, unknown> | null)?.universityId as string | null | undefined
 
   const [themeMode, setThemeModeState] = React.useState<ThemeMode>(() => {
     if (typeof window === 'undefined') return 'system'
@@ -166,7 +192,6 @@ export function UniversityThemeProvider({ children }: { children: React.ReactNod
 
   // Fetch university colors
   React.useEffect(() => {
-    const universityId = (profile as Record<string, unknown> | null)?.universityId as string | null | undefined
     if (!universityId) return
 
     apiRequest<ThemeResponse>(`/api/universities/${universityId}/theme`)
@@ -182,7 +207,7 @@ export function UniversityThemeProvider({ children }: { children: React.ReactNod
       .catch(() => {
         // If fetch fails, use cached colors
       })
-  }, [(profile as Record<string, unknown> | null)?.universityId])
+  }, [universityId])
 
   // Apply the theme whenever mode or colors change
   React.useEffect(() => {

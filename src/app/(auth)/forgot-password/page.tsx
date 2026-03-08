@@ -1,9 +1,18 @@
 'use client'
 
 import React from 'react'
-import { Mail, ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Mail } from 'lucide-react'
 import Link from 'next/link'
 
+import {
+  AppBrand,
+  AuthCard,
+  AuthField,
+  AuthFieldShell,
+  AuthMessage,
+  AuthShell,
+} from '@/components/auth/AuthShell'
+import { Button } from '@/components/ui/button'
 import { ApiClientError, apiRequest } from '@/lib/api/client'
 
 export default function ForgotPasswordPage() {
@@ -35,72 +44,52 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-32 w-96 h-96 bg-blue-500/8 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-sky-500/8 rounded-full blur-3xl" />
-      </div>
+    <AuthShell>
+      <div className="space-y-6">
+        <AppBrand />
 
-      <div className="relative w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md">
-              <span className="text-lg font-extrabold text-primary-foreground">Q</span>
+        <AuthCard
+          badge="Account Recovery"
+          title={
+            <>
+              Reset your <span className="gradient-text">password</span>
+            </>
+          }
+          description="Enter your university email and we will send a reset link if your account is eligible."
+          footer={
+            <div className="text-center">
+              <Link href="/login" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+                <ArrowLeft className="h-4 w-4" />
+                Back to sign in
+              </Link>
             </div>
-            <span className="font-display text-2xl font-extrabold tracking-tight">PocketQuad</span>
-          </Link>
-        </div>
-
-        <div className="rounded-2xl border border-border/60 bg-card p-6 md:p-8 shadow-xl shadow-black/5">
-          <div className="text-center mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <Mail className="w-7 h-7 text-primary" />
-            </div>
-            <h1 className="font-display text-xl font-extrabold">Reset Password</h1>
-            <p className="text-sm text-muted-foreground mt-1">Enter your email and we&apos;ll send you a reset link.</p>
-          </div>
-
-          <form className="space-y-4" onSubmit={onSubmit}>
-            <div>
-              <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 block mb-1.5">University Email</label>
-              <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-muted/20 px-3.5 py-3 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all">
-                <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
+          }
+        >
+          <form className="space-y-5" onSubmit={onSubmit}>
+            <AuthField label="University Email">
+              <AuthFieldShell icon={<Mail className="h-4 w-4" />}>
                 <input
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="you@university.edu"
-                  className="bg-transparent text-sm outline-none w-full placeholder:text-muted-foreground/50"
+                  className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/60"
                   required
                   disabled={submitting}
                 />
-              </div>
-            </div>
+              </AuthFieldShell>
+            </AuthField>
 
-            {error && (
-              <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-700 dark:text-red-300">
-                {error}
-              </p>
-            )}
+            {error ? <AuthMessage variant="error">{error}</AuthMessage> : null}
+            {success ? <AuthMessage variant="success">{success}</AuthMessage> : null}
 
-            {success && (
-              <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                {success}
-              </p>
-            )}
-
-            <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm shadow-lg shadow-primary/25 hover:shadow-primary/35 hover:brightness-110 transition-all disabled:opacity-70">
-              {submitting ? 'Sending...' : 'Send Reset Link'} <ArrowRight className="w-4 h-4" />
-            </button>
+            <Button type="submit" variant="gradient" size="xl" className="w-full gap-2" disabled={submitting}>
+              {submitting ? 'Sending reset link...' : 'Send reset link'}
+              {submitting ? null : <ArrowRight className="h-4 w-4" />}
+            </Button>
           </form>
-
-          <div className="mt-6 pt-6 border-t border-border/60 text-center">
-            <Link href="/login" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground font-medium transition-colors">
-              <ArrowLeft className="w-4 h-4" /> Back to sign in
-            </Link>
-          </div>
-        </div>
+        </AuthCard>
       </div>
-    </div>
+    </AuthShell>
   )
 }

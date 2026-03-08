@@ -170,6 +170,9 @@ export default function ChatroomPage() {
           <p className="text-xs text-muted-foreground">
             One shared campus room for respectful, informational, and lighthearted conversation.
           </p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            AI moderation removes bullying, violent threats, and inappropriate language.
+          </p>
           {room && (
             <p className="mt-1 text-[11px] text-muted-foreground">
               {room.memberCount} member{room.memberCount === 1 ? '' : 's'}
@@ -213,7 +216,14 @@ export default function ChatroomPage() {
                   <p className="text-sm font-semibold">{isOwn ? 'You' : message.user.displayName}</p>
                   <p className="text-[11px] text-muted-foreground">{formatTime(message.createdAt)}</p>
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">{message.isDeleted ? '[deleted]' : message.content}</p>
+                <p
+                  className={cn(
+                    'mt-1 text-sm text-muted-foreground',
+                    message.isDeleted && 'italic text-muted-foreground/80',
+                  )}
+                >
+                  {message.content}
+                </p>
               </div>
             )
           })}
@@ -252,4 +262,3 @@ export default function ChatroomPage() {
     </div>
   )
 }
-

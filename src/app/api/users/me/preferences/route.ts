@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 
+import { assertRateLimit, withRateLimitHeaders } from '@/lib/api/rateLimit'
 import { prisma } from '@/lib/prisma'
 import { getAuthenticatedUser, handleApiError, successResponse } from '@/lib/api/utils'
 import { updatePreferencesSchema } from '@/lib/validations'
@@ -7,6 +8,14 @@ import { updatePreferencesSchema } from '@/lib/validations'
 export async function PATCH(request: NextRequest) {
   try {
     const { profile } = await getAuthenticatedUser()
+    const rateLimit = assertRateLimit({
+      key: 'users:me:preferences',
+      limit: 30,
+      windowMs: 10 * 60_000,
+      request,
+      identifier: profile.id,
+      message: 'Too many preference updates. Please wait a few minutes and try again.',
+    })
     const payload = updatePreferencesSchema.parse(await request.json())
 
     const preferences = await prisma.notificationPreferences.upsert({
@@ -18,7 +27,7 @@ export async function PATCH(request: NextRequest) {
       },
     })
 
-    return successResponse(preferences)
+    return withRateLimitHeaders(successResponse(preferences), rateLimit)
   } catch (error) {
     return handleApiError(error)
   }

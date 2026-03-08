@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 
+import { assertRateLimit, withRateLimitHeaders } from '@/lib/api/rateLimit'
 import { prisma } from '@/lib/prisma'
 import { canPublishCampusAnnouncements } from '@/lib/facultyPermissions'
 import { createAnnouncementSchema } from '@/lib/validations'
@@ -33,6 +34,14 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { profile } = await getAuthenticatedUser()
+    const rateLimit = assertRateLimit({
+      key: 'announcements:create',
+      limit: 10,
+      windowMs: 10 * 60_000,
+      request,
+      identifier: profile.id,
+      message: 'Too many announcement publish attempts. Please wait a few minutes and try again.',
+    })
 
     if (!canPublishCampusAnnouncements(profile)) {
       throw new ApiError(403, 'You do not have permission to publish campus announcements')
@@ -73,7 +82,10 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return successResponse({ ...announcement, notifiedCount: recipients.length }, 201)
+    return withRateLimitHeaders(
+      successResponse({ ...announcement, notifiedCount: recipients.length }, 201),
+      rateLimit,
+    )
   } catch (error) {
     return handleApiError(error)
   }

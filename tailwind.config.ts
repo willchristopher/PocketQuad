@@ -131,7 +131,7 @@ const config: Config = {
         },
       },
       fontFamily: {
-        display: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        display: ['Calistoga', 'Georgia', 'serif'],
         body: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
@@ -160,6 +160,10 @@ const config: Config = {
         'bento-hover': '0 0 0 1px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.12)',
         'bento-dark': '0 0 0 1px rgba(255,255,255,0.05), 0 2px 8px rgba(0,0,0,0.4)',
         'bento-hover-dark': '0 0 0 1px rgba(255,255,255,0.1), 0 8px 24px rgba(0,0,0,0.5)',
+        'accent': 'var(--shadow-accent)',
+        'accent-lg': 'var(--shadow-accent-lg)',
+        'surface': 'var(--shadow-surface)',
+        'surface-lg': 'var(--shadow-surface-lg)',
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -206,4 +210,3 @@ const config: Config = {
 }
 
 export default config;
-
