@@ -1,6 +1,10 @@
+import crypto from 'node:crypto'
+
 import { createGroq } from '@ai-sdk/groq'
 import { generateObject } from 'ai'
 import { z } from 'zod'
+
+import { prisma } from '@/lib/prisma'
 
 const moderationSchema = z.object({
   allowed: z.boolean(),
@@ -9,29 +13,87 @@ const moderationSchema = z.object({
 
 const hardBlockPattern =
   /\b(fuck|fucking|shit|bitch|asshole|dick|pussy|cunt|slut|whore|motherfucker|bullshit)\b/i
+const hardThreatPattern =
+  /\b(kill yourself|go die|i(?:'|’)ll kill you|i will kill you|beat you up|shoot you|stab you|i'm going to hurt you)\b/i
+const AUTO_REMOVED_MESSAGE = '[removed by AI moderation]'
+const SCAN_WINDOW_MS = 1000 * 60 * 60 * 24
+const SCAN_BATCH_SIZE = 20
+const CACHE_TTL_MS = 1000 * 60 * 10
 
-const SAFETY_SYSTEM_PROMPT = `You are a strict campus chat moderator.
+type ModerationCacheEntry = {
+  hash: string
+  checkedAt: number
+  result: ChatModerationResult
+}
 
-Allow only messages that are respectful, informational, or lighthearted.
-Block messages containing:
-- Vulgar or explicit sexual language
-- Harassment, bullying, insults, or demeaning remarks
-- Hate speech or discriminatory language
-- Threats, violence, or encouragement of harm
+type GlobalModerationCache = typeof globalThis & {
+  __pocketquadModerationCache?: Map<string, ModerationCacheEntry>
+}
+
+const SAFETY_SYSTEM_PROMPT = `You are an AI moderator for a campus chatroom.
+
+Allow normal student conversation, including:
+- Informational campus talk
+- Friendly jokes, memes, and lighthearted banter
+- Casual everyday conversation
+- Safety or news discussion about difficult topics when it is clearly informational and not threatening
 
 Return a JSON object with:
 - allowed: boolean
 - reason: short user-facing reason (no more than 20 words)
 
-If uncertain, choose safer behavior.`
+Disallow messages containing:
+- Inappropriate or vulgar language
+- Sexual content
+- Harassment, bullying, insults, intimidation, or personal attacks
+- Violent threats, violent fantasies, or encouragement of harm
+- Hate speech or discriminatory language
+
+Do not over-moderate harmless fun or regular conversation.
+If uncertain, prefer safety only when the message appears hostile, abusive, or threatening.`
 
 export type ChatModerationResult = {
   allowed: boolean
   reason: string
 }
 
-export async function moderateCampusChatMessage(content: string): Promise<ChatModerationResult> {
-  const trimmed = content.trim()
+function getModerationCache() {
+  const globalCache = globalThis as GlobalModerationCache
+  globalCache.__pocketquadModerationCache ??= new Map<string, ModerationCacheEntry>()
+  return globalCache.__pocketquadModerationCache
+}
+
+function hashMessage(content: string) {
+  return crypto.createHash('sha256').update(content).digest('hex')
+}
+
+function getCachedModerationResult(messageId: string, content: string) {
+  const cache = getModerationCache()
+  const entry = cache.get(messageId)
+  const now = Date.now()
+
+  if (!entry) {
+    return null
+  }
+
+  if (entry.checkedAt + CACHE_TTL_MS <= now || entry.hash !== hashMessage(content)) {
+    cache.delete(messageId)
+    return null
+  }
+
+  return entry.result
+}
+
+function setCachedModerationResult(messageId: string, content: string, result: ChatModerationResult) {
+  const cache = getModerationCache()
+  cache.set(messageId, {
+    hash: hashMessage(content),
+    checkedAt: Date.now(),
+    result,
+  })
+}
+
+async function runAiModeration(trimmed: string): Promise<ChatModerationResult> {
   if (trimmed.length === 0) {
     return {
       allowed: false,
@@ -42,7 +104,14 @@ export async function moderateCampusChatMessage(content: string): Promise<ChatMo
   if (hardBlockPattern.test(trimmed)) {
     return {
       allowed: false,
-      reason: 'Please keep messages respectful and free of vulgar language.',
+      reason: 'Please avoid inappropriate or vulgar language in chat.',
+    }
+  }
+
+  if (hardThreatPattern.test(trimmed)) {
+    return {
+      allowed: false,
+      reason: 'Threatening or violent language is not allowed here.',
     }
   }
 
@@ -77,3 +146,60 @@ export async function moderateCampusChatMessage(content: string): Promise<ChatMo
   }
 }
 
+export async function moderateCampusChatMessage(content: string): Promise<ChatModerationResult> {
+  const trimmed = content.trim()
+  return runAiModeration(trimmed)
+}
+
+export async function scanChannelMessagesForModeration(channelId: string) {
+  const recentMessages = await prisma.chatMessage.findMany({
+    where: {
+      channelId,
+      isDeleted: false,
+      createdAt: {
+        gte: new Date(Date.now() - SCAN_WINDOW_MS),
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: SCAN_BATCH_SIZE,
+    select: {
+      id: true,
+      content: true,
+    },
+  })
+
+  const removedMessageIds: string[] = []
+
+  for (const message of recentMessages) {
+    const cached = getCachedModerationResult(message.id, message.content)
+    const moderation = cached ?? (await moderateCampusChatMessage(message.content))
+
+    if (!cached) {
+      setCachedModerationResult(message.id, message.content, moderation)
+    }
+
+    if (moderation.allowed) {
+      continue
+    }
+
+    const removal = await prisma.chatMessage.updateMany({
+      where: {
+        id: message.id,
+        isDeleted: false,
+      },
+      data: {
+        isDeleted: true,
+        isEdited: true,
+        content: AUTO_REMOVED_MESSAGE,
+      },
+    })
+
+    if (removal.count > 0) {
+      removedMessageIds.push(message.id)
+    }
+  }
+
+  return {
+    removedMessageIds,
+  }
+}

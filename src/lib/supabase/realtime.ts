@@ -11,7 +11,7 @@ export function subscribeToChannel(
     .on(
       'postgres_changes',
       {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'chat_messages',
         filter: `channel_id=eq.${channelId}`,
