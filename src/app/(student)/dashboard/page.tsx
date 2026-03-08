@@ -10,15 +10,13 @@ import {
   Heart,
   MapPinned,
   Newspaper,
+  SlidersHorizontal,
   Star,
 } from 'lucide-react'
+
 import { BentoGrid, BentoWidget } from '@/components/dashboard/BentoGrid'
-import {
-  dashboardModuleIds,
-  campusNews,
-  defaultFavorites,
-} from '@/lib/studentData'
-import { readFavorites, writeFavorites } from '@/lib/favorites'
+import { dashboardModuleIds, type FavoriteItem } from '@/lib/studentData'
+import { readFavorites, toggleFavoriteItem } from '@/lib/favorites'
 import { useAuth } from '@/lib/auth/context'
 import { apiRequest } from '@/lib/api/client'
 
@@ -68,6 +66,28 @@ type FavoriteFacultyItem = {
   officeLocation: string
 }
 
+type CampusNewsItem = {
+  id: string
+  title: string
+  message: string
+  linkUrl: string | null
+  createdAt: string
+}
+
+type PinnedBuilding = {
+  id: string
+  name: string
+  type: string
+  address: string
+  operationalStatus: 'OPEN' | 'CLOSED' | 'LIMITED'
+}
+
+type PinnedClub = {
+  id: string
+  name: string
+  category: string
+}
+
 type DashboardOverviewResponse = {
   upcomingEvents: EventItem[]
   upcomingDeadlines: DeadlineItem[]
@@ -75,6 +95,36 @@ type DashboardOverviewResponse = {
   quickLinks: ResourceLinkSnapshot[]
   clubSnapshot: ClubSnapshot[]
   favoriteFaculty: FavoriteFacultyItem[]
+  campusNews: CampusNewsItem[]
+  pinnedBuildings: PinnedBuilding[]
+  pinnedClubs: PinnedClub[]
+}
+
+type DashboardModuleConfig = {
+  id: (typeof dashboardModuleIds)[number]
+  label: string
+}
+
+const dashboardModuleConfig: DashboardModuleConfig[] = [
+  { id: 'events', label: 'Events' },
+  { id: 'deadlines', label: 'Deadlines' },
+  { id: 'favorites', label: 'Pinned' },
+  { id: 'faculty', label: 'Favorite Faculty' },
+  { id: 'news', label: 'Campus News' },
+  { id: 'services', label: 'Services' },
+  { id: 'links', label: 'Quick Links' },
+  { id: 'clubs', label: 'Clubs' },
+]
+
+const defaultDashboardPreferences: DashboardPreferences = {
+  favorites: true,
+  deadlines: true,
+  events: true,
+  faculty: true,
+  news: true,
+  services: true,
+  links: true,
+  clubs: true,
 }
 
 function getTimeGreeting(): string {
@@ -101,6 +151,15 @@ function formatDue(value: string) {
   }).format(new Date(value))
 }
 
+function formatNewsTime(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(value))
+}
+
 const priorityColors: Record<string, string> = {
   HIGH: 'bg-red-500/10 text-red-600 dark:text-red-400',
   MEDIUM: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
@@ -115,43 +174,55 @@ const statusColors: Record<string, string> = {
 
 export default function DashboardPage() {
   const { profile, loading } = useAuth()
-  const [favorites, setFavorites] = React.useState(defaultFavorites)
   const [upcomingEvents, setUpcomingEvents] = React.useState<EventItem[]>([])
   const [upcomingDeadlines, setUpcomingDeadlines] = React.useState<DeadlineItem[]>([])
   const [serviceSnapshot, setServiceSnapshot] = React.useState<ServiceSnapshot[]>([])
   const [quickLinks, setQuickLinks] = React.useState<ResourceLinkSnapshot[]>([])
   const [clubSnapshot, setClubSnapshot] = React.useState<ClubSnapshot[]>([])
   const [favoriteFaculty, setFavoriteFaculty] = React.useState<FavoriteFacultyItem[]>([])
-  const [dashboardPreferences, setDashboardPreferences] = React.useState<DashboardPreferences>({
-    favorites: true,
-    deadlines: true,
-    events: true,
-    news: true,
-    services: true,
-    links: true,
-  })
+  const [campusNews, setCampusNews] = React.useState<CampusNewsItem[]>([])
+  const [pinnedBuildings, setPinnedBuildings] = React.useState<PinnedBuilding[]>([])
+  const [pinnedClubs, setPinnedClubs] = React.useState<PinnedClub[]>([])
+  const [pinnedResources, setPinnedResources] = React.useState<FavoriteItem[]>([])
+  const [dashboardPreferences, setDashboardPreferences] = React.useState<DashboardPreferences>(
+    defaultDashboardPreferences,
+  )
+  const [preferencesReady, setPreferencesReady] = React.useState(false)
 
   const firstName = profile?.firstName || profile?.displayName?.split(' ')[0] || ''
+  const preferenceStorageKey = React.useMemo(
+    () =>
+      profile?.id
+        ? `pocketquad-dashboard-preferences:${profile.id}`
+        : 'pocketquad-dashboard-preferences',
+    [profile?.id],
+  )
 
   React.useEffect(() => {
-    const storedFavorites = readFavorites()
-    if (storedFavorites.length === 0) {
-      writeFavorites(defaultFavorites)
-      setFavorites(defaultFavorites)
+    const resourcePins = readFavorites().filter((item) => item.kind === 'resource')
+    setPinnedResources(resourcePins)
+
+    const rawPreferences = window.localStorage.getItem(preferenceStorageKey)
+    if (rawPreferences) {
+      try {
+        const parsed = JSON.parse(rawPreferences) as Partial<DashboardPreferences>
+        setDashboardPreferences((previous) => ({ ...previous, ...parsed }))
+      } catch {
+        setDashboardPreferences(defaultDashboardPreferences)
+      }
     } else {
-      setFavorites(storedFavorites)
+      setDashboardPreferences(defaultDashboardPreferences)
     }
 
-    const rawPreferences = window.localStorage.getItem('pocketquad-dashboard-preferences')
-    if (!rawPreferences) return
+    setPreferencesReady(true)
+  }, [preferenceStorageKey])
 
-    try {
-      const parsed = JSON.parse(rawPreferences) as DashboardPreferences
-      setDashboardPreferences((previous) => ({ ...previous, ...parsed }))
-    } catch {
-      // Ignore invalid persisted preferences and keep defaults.
-    }
+  React.useEffect(() => {
+    if (!preferencesReady) return
+    window.localStorage.setItem(preferenceStorageKey, JSON.stringify(dashboardPreferences))
+  }, [dashboardPreferences, preferenceStorageKey, preferencesReady])
 
+  React.useEffect(() => {
     const loadBackendData = async () => {
       try {
         const overview = await apiRequest<DashboardOverviewResponse>('/api/dashboard/overview')
@@ -162,6 +233,9 @@ export default function DashboardPage() {
         setQuickLinks(overview.quickLinks)
         setClubSnapshot(overview.clubSnapshot)
         setFavoriteFaculty(overview.favoriteFaculty)
+        setCampusNews(overview.campusNews)
+        setPinnedBuildings(overview.pinnedBuildings)
+        setPinnedClubs(overview.pinnedClubs)
       } catch {
         setUpcomingEvents([])
         setUpcomingDeadlines([])
@@ -169,15 +243,58 @@ export default function DashboardPage() {
         setQuickLinks([])
         setClubSnapshot([])
         setFavoriteFaculty([])
+        setCampusNews([])
+        setPinnedBuildings([])
+        setPinnedClubs([])
       }
     }
 
     void loadBackendData()
   }, [])
 
+  const toggleModule = (moduleId: (typeof dashboardModuleIds)[number]) => {
+    setDashboardPreferences((previous) => ({
+      ...previous,
+      [moduleId]: !previous[moduleId],
+    }))
+  }
+
+  const toggleResourcePin = (link: ResourceLinkSnapshot) => {
+    const target: FavoriteItem = {
+      id: `resource-link-${link.id}`,
+      kind: 'resource',
+      label: link.label,
+      subtitle: link.category.replaceAll('_', ' '),
+      href: link.href,
+    }
+
+    const next = toggleFavoriteItem(target).filter((item) => item.kind === 'resource')
+    setPinnedResources(next)
+  }
+
+  const pinnedItems = [
+    ...pinnedBuildings.map((item) => ({
+      id: `building-${item.id}`,
+      label: item.name,
+      subtitle: `${item.type} · ${item.operationalStatus}`,
+      href: '/campus-map',
+    })),
+    ...pinnedResources.map((item) => ({
+      id: `resource-${item.id}`,
+      label: item.label,
+      subtitle: item.subtitle,
+      href: item.href,
+    })),
+    ...pinnedClubs.map((item) => ({
+      id: `club-${item.id}`,
+      label: item.name,
+      subtitle: item.category,
+      href: '/clubs',
+    })),
+  ]
+
   return (
     <div className="space-y-5">
-      {/* Welcome banner */}
       <section className="relative overflow-hidden rounded-2xl border border-border/60 bg-card px-6 py-5 md:px-7 md:py-6 animate-in-up">
         <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
         <div className="pointer-events-none absolute -left-12 bottom-0 h-32 w-32 rounded-full bg-cyan-500/10 blur-3xl" />
@@ -192,21 +309,47 @@ export default function DashboardPage() {
               ) : null}
             </h1>
           )}
-          <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
-            Here&apos;s what&apos;s happening on campus today.
+          <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
+            Your dashboard is personalized to your preferences, saved clubs, and pinned campus resources.
           </p>
         </div>
       </section>
 
+      <section className="rounded-2xl border border-border/60 bg-card p-4 md:p-5 animate-in-up stagger-1">
+        <div className="mb-3 flex items-center gap-2">
+          <SlidersHorizontal className="h-4 w-4 text-primary" />
+          <h2 className="font-display text-base font-bold tracking-tight">Customize Dashboard</h2>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {dashboardModuleConfig.map((module) => {
+            const enabled = dashboardPreferences[module.id]
+            return (
+              <button
+                key={module.id}
+                onClick={() => toggleModule(module.id)}
+                className={`rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
+                  enabled
+                    ? 'border-primary/40 bg-primary/10 text-foreground'
+                    : 'border-border/60 bg-muted/10 text-muted-foreground hover:bg-muted/25'
+                }`}
+                type="button"
+              >
+                <p className="font-semibold">{module.label}</p>
+                <p className="text-[11px]">{enabled ? 'Visible' : 'Hidden'}</p>
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
       <BentoGrid>
-        {/* Events & Deadlines - primary widget */}
         {(dashboardPreferences.events || dashboardPreferences.deadlines) && (
           <BentoWidget
             title="Schedule"
             icon={CalendarClock}
             span="large"
             action={{ label: 'Calendar', href: '/calendar' }}
-            className="animate-in-up stagger-1"
+            className="animate-in-up stagger-2"
           >
             <div className="grid gap-4 md:grid-cols-2">
               {dashboardPreferences.events && (
@@ -224,7 +367,7 @@ export default function DashboardPage() {
                         >
                           <p className="line-clamp-1 text-sm font-semibold">{event.title}</p>
                           <p className="mt-0.5 text-xs text-muted-foreground">
-                            {formatDate(event.date)} &middot; {event.time}
+                            {formatDate(event.date)} · {event.time}
                           </p>
                         </Link>
                       ))
@@ -263,22 +406,21 @@ export default function DashboardPage() {
           </BentoWidget>
         )}
 
-        {/* Favorites */}
         {dashboardPreferences.favorites && (
           <BentoWidget
             title="Pinned"
             icon={Star}
             span="medium"
-            action={{ label: 'Edit', href: '/profile' }}
-            className="animate-in-up stagger-2"
+            action={{ label: 'Preferences', href: '/profile' }}
+            className="animate-in-up stagger-3"
           >
             <div className="space-y-1.5">
-              {favorites.length === 0 ? (
+              {pinnedItems.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-border/60 p-3 text-center text-xs text-muted-foreground">
-                  Pin events, faculty, or links to see them here.
+                  No pinned items yet. Pin campus resources below and set building alerts or club interests in your profile.
                 </p>
               ) : (
-                favorites.map((item) => (
+                pinnedItems.map((item) => (
                   <Link
                     key={item.id}
                     href={item.href}
@@ -293,72 +435,75 @@ export default function DashboardPage() {
           </BentoWidget>
         )}
 
-        {/* Favorite Faculty */}
-        <BentoWidget
-          title="Favorite Faculty"
-          icon={Heart}
-          span="medium"
-          action={{ label: 'Directory', href: '/faculty-directory' }}
-          className="animate-in-up stagger-3"
-        >
-          <div className="space-y-1.5">
-            {favoriteFaculty.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-border/60 p-3 text-center text-xs text-muted-foreground">
-                No favorite faculty yet. Star professors from the faculty directory.
-              </p>
-            ) : (
-              favoriteFaculty.map((fac) => (
-                <Link
-                  key={fac.id}
-                  href={`/faculty-directory/${fac.id}`}
-                  className="block rounded-lg border border-border/40 bg-muted/5 px-3 py-2.5 transition-colors hover:bg-muted/30"
-                >
-                  <p className="text-sm font-semibold text-foreground">{fac.name}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{fac.department}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{fac.officeHours} &middot; {fac.officeLocation}</p>
-                </Link>
-              ))
-            )}
-          </div>
-        </BentoWidget>
+        {dashboardPreferences.faculty && (
+          <BentoWidget
+            title="Favorite Faculty"
+            icon={Heart}
+            span="medium"
+            action={{ label: 'Directory', href: '/faculty-directory' }}
+            className="animate-in-up stagger-4"
+          >
+            <div className="space-y-1.5">
+              {favoriteFaculty.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border/60 p-3 text-center text-xs text-muted-foreground">
+                  No favorite faculty yet. Star professors from the faculty directory.
+                </p>
+              ) : (
+                favoriteFaculty.map((faculty) => (
+                  <Link
+                    key={faculty.id}
+                    href={`/faculty-directory/${faculty.id}`}
+                    className="block rounded-lg border border-border/40 bg-muted/5 px-3 py-2.5 transition-colors hover:bg-muted/30"
+                  >
+                    <p className="text-sm font-semibold text-foreground">{faculty.name}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{faculty.department}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{faculty.officeHours} · {faculty.officeLocation}</p>
+                  </Link>
+                ))
+              )}
+            </div>
+          </BentoWidget>
+        )}
 
-        {/* Campus News */}
         {dashboardPreferences.news && (
           <BentoWidget
             title="Campus News"
             icon={Newspaper}
             span="medium"
-            action={{ label: 'All', href: '/notifications' }}
-            className="animate-in-up stagger-4"
+            action={{ label: 'Notifications', href: '/notifications' }}
+            className="animate-in-up stagger-5"
           >
             <div className="space-y-1.5">
-              {campusNews.map((item) => (
-                <Link
-                  key={item.id}
-                  href="/notifications"
-                  className="block rounded-lg border border-border/40 bg-muted/5 px-3 py-2.5 transition-colors hover:bg-muted/30"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="line-clamp-1 text-sm font-semibold">{item.headline}</p>
-                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
-                      {item.level}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.summary}</p>
-                </Link>
-              ))}
+              {campusNews.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border/60 p-3 text-center text-xs text-muted-foreground">
+                  No campus updates right now.
+                </p>
+              ) : (
+                campusNews.map((item) => (
+                  <a
+                    key={item.id}
+                    href={item.linkUrl ?? '/notifications'}
+                    target={item.linkUrl ? '_blank' : undefined}
+                    rel={item.linkUrl ? 'noreferrer' : undefined}
+                    className="block rounded-lg border border-border/40 bg-muted/5 px-3 py-2.5 transition-colors hover:bg-muted/30"
+                  >
+                    <p className="line-clamp-1 text-sm font-semibold">{item.title}</p>
+                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.message}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">{formatNewsTime(item.createdAt)}</p>
+                  </a>
+                ))
+              )}
             </div>
           </BentoWidget>
         )}
 
-        {/* Services */}
         {dashboardPreferences.services && (
           <BentoWidget
             title="Services"
             icon={Compass}
             span="medium"
             action={{ label: 'All', href: '/services-status' }}
-            className="animate-in-up stagger-5"
+            className="animate-in-up stagger-6"
           >
             <div className="space-y-1.5">
               {serviceSnapshot.length === 0 ? (
@@ -389,62 +534,85 @@ export default function DashboardPage() {
           </BentoWidget>
         )}
 
-        {/* Quick Links */}
         {dashboardPreferences.links && (
           <BentoWidget
             title="Quick Links"
             icon={ExternalLink}
             span="medium"
             action={{ label: 'All', href: '/links-directory' }}
-            className="animate-in-up stagger-6"
+            className="animate-in-up stagger-7"
           >
             <div className="grid gap-1.5 sm:grid-cols-2">
               {quickLinks.length === 0 ? (
                 <p className="col-span-full py-4 text-center text-xs text-muted-foreground">No links available</p>
               ) : (
-                quickLinks.map((link) => (
-                  <a
-                    key={link.id}
-                    href={link.href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-lg border border-border/40 bg-muted/5 px-3 py-2.5 transition-colors hover:bg-muted/30"
-                  >
-                    <p className="text-sm font-semibold">{link.label}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{link.category.replaceAll('_', ' ')}</p>
-                  </a>
-                ))
+                quickLinks.map((link) => {
+                  const favoriteId = `resource-link-${link.id}`
+                  const isPinned = pinnedResources.some((item) => item.id === favoriteId)
+
+                  return (
+                    <div
+                      key={link.id}
+                      className="rounded-lg border border-border/40 bg-muted/5 px-3 py-2.5 transition-colors hover:bg-muted/30"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <a
+                          href={link.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="min-w-0"
+                        >
+                          <p className="line-clamp-1 text-sm font-semibold">{link.label}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{link.category.replaceAll('_', ' ')}</p>
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => toggleResourcePin(link)}
+                          className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-bold transition-colors ${
+                            isPinned
+                              ? 'bg-primary/15 text-primary'
+                              : 'bg-muted text-muted-foreground hover:bg-muted/70'
+                          }`}
+                        >
+                          {isPinned ? 'Pinned' : 'Pin'}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })
               )}
             </div>
           </BentoWidget>
         )}
 
-        {/* Clubs */}
-        <BentoWidget
-          title="Clubs"
-          icon={Flag}
-          span="medium"
-          action={{ label: 'All', href: '/clubs' }}
-          className="animate-in-up stagger-7"
-        >
-          <div className="space-y-1.5">
-            {clubSnapshot.length === 0 ? (
-              <p className="py-4 text-center text-xs text-muted-foreground">No clubs to show</p>
-            ) : (
-              clubSnapshot.map((club) => (
-                <Link
-                  key={club.id}
-                  href="/clubs"
-                  className="block rounded-lg border border-border/40 bg-muted/5 px-3 py-2.5 transition-colors hover:bg-muted/30"
-                >
-                  <p className="text-sm font-semibold">{club.name}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{club.category}</p>
-                </Link>
-              ))
-            )}
-          </div>
-        </BentoWidget>
+        {dashboardPreferences.clubs && (
+          <BentoWidget
+            title="Clubs"
+            icon={Flag}
+            span="medium"
+            action={{ label: 'All', href: '/clubs' }}
+            className="animate-in-up stagger-8"
+          >
+            <div className="space-y-1.5">
+              {clubSnapshot.length === 0 ? (
+                <p className="py-4 text-center text-xs text-muted-foreground">No clubs to show</p>
+              ) : (
+                clubSnapshot.map((club) => (
+                  <Link
+                    key={club.id}
+                    href="/clubs"
+                    className="block rounded-lg border border-border/40 bg-muted/5 px-3 py-2.5 transition-colors hover:bg-muted/30"
+                  >
+                    <p className="text-sm font-semibold">{club.name}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{club.category}</p>
+                  </Link>
+                ))
+              )}
+            </div>
+          </BentoWidget>
+        )}
       </BentoGrid>
     </div>
   )
 }
+

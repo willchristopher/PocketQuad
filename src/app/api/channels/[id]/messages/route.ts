@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
+import { moderateCampusChatMessage } from '@/lib/chat/moderation'
 import { sendMessageSchema } from '@/lib/validations'
 import {
   ApiError,
@@ -80,6 +81,11 @@ export async function POST(
     await assertMembership(id, profile.id)
 
     const payload = sendMessageSchema.parse(await request.json())
+    const moderation = await moderateCampusChatMessage(payload.content)
+
+    if (!moderation.allowed) {
+      throw new ApiError(400, moderation.reason)
+    }
 
     if (payload.replyToId) {
       const replyTarget = await prisma.chatMessage.findUnique({
