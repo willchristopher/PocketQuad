@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import type { UserRole } from '@prisma/client'
 
+import { attachDashboardModules } from '@/lib/dashboardPreferences'
 import { prisma } from '@/lib/prisma'
+import type { DashboardModuleId } from '@/lib/studentData'
 import {
   canAccessAdminPortal,
   hasAnyPortalPermission,
@@ -61,6 +63,10 @@ type AuthenticatedProfile = {
     emailDigest: boolean
     pushEnabled: boolean
     theme: string
+    buildingAlerts: boolean
+    buildingIds: string[]
+    clubInterestIds: string[]
+    dashboardModules: DashboardModuleId[]
   } | null
   university?: {
     id: string
@@ -152,6 +158,9 @@ export async function getAuthenticatedUser(options: GetAuthenticatedUserOptions 
                 emailDigest: true,
                 pushEnabled: true,
                 theme: true,
+                buildingAlerts: true,
+                buildingIds: true,
+                clubInterestIds: true,
               },
             },
           }
@@ -186,20 +195,22 @@ export async function getAuthenticatedUser(options: GetAuthenticatedUserOptions 
     },
   }) as AuthenticatedProfile | null
 
-  if (!profile) {
+  const profileWithDashboardModules = await attachDashboardModules(profile)
+
+  if (!profileWithDashboardModules) {
     throw new ApiError(404, 'User profile not found')
   }
 
-  if (!profile.supabaseId) {
+  if (!profileWithDashboardModules.supabaseId) {
     await prisma.user.update({
-      where: { id: profile.id },
+      where: { id: profileWithDashboardModules.id },
       data: { supabaseId: data.user.id },
     })
   }
 
-  await ensureFacultyProfile(profile)
+  await ensureFacultyProfile(profileWithDashboardModules)
 
-  return { supabaseUser: data.user, profile }
+  return { supabaseUser: data.user, profile: profileWithDashboardModules }
 }
 
 export async function getAuthenticatedAdmin(

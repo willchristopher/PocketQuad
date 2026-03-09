@@ -34,7 +34,7 @@ export default function AdvisorPage() {
     {
       id: 'assistant-0',
       role: 'assistant',
-      content: 'I am your PocketQuad AI advisor. Ask about events, deadlines, office hours, or campus resources.',
+      content: 'I am your PocketQuad AI advisor. Ask about events, deadlines, office hours, or campus resources. I do not have access to personal calendars or class schedules.',
     },
   ])
 
@@ -105,7 +105,7 @@ export default function AdvisorPage() {
           <div>
             <h1 className="font-display text-2xl font-extrabold tracking-tight md:text-3xl">AI Advisor</h1>
             <p className="text-sm text-muted-foreground">
-              Natural-language support for campus resources, faculty availability, events, and study planning.
+              Natural-language support for campus resources, faculty availability, events, and study planning without personal calendar or class schedule access.
             </p>
           </div>
         </div>

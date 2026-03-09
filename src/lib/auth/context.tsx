@@ -4,6 +4,7 @@ import React from 'react'
 import type { User } from '@supabase/supabase-js'
 
 import { apiRequest } from '@/lib/api/client'
+import type { DashboardModuleId } from '@/lib/studentData'
 import {
   type AdminAccessLevel,
   type PortalPermission,
@@ -43,6 +44,7 @@ type UserProfile = {
     buildingAlerts: boolean
     buildingIds: string[]
     clubInterestIds: string[]
+    dashboardModules: DashboardModuleId[]
   } | null
   onboardingComplete: boolean
 }

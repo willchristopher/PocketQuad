@@ -10,7 +10,6 @@ export const AI_CONTEXT_SECTIONS = [
   'clubs',
   'officeHours',
   'userDeadlines',
-  'userCalendar',
 ] as const
 
 export type AIContextSection = (typeof AI_CONTEXT_SECTIONS)[number]
@@ -101,18 +100,20 @@ const SECTION_PATTERNS: Record<AIContextSection, RegExp[]> = {
     /\bhomework\b/,
     /\bpriorit(y|ize|izing)\b/,
   ],
-  userCalendar: [
-    /\bcalendar\b/,
-    /\bschedule\b/,
-    /\bagenda\b/,
-    /\bclass(es)?\b/,
-    /\bmeeting(s)?\b/,
-    /\btoday\b/,
-    /\btomorrow\b/,
-    /\bthis week\b/,
-    /\bnext week\b/,
-  ],
 }
+
+const STUDENT_SCHEDULE_PATTERNS = [
+  /\bmy schedule\b/,
+  /\bstudent schedule\b/,
+  /\bclass schedule\b/,
+  /\bpersonal calendar\b/,
+  /\bmy calendar\b/,
+  /\bwhere is my class\b/,
+  /\bwhen is my class\b/,
+  /\bwhere is .* class\b/,
+  /\bwhat room\b/,
+  /\bclassroom\b/,
+]
 
 const BROAD_QUERY_PATTERNS = [
   /\bwhat can you do\b/,
@@ -133,7 +134,6 @@ const SECTION_LIMITS: Record<AIContextSection, number> = {
   clubs: 20,
   officeHours: 20,
   userDeadlines: 12,
-  userCalendar: 12,
 }
 
 function includesPattern(value: string, patterns: RegExp[]): boolean {
@@ -141,7 +141,7 @@ function includesPattern(value: string, patterns: RegExp[]): boolean {
 }
 
 function toSectionSet(sections?: AIContextSection[]): Set<AIContextSection> {
-  if (!sections || sections.length === 0) {
+  if (!sections) {
     return new Set(AI_CONTEXT_SECTIONS)
   }
 
@@ -150,6 +150,10 @@ function toSectionSet(sections?: AIContextSection[]): Set<AIContextSection> {
 
 export function buildAIContextQueryPlan(userMessage: string): AIContextQueryPlan {
   const normalized = userMessage.toLowerCase()
+
+  if (includesPattern(normalized, STUDENT_SCHEDULE_PATTERNS)) {
+    return { sections: [] }
+  }
 
   if (includesPattern(normalized, BROAD_QUERY_PATTERNS)) {
     return { sections: [...AI_CONTEXT_SECTIONS] }
@@ -209,7 +213,6 @@ export async function gatherUniversityContext(
     clubs,
     officeHours,
     userDeadlines,
-    userCalendar,
     announcements,
   ] = await Promise.all([
     // University info
@@ -368,25 +371,6 @@ export async function gatherUniversityContext(
         })
       : Promise.resolve([]),
 
-    // The asking user's upcoming calendar events
-    shouldInclude('userCalendar')
-      ? prisma.calendarEvent.findMany({
-          where: {
-            userId,
-            start: { gte: now },
-          },
-          select: {
-            title: true,
-            start: true,
-            end: true,
-            type: true,
-            location: true,
-          },
-          orderBy: { start: 'asc' },
-          take: SECTION_LIMITS.userCalendar,
-        })
-      : Promise.resolve([]),
-
     // Active campus-wide announcements
     shouldInclude('announcements')
       ? prisma.announcement.findMany({
@@ -410,6 +394,13 @@ export async function gatherUniversityContext(
   sections.push(
     `UNIVERSITY: ${universityName}` +
       (university?.domain ? ` (email domain: ${university.domain})` : ''),
+  )
+
+  sections.push(
+    'ASSISTANT LIMITATIONS:\n' +
+      '• No access to registrar systems, student schedules, class meeting rooms, or personal calendars.\n' +
+      '• Faculty course lists do not include classroom assignments or meeting times.\n' +
+      '• Do not infer class locations from office locations, departments, or building names.',
   )
 
   // ----- Announcements -----
@@ -527,21 +518,6 @@ export async function gatherUniversityContext(
           .map(
             (d) =>
               `• "${d.title}" for ${d.course} — due ${d.dueDate.toLocaleDateString()} [${d.priority}]`,
-          )
-          .join('\n'),
-    )
-  }
-
-  // ----- User's Calendar -----
-  if (shouldInclude('userCalendar') && userCalendar.length > 0) {
-    sections.push(
-      'YOUR UPCOMING CALENDAR:\n' +
-        userCalendar
-          .map(
-            (c) =>
-              `• "${c.title}" — ${c.start.toLocaleDateString()} ${c.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` +
-              (c.location ? ` at ${c.location}` : '') +
-              ` [${c.type}]`,
           )
           .join('\n'),
     )

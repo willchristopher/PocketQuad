@@ -10,17 +10,17 @@ import {
   Heart,
   MapPinned,
   Newspaper,
-  SlidersHorizontal,
   Star,
 } from 'lucide-react'
 
 import { BentoGrid, BentoWidget } from '@/components/dashboard/BentoGrid'
-import { dashboardModuleIds, type FavoriteItem } from '@/lib/studentData'
+import {
+  dashboardModulesToPreferences,
+  type FavoriteItem,
+} from '@/lib/studentData'
 import { readFavorites, toggleFavoriteItem } from '@/lib/favorites'
 import { useAuth } from '@/lib/auth/context'
 import { apiRequest } from '@/lib/api/client'
-
-type DashboardPreferences = Record<(typeof dashboardModuleIds)[number], boolean>
 
 type EventItem = {
   id: string
@@ -100,33 +100,6 @@ type DashboardOverviewResponse = {
   pinnedClubs: PinnedClub[]
 }
 
-type DashboardModuleConfig = {
-  id: (typeof dashboardModuleIds)[number]
-  label: string
-}
-
-const dashboardModuleConfig: DashboardModuleConfig[] = [
-  { id: 'events', label: 'Events' },
-  { id: 'deadlines', label: 'Deadlines' },
-  { id: 'favorites', label: 'Pinned' },
-  { id: 'faculty', label: 'Favorite Faculty' },
-  { id: 'news', label: 'Campus News' },
-  { id: 'services', label: 'Services' },
-  { id: 'links', label: 'Quick Links' },
-  { id: 'clubs', label: 'Clubs' },
-]
-
-const defaultDashboardPreferences: DashboardPreferences = {
-  favorites: true,
-  deadlines: true,
-  events: true,
-  faculty: true,
-  news: true,
-  services: true,
-  links: true,
-  clubs: true,
-}
-
 function getTimeGreeting(): string {
   const hour = new Date().getHours()
   if (hour < 12) return 'Good morning'
@@ -184,43 +157,17 @@ export default function DashboardPage() {
   const [pinnedBuildings, setPinnedBuildings] = React.useState<PinnedBuilding[]>([])
   const [pinnedClubs, setPinnedClubs] = React.useState<PinnedClub[]>([])
   const [pinnedResources, setPinnedResources] = React.useState<FavoriteItem[]>([])
-  const [dashboardPreferences, setDashboardPreferences] = React.useState<DashboardPreferences>(
-    defaultDashboardPreferences,
+  const dashboardPreferences = React.useMemo(
+    () => dashboardModulesToPreferences(profile?.notificationPreferences?.dashboardModules),
+    [profile?.notificationPreferences?.dashboardModules],
   )
-  const [preferencesReady, setPreferencesReady] = React.useState(false)
 
   const firstName = profile?.firstName || profile?.displayName?.split(' ')[0] || ''
-  const preferenceStorageKey = React.useMemo(
-    () =>
-      profile?.id
-        ? `pocketquad-dashboard-preferences:${profile.id}`
-        : 'pocketquad-dashboard-preferences',
-    [profile?.id],
-  )
 
   React.useEffect(() => {
     const resourcePins = readFavorites().filter((item) => item.kind === 'resource')
     setPinnedResources(resourcePins)
-
-    const rawPreferences = window.localStorage.getItem(preferenceStorageKey)
-    if (rawPreferences) {
-      try {
-        const parsed = JSON.parse(rawPreferences) as Partial<DashboardPreferences>
-        setDashboardPreferences((previous) => ({ ...previous, ...parsed }))
-      } catch {
-        setDashboardPreferences(defaultDashboardPreferences)
-      }
-    } else {
-      setDashboardPreferences(defaultDashboardPreferences)
-    }
-
-    setPreferencesReady(true)
-  }, [preferenceStorageKey])
-
-  React.useEffect(() => {
-    if (!preferencesReady) return
-    window.localStorage.setItem(preferenceStorageKey, JSON.stringify(dashboardPreferences))
-  }, [dashboardPreferences, preferenceStorageKey, preferencesReady])
+  }, [])
 
   React.useEffect(() => {
     const loadBackendData = async () => {
@@ -251,13 +198,6 @@ export default function DashboardPage() {
 
     void loadBackendData()
   }, [])
-
-  const toggleModule = (moduleId: (typeof dashboardModuleIds)[number]) => {
-    setDashboardPreferences((previous) => ({
-      ...previous,
-      [moduleId]: !previous[moduleId],
-    }))
-  }
 
   const toggleResourcePin = (link: ResourceLinkSnapshot) => {
     const target: FavoriteItem = {
@@ -316,29 +256,19 @@ export default function DashboardPage() {
       </section>
 
       <section className="rounded-2xl border border-border/60 bg-card p-4 md:p-5 animate-in-up stagger-1">
-        <div className="mb-3 flex items-center gap-2">
-          <SlidersHorizontal className="h-4 w-4 text-primary" />
-          <h2 className="font-display text-base font-bold tracking-tight">Customize Dashboard</h2>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {dashboardModuleConfig.map((module) => {
-            const enabled = dashboardPreferences[module.id]
-            return (
-              <button
-                key={module.id}
-                onClick={() => toggleModule(module.id)}
-                className={`rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
-                  enabled
-                    ? 'border-primary/40 bg-primary/10 text-foreground'
-                    : 'border-border/60 bg-muted/10 text-muted-foreground hover:bg-muted/25'
-                }`}
-                type="button"
-              >
-                <p className="font-semibold">{module.label}</p>
-                <p className="text-[11px]">{enabled ? 'Visible' : 'Hidden'}</p>
-              </button>
-            )
-          })}
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-display text-base font-bold tracking-tight">Dashboard Overview</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Widget visibility now lives in your profile settings and is saved to your account.
+            </p>
+          </div>
+          <Link
+            href="/profile"
+            className="inline-flex shrink-0 items-center rounded-xl border border-border/60 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted/35"
+          >
+            Manage Layout
+          </Link>
         </div>
       </section>
 
@@ -615,4 +545,3 @@ export default function DashboardPage() {
     </div>
   )
 }
-

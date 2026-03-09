@@ -343,6 +343,46 @@ export const dashboardModuleIds = [
 
 export type DashboardModuleId = (typeof dashboardModuleIds)[number]
 
+export type DashboardPreferences = Record<DashboardModuleId, boolean>
+
+export const dashboardModuleConfig: Array<{ id: DashboardModuleId; label: string }> = [
+  { id: 'events', label: 'Events' },
+  { id: 'deadlines', label: 'Deadlines' },
+  { id: 'favorites', label: 'Pinned' },
+  { id: 'faculty', label: 'Favorite Faculty' },
+  { id: 'news', label: 'Campus News' },
+  { id: 'services', label: 'Services' },
+  { id: 'links', label: 'Quick Links' },
+  { id: 'clubs', label: 'Clubs' },
+]
+
+export const defaultDashboardPreferences: DashboardPreferences = {
+  favorites: true,
+  deadlines: true,
+  events: true,
+  faculty: true,
+  news: true,
+  services: true,
+  links: true,
+  clubs: true,
+}
+
+export function dashboardModulesToPreferences(
+  dashboardModules?: DashboardModuleId[] | null,
+): DashboardPreferences {
+  if (!dashboardModules) {
+    return defaultDashboardPreferences
+  }
+
+  return dashboardModuleIds.reduce<DashboardPreferences>(
+    (preferences, moduleId) => {
+      preferences[moduleId] = dashboardModules.includes(moduleId)
+      return preferences
+    },
+    { ...defaultDashboardPreferences },
+  )
+}
+
 export function getEventById(id: string) {
   return studentEvents.find((event) => event.id === id)
 }

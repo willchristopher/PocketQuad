@@ -138,6 +138,7 @@ model User {
   channels                Channel[]                @relation("ChannelCreator")
   channelMemberships      ChannelMember[]
   messages                ChatMessage[]
+  messageReports          ChatMessageReport[]
   messageReactions        MessageReaction[]
   organizedEvents         Event[]                  @relation("EventOrganizer")
   eventInterests          EventInterest[]
@@ -169,6 +170,7 @@ model NotificationPreferences {
   buildingAlerts    Boolean  @default(false) @map("building_alerts")
   buildingIds       String[] @default([]) @map("building_ids")
   clubInterestIds   String[] @default([]) @map("club_interest_ids")
+  dashboardModules  String[] @default(["favorites", "deadlines", "events", "faculty", "news", "services", "links", "clubs"]) @map("dashboard_modules")
   theme             String   @default("system")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
@@ -239,9 +241,25 @@ model ChatMessage {
   replyTo   ChatMessage?      @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies   ChatMessage[]     @relation("MessageReplies")
   reactions MessageReaction[]
+  reports   ChatMessageReport[]
 
   @@index([channelId, createdAt])
   @@map("chat_messages")
+}
+
+model ChatMessageReport {
+  id          String      @id @default(cuid())
+  messageId    String      @map("message_id")
+  reporterId   String      @map("reporter_id")
+  reason       String
+  createdAt    DateTime    @default(now()) @map("created_at")
+  message      ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reporter     User        @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, reporterId])
+  @@index([messageId, createdAt(sort: Desc)])
+  @@index([reporterId, createdAt(sort: Desc)])
+  @@map("chat_message_reports")
 }
 
 model MessageReaction {

@@ -1,20 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Calistoga, Inter, JetBrains_Mono } from "next/font/google";
+import { Nunito } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
-const calistoga = Calistoga({
+const nunitoDisplay = Nunito({
   subsets: ["latin"],
   variable: "--font-display",
-  weight: "400",
 });
 
-const inter = Inter({
+const nunitoBody = Nunito({
   subsets: ["latin"],
   variable: "--font-body",
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const nunitoMono = Nunito({
   subsets: ["latin"],
   variable: "--font-mono",
 });
@@ -46,7 +45,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${calistoga.variable} ${inter.variable} ${jetbrainsMono.variable} font-body antialiased bg-background text-foreground`}
+        className={`${nunitoDisplay.variable} ${nunitoBody.variable} ${nunitoMono.variable} font-body antialiased bg-background text-foreground`}
       >
         <Providers>
            {children}

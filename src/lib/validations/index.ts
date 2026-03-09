@@ -1,14 +1,9 @@
 import { z } from 'zod'
+import { dashboardModuleIds } from '@/lib/studentData'
 
 export const updateProfileSchema = z.object({
-  displayName: z.string().trim().min(1).max(80).optional(),
-  bio: z.string().trim().max(280).optional().nullable(),
-  location: z.string().trim().max(100).optional().nullable(),
-  website: z.string().trim().url().optional().nullable(),
-  major: z.string().trim().max(100).optional().nullable(),
-  department: z.string().trim().max(100).optional().nullable(),
-  year: z.string().trim().max(30).optional().nullable(),
-})
+  displayName: z.string().trim().min(1).max(80),
+}).strict()
 
 export const updatePreferencesSchema = z.object({
   officeHourChanges: z.boolean().optional(),
@@ -21,11 +16,16 @@ export const updatePreferencesSchema = z.object({
   buildingAlerts: z.boolean().optional(),
   buildingIds: z.array(z.string()).optional(),
   clubInterestIds: z.array(z.string()).optional(),
+  dashboardModules: z.array(z.enum(dashboardModuleIds)).optional(),
 })
 
 export const sendMessageSchema = z.object({
   content: z.string().trim().min(1).max(4000),
   replyToId: z.string().cuid().optional(),
+})
+
+export const reportMessageSchema = z.object({
+  reason: z.string().trim().min(5).max(280),
 })
 
 export const createChannelSchema = z.object({

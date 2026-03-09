@@ -19,6 +19,7 @@ const AUTO_REMOVED_MESSAGE = '[removed by AI moderation]'
 const SCAN_WINDOW_MS = 1000 * 60 * 60 * 24
 const SCAN_BATCH_SIZE = 20
 const CACHE_TTL_MS = 1000 * 60 * 10
+const REPORT_AUTO_REMOVE_THRESHOLD = 3
 
 type ModerationCacheEntry = {
   hash: string
@@ -91,6 +92,10 @@ function setCachedModerationResult(messageId: string, content: string, result: C
     checkedAt: Date.now(),
     result,
   })
+}
+
+function clearCachedModerationResult(messageId: string) {
+  getModerationCache().delete(messageId)
 }
 
 async function runAiModeration(trimmed: string): Promise<ChatModerationResult> {
@@ -201,5 +206,61 @@ export async function scanChannelMessagesForModeration(channelId: string) {
 
   return {
     removedMessageIds,
+  }
+}
+
+export async function reviewReportedMessage(messageId: string) {
+  const message = await prisma.chatMessage.findUnique({
+    where: { id: messageId },
+    select: {
+      id: true,
+      content: true,
+      isDeleted: true,
+      _count: {
+        select: {
+          reports: true,
+        },
+      },
+    },
+  })
+
+  if (!message || message.isDeleted) {
+    return {
+      removed: false,
+      reason: 'Message already removed or not found.',
+      reportCount: message?._count.reports ?? 0,
+    }
+  }
+
+  clearCachedModerationResult(message.id)
+  const moderation = await moderateCampusChatMessage(message.content)
+
+  const shouldRemove = !moderation.allowed || message._count.reports >= REPORT_AUTO_REMOVE_THRESHOLD
+
+  if (!shouldRemove) {
+    setCachedModerationResult(message.id, message.content, moderation)
+    return {
+      removed: false,
+      reason: moderation.reason,
+      reportCount: message._count.reports,
+    }
+  }
+
+  const removal = await prisma.chatMessage.updateMany({
+    where: {
+      id: message.id,
+      isDeleted: false,
+    },
+    data: {
+      isDeleted: true,
+      isEdited: true,
+      content: AUTO_REMOVED_MESSAGE,
+    },
+  })
+
+  return {
+    removed: removal.count > 0,
+    reason: moderation.reason,
+    reportCount: message._count.reports,
   }
 }
