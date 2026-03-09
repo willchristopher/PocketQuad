@@ -69,6 +69,13 @@ function redirectToLogin(request: NextRequest) {
   return NextResponse.redirect(url)
 }
 
+function redirectToVerifyEmail(request: NextRequest) {
+  const url = request.nextUrl.clone()
+  url.pathname = '/verify-email'
+  url.searchParams.set('redirect', request.nextUrl.pathname + request.nextUrl.search)
+  return NextResponse.redirect(url)
+}
+
 function redirectAuthenticatedUser(request: NextRequest, role: AppRole) {
   const url = request.nextUrl.clone()
 
@@ -103,6 +110,7 @@ type MiddlewareProfile = {
   adminAccessLevel: AdminAccessLevel | null
   portalPermissions: PortalPermission[]
   canPublishCampusAnnouncements: boolean
+  emailVerified: boolean
 }
 
 async function fetchMiddlewareProfile(request: NextRequest): Promise<MiddlewareProfile | null> {
@@ -226,6 +234,10 @@ export async function middleware(request: NextRequest) {
       portalPermissions,
       canPublishCampusAnnouncements,
     })
+
+    if (dbUser && !dbUser.emailVerified && (needsAuth || authRoute)) {
+      return withRoleHint(redirectToVerifyEmail(request), roleHintToken)
+    }
 
     if (authRoute) {
       const redirectRole: AppRole = canAccessAdmin ? 'ADMIN' : role
