@@ -26,6 +26,7 @@ export async function GET() {
         adminAccessLevel: true,
         portalPermissions: true,
         canPublishCampusAnnouncements: true,
+        emailVerified: true,
       },
     })
 

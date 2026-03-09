@@ -32,6 +32,7 @@ type GetAuthenticatedUserOptions = {
   includeUniversity?: boolean
   includeManagedClubs?: boolean
   includeManagedBuildings?: boolean
+  allowUnverified?: boolean
 }
 
 type AuthenticatedProfile = {
@@ -44,6 +45,7 @@ type AuthenticatedProfile = {
   lastName: string
   avatar: string | null
   role: UserRole
+  emailVerified: boolean
   canPublishCampusAnnouncements: boolean
   adminAccessLevel: AdminAccessLevel | null
   portalPermissions: PortalPermission[]
@@ -130,6 +132,7 @@ const BASE_PROFILE_SELECT = {
   lastName: true,
   avatar: true,
   role: true,
+  emailVerified: true,
   canPublishCampusAnnouncements: true,
   adminAccessLevel: true,
   portalPermissions: true,
@@ -234,6 +237,10 @@ export async function getAuthenticatedUser(options: GetAuthenticatedUserOptions 
       where: { id: profileWithDashboardModules.id },
       data: { supabaseId: data.user.id },
     })
+  }
+
+  if (!options.allowUnverified && !profileWithDashboardModules.emailVerified) {
+    throw new ApiError(403, 'Email verification required')
   }
 
   await ensureFacultyProfile(profileWithDashboardModules)
