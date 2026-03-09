@@ -71,6 +71,12 @@ enum OfficeHourMode {
   HYBRID
 }
 
+enum FacultyAvailabilityStatus {
+  AVAILABLE
+  LIMITED
+  AWAY
+}
+
 enum QueueStatus {
   WAITING
   IN_PROGRESS
@@ -105,6 +111,12 @@ enum ResourceLinkCategory {
   FINANCE
   CAMPUS_LIFE
   OTHER
+}
+
+enum AnnouncementAudienceScope {
+  CAMPUS
+  BUILDING
+  SERVICE
 }
 
 model User {
@@ -150,6 +162,7 @@ model User {
   deadlines               Deadline[]
   aiConversations         AIConversation[]
   aiMessages              AIMessage[]
+  createdAnnouncements    Announcement[]           @relation("AnnouncementAuthor")
   managedClubs            ClubManagerAssignment[]
   managedBuildings        BuildingManagerAssignment[]
   university              University?              @relation(fields: [universityId], references: [id], onDelete: SetNull)
@@ -279,6 +292,7 @@ model MessageReaction {
 model Event {
   id           String          @id @default(cuid())
   universityId String?         @map("university_id")
+  buildingId   String?         @map("building_id")
   title        String
   description  String
   imageUrl     String?         @map("image_url")
@@ -295,11 +309,13 @@ model Event {
   createdAt    DateTime        @default(now()) @map("created_at")
   updatedAt    DateTime        @updatedAt @map("updated_at")
   organizerRef User?           @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: SetNull)
+  building     CampusBuilding? @relation(fields: [buildingId], references: [id], onDelete: SetNull)
   interests    EventInterest[]
   university   University?     @relation(fields: [universityId], references: [id], onDelete: SetNull)
 
   @@index([universityId, date])
   @@index([universityId, isPublished, isCancelled, date])
+  @@index([buildingId, date])
   @@index([date])
   @@index([category])
   @@map("events")
@@ -329,6 +345,8 @@ model Faculty {
   phone           String?
   officeLocation  String            @map("office_location")
   officeHours     String            @map("office_hours")
+  availabilityStatus FacultyAvailabilityStatus @default(AVAILABLE) @map("availability_status")
+  availabilityNote String?          @map("availability_note")
   imageUrl        String?           @map("image_url")
   bio             String?
   courses         String[]
@@ -361,6 +379,7 @@ model University {
   resourceLinks    CampusResourceLink[]
   services         CampusService[]
   clubs            ClubOrganization[]
+  announcements    Announcement[]
 
   @@map("universities")
 }
@@ -375,6 +394,7 @@ model CampusBuilding {
   mapQuery     String     @map("map_query")
   purpose      String?
   description  String?
+  accessibilityNotes String? @map("accessibility_notes")
   operatingHours String?  @map("operating_hours")
   operationalStatus CampusServiceStatus @default(OPEN) @map("operational_status")
   operationalNote String? @map("operational_note")
@@ -385,6 +405,8 @@ model CampusBuilding {
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
   managers     BuildingManagerAssignment[]
+  announcements Announcement[]
+  events       Event[]
   university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
 
   @@index([universityId, name])
@@ -417,6 +439,7 @@ model CampusService {
   directionsUrl String              @map("directions_url")
   createdAt     DateTime            @default(now()) @map("created_at")
   updatedAt     DateTime            @updatedAt @map("updated_at")
+  announcements Announcement[]
   university    University          @relation(fields: [universityId], references: [id], onDelete: Cascade)
 
   @@index([universityId, name])
@@ -604,14 +627,26 @@ model QuickLink {
 }
 
 model Announcement {
-  id        String   @id @default(cuid())
-  title     String
-  message   String
-  linkUrl   String?  @map("link_url")
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id          String                    @id @default(cuid())
+  universityId String?                  @map("university_id")
+  createdById String?                   @map("created_by_id")
+  scope       AnnouncementAudienceScope @default(CAMPUS)
+  buildingId  String?                   @map("building_id")
+  serviceId   String?                   @map("service_id")
+  title       String
+  message     String
+  linkUrl     String?                   @map("link_url")
+  expiresAt   DateTime?                 @map("expires_at")
+  isActive    Boolean                   @default(true) @map("is_active")
+  createdAt   DateTime                  @default(now()) @map("created_at")
+  updatedAt   DateTime                  @updatedAt @map("updated_at")
+  university  University?               @relation(fields: [universityId], references: [id], onDelete: SetNull)
+  createdBy   User?                     @relation("AnnouncementAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  building    CampusBuilding?           @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  service     CampusService?            @relation(fields: [serviceId], references: [id], onDelete: SetNull)
 
-  @@index([isActive, createdAt(sort: Desc)])
+  @@index([universityId, isActive, createdAt(sort: Desc)])
+  @@index([expiresAt])
+  @@index([scope, isActive, createdAt(sort: Desc)])
   @@map("announcements")
 }

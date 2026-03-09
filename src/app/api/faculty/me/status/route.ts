@@ -1,6 +1,11 @@
-import { NextRequest } from 'next/server'
-
 import { prisma } from '@/lib/prisma'
+import {
+  composeFacultyOfficeHoursSummary,
+  formatFacultyAvailability,
+  parseLegacyFacultyAvailability,
+} from '@/lib/faculty'
+import { refreshFacultyOfficeHoursSummary } from '@/lib/server/facultyProfile'
+import { isMissingDatabaseFieldError } from '@/lib/server/dbCompatibility'
 import { facultyStatusSchema } from '@/lib/validations'
 import {
   ApiError,
@@ -9,73 +14,47 @@ import {
   successResponse,
 } from '@/lib/api/utils'
 
-type FacultyStatus = 'AVAILABLE' | 'LIMITED' | 'OUT_OF_OFFICE'
-
-function parseStatusFromOfficeHours(officeHours: string): { status: FacultyStatus; note: string } {
-  const value = officeHours.trim()
-
-  if (value.toLowerCase().startsWith('out of office:')) {
-    return {
-      status: 'OUT_OF_OFFICE',
-      note: value.slice('out of office:'.length).trim(),
-    }
-  }
-
-  if (value.toLowerCase().startsWith('limited availability:')) {
-    return {
-      status: 'LIMITED',
-      note: value.slice('limited availability:'.length).trim(),
-    }
-  }
-
-  if (value.toLowerCase().startsWith('available:')) {
-    return {
-      status: 'AVAILABLE',
-      note: value.slice('available:'.length).trim(),
-    }
-  }
-
-  if (value.length === 0 || value.toLowerCase() === 'tbd') {
-    return {
-      status: 'AVAILABLE',
-      note: '',
-    }
-  }
-
-  return {
-    status: 'AVAILABLE',
-    note: value,
-  }
-}
-
-function buildOfficeHoursStatus(status: FacultyStatus, note: string | undefined) {
-  const details = note?.trim()
-
-  if (status === 'OUT_OF_OFFICE') {
-    return `Out of office${details ? `: ${details}` : ''}`
-  }
-
-  if (status === 'LIMITED') {
-    return `Limited availability${details ? `: ${details}` : ''}`
-  }
-
-  return `Available${details ? `: ${details}` : ''}`
-}
-
 async function getFacultyForUser(userId: string) {
-  const faculty = await prisma.faculty.findUnique({
-    where: { userId },
-    select: {
-      id: true,
-      officeHours: true,
-    },
-  })
+  try {
+    const faculty = await prisma.faculty.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        availabilityStatus: true,
+        availabilityNote: true,
+      },
+    })
 
-  if (!faculty) {
-    throw new ApiError(403, 'Faculty profile is required for this action')
+    if (!faculty) {
+      throw new ApiError(403, 'Faculty profile is required for this action')
+    }
+
+    return faculty
+  } catch (error) {
+    if (!isMissingDatabaseFieldError(error)) {
+      throw error
+    }
+
+    const faculty = await prisma.faculty.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        officeHours: true,
+      },
+    })
+
+    if (!faculty) {
+      throw new ApiError(403, 'Faculty profile is required for this action')
+    }
+
+    const parsed = parseLegacyFacultyAvailability(faculty.officeHours)
+
+    return {
+      id: faculty.id,
+      availabilityStatus: parsed.status,
+      availabilityNote: parsed.note || null,
+    }
   }
-
-  return faculty
 }
 
 export async function GET() {
@@ -87,19 +66,21 @@ export async function GET() {
     }
 
     const faculty = await getFacultyForUser(profile.id)
-    const parsed = parseStatusFromOfficeHours(faculty.officeHours)
 
     return successResponse({
-      status: parsed.status,
-      note: parsed.note,
-      display: buildOfficeHoursStatus(parsed.status, parsed.note),
+      status: faculty.availabilityStatus,
+      note: faculty.availabilityNote ?? '',
+      display: formatFacultyAvailability(
+        faculty.availabilityStatus,
+        faculty.availabilityNote,
+      ),
     })
   } catch (error) {
     return handleApiError(error)
   }
 }
 
-export async function PATCH(request: NextRequest) {
+export async function PATCH(request: Request) {
   try {
     const { profile } = await getAuthenticatedUser()
 
@@ -109,12 +90,51 @@ export async function PATCH(request: NextRequest) {
 
     const payload = facultyStatusSchema.parse(await request.json())
     const faculty = await getFacultyForUser(profile.id)
-    const officeHours = buildOfficeHoursStatus(payload.status, payload.note)
 
-    await prisma.faculty.update({
-      where: { id: faculty.id },
-      data: { officeHours },
-    })
+    let display: string | null = null
+
+    try {
+      await prisma.faculty.update({
+        where: { id: faculty.id },
+        data: {
+          availabilityStatus: payload.status,
+          availabilityNote: payload.note?.trim() || null,
+        },
+      })
+
+      display = await refreshFacultyOfficeHoursSummary(faculty.id)
+    } catch (error) {
+      if (!isMissingDatabaseFieldError(error)) {
+        throw error
+      }
+
+      const slots = await prisma.officeHour.findMany({
+        where: { facultyId: faculty.id },
+        select: {
+          dayOfWeek: true,
+          startTime: true,
+          endTime: true,
+        },
+        orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+      })
+
+      display = composeFacultyOfficeHoursSummary(
+        payload.status,
+        payload.note,
+        slots,
+      )
+
+      await prisma.faculty.update({
+        where: { id: faculty.id },
+        data: {
+          officeHours: display,
+        },
+      })
+    }
+
+    const message =
+      display ??
+      formatFacultyAvailability(payload.status, payload.note)
 
     const recipients = await prisma.facultyFavorite.findMany({
       where: {
@@ -138,8 +158,8 @@ export async function PATCH(request: NextRequest) {
         data: recipients.map((recipient) => ({
           userId: recipient.userId,
           type: 'OFFICE_HOUR',
-          title: `${profile.displayName} updated office hours`,
-          message: officeHours,
+          title: `${profile.displayName} updated availability`,
+          message,
           actionUrl: `/faculty-directory/${faculty.id}`,
           actionLabel: 'View faculty profile',
         })),
@@ -150,7 +170,7 @@ export async function PATCH(request: NextRequest) {
       {
         status: payload.status,
         note: payload.note?.trim() ?? '',
-        display: officeHours,
+        display: formatFacultyAvailability(payload.status, payload.note),
         notifiedCount: recipients.length,
       },
       200,

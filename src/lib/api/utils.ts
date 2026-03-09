@@ -31,6 +31,8 @@ type GetAuthenticatedUserOptions = {
   includePreferences?: boolean
   includeUniversity?: boolean
   includeManagedClubs?: boolean
+  includeManagedBuildings?: boolean
+  allowUnverified?: boolean
 }
 
 type AuthenticatedProfile = {
@@ -43,9 +45,11 @@ type AuthenticatedProfile = {
   lastName: string
   avatar: string | null
   role: UserRole
+  emailVerified: boolean
   canPublishCampusAnnouncements: boolean
   adminAccessLevel: AdminAccessLevel | null
   portalPermissions: PortalPermission[]
+  facultyRoleTags: string[]
   department?: string | null
   managedClubs?: Array<{
     clubId: string
@@ -53,6 +57,14 @@ type AuthenticatedProfile = {
       id: string
       universityId: string
       name: string
+    }
+  }>
+  managedBuildings?: Array<{
+    buildingId: string
+    building: {
+      id: string
+      name: string
+      type: string
     }
   }>
   notificationPreferences?: {
@@ -93,6 +105,7 @@ async function ensureFacultyProfile(profile: AuthenticatedProfile) {
       universityId: profile.universityId,
       name,
       department: profile.department ?? 'General',
+      tags: profile.facultyRoleTags,
     },
     create: {
       userId: profile.id,
@@ -104,7 +117,7 @@ async function ensureFacultyProfile(profile: AuthenticatedProfile) {
       officeLocation: 'TBD',
       officeHours: 'TBD',
       courses: [],
-      tags: [],
+      tags: profile.facultyRoleTags,
     },
   })
 }
@@ -119,9 +132,11 @@ const BASE_PROFILE_SELECT = {
   lastName: true,
   avatar: true,
   role: true,
+  emailVerified: true,
   canPublishCampusAnnouncements: true,
   adminAccessLevel: true,
   portalPermissions: true,
+  facultyRoleTags: true,
   department: true,
 } as const
 
@@ -192,6 +207,22 @@ export async function getAuthenticatedUser(options: GetAuthenticatedUserOptions 
             },
           }
         : {}),
+      ...(options.includeManagedBuildings
+        ? {
+            managedBuildings: {
+              select: {
+                buildingId: true,
+                building: {
+                  select: {
+                    id: true,
+                    name: true,
+                    type: true,
+                  },
+                },
+              },
+            },
+          }
+        : {}),
     },
   }) as AuthenticatedProfile | null
 
@@ -206,6 +237,10 @@ export async function getAuthenticatedUser(options: GetAuthenticatedUserOptions 
       where: { id: profileWithDashboardModules.id },
       data: { supabaseId: data.user.id },
     })
+  }
+
+  if (!options.allowUnverified && !profileWithDashboardModules.emailVerified) {
+    throw new ApiError(403, 'Email verification required')
   }
 
   await ensureFacultyProfile(profileWithDashboardModules)

@@ -25,6 +25,10 @@ const THEME_STORAGE_KEY = 'pocketquad-theme-mode'
 const UNI_COLORS_STORAGE_KEY = 'pocketquad-uni-colors'
 const UNI_NAME_STORAGE_KEY = 'pocketquad-uni-name'
 
+function getScopedStorageKey(baseKey: string, userId: string) {
+  return `${baseKey}:${userId}`
+}
+
 function hexToHSL(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16) / 255
   const g = parseInt(hex.slice(3, 5), 16) / 255
@@ -158,56 +162,74 @@ type ThemeResponse = {
 export function UniversityThemeProvider({ children }: { children: React.ReactNode }) {
   const { setTheme: setNextTheme } = useTheme()
   const { profile } = useAuth()
+  const profileId = profile?.id ?? null
   const universityId = (profile as Record<string, unknown> | null)?.universityId as string | null | undefined
 
-  const [themeMode, setThemeModeState] = React.useState<ThemeMode>(() => {
-    if (typeof window === 'undefined') return 'system'
-    return (localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode) || 'system'
-  })
+  const [themeMode, setThemeModeState] = React.useState<ThemeMode>('system')
+  const [universityColors, setUniversityColors] = React.useState<UniversityColors | null>(null)
+  const [universityName, setUniversityName] = React.useState<string | null>(null)
 
-  const [universityColors, setUniversityColors] = React.useState<UniversityColors | null>(() => {
-    if (typeof window === 'undefined') return null
-    try {
-      const cached = localStorage.getItem(UNI_COLORS_STORAGE_KEY)
-      return cached ? JSON.parse(cached) : null
-    } catch {
-      return null
-    }
-  })
-
-  const [universityName, setUniversityName] = React.useState<string | null>(() => {
-    if (typeof window === 'undefined') return null
-    return localStorage.getItem(UNI_NAME_STORAGE_KEY)
-  })
-
-  // Sync theme mode from profile once loaded (only if no localStorage override)
   React.useEffect(() => {
-    if (!profile?.notificationPreferences?.theme) return
-    const stored = localStorage.getItem(THEME_STORAGE_KEY)
-    if (!stored) {
-      const mode = profile.notificationPreferences.theme as ThemeMode
-      setThemeModeState(mode)
+    if (typeof window === 'undefined') return
+
+    localStorage.removeItem(THEME_STORAGE_KEY)
+    localStorage.removeItem(UNI_COLORS_STORAGE_KEY)
+    localStorage.removeItem(UNI_NAME_STORAGE_KEY)
+
+    if (!profileId) {
+      setThemeModeState('system')
+      setUniversityColors(null)
+      setUniversityName(null)
+      return
     }
-  }, [profile?.notificationPreferences?.theme])
+
+    const storedTheme = localStorage.getItem(getScopedStorageKey(THEME_STORAGE_KEY, profileId)) as ThemeMode | null
+    const storedName = localStorage.getItem(getScopedStorageKey(UNI_NAME_STORAGE_KEY, profileId))
+
+    setThemeModeState(storedTheme ?? (profile?.notificationPreferences?.theme as ThemeMode | undefined) ?? 'system')
+    setUniversityName(storedName)
+
+    try {
+      const cachedColors = localStorage.getItem(getScopedStorageKey(UNI_COLORS_STORAGE_KEY, profileId))
+      setUniversityColors(cachedColors ? (JSON.parse(cachedColors) as UniversityColors) : null)
+    } catch {
+      setUniversityColors(null)
+    }
+  }, [profileId, profile?.notificationPreferences?.theme])
 
   // Fetch university colors
   React.useEffect(() => {
-    if (!universityId) return
+    if (typeof window === 'undefined') return
+
+    if (!profileId) {
+      return
+    }
+
+    if (!universityId) {
+      setUniversityColors(null)
+      setUniversityName(null)
+      localStorage.removeItem(getScopedStorageKey(UNI_COLORS_STORAGE_KEY, profileId))
+      localStorage.removeItem(getScopedStorageKey(UNI_NAME_STORAGE_KEY, profileId))
+      return
+    }
 
     apiRequest<ThemeResponse>(`/api/universities/${universityId}/theme`)
       .then((data) => {
         if (data.themeMainColor && data.themeAccentColor) {
           const colors = { mainColor: data.themeMainColor, accentColor: data.themeAccentColor }
           setUniversityColors(colors)
-          localStorage.setItem(UNI_COLORS_STORAGE_KEY, JSON.stringify(colors))
+          localStorage.setItem(getScopedStorageKey(UNI_COLORS_STORAGE_KEY, profileId), JSON.stringify(colors))
+        } else {
+          setUniversityColors(null)
+          localStorage.removeItem(getScopedStorageKey(UNI_COLORS_STORAGE_KEY, profileId))
         }
         setUniversityName(data.name)
-        localStorage.setItem(UNI_NAME_STORAGE_KEY, data.name)
+        localStorage.setItem(getScopedStorageKey(UNI_NAME_STORAGE_KEY, profileId), data.name)
       })
       .catch(() => {
         // If fetch fails, use cached colors
       })
-  }, [universityId])
+  }, [profileId, universityId])
 
   // Apply the theme whenever mode or colors change
   React.useEffect(() => {
@@ -223,7 +245,9 @@ export function UniversityThemeProvider({ children }: { children: React.ReactNod
   const setThemeMode = React.useCallback(
     (mode: ThemeMode) => {
       setThemeModeState(mode)
-      localStorage.setItem(THEME_STORAGE_KEY, mode)
+      if (profileId) {
+        localStorage.setItem(getScopedStorageKey(THEME_STORAGE_KEY, profileId), mode)
+      }
 
       if (profile) {
         apiRequest('/api/users/me/preferences', {
@@ -232,7 +256,7 @@ export function UniversityThemeProvider({ children }: { children: React.ReactNod
         }).catch(() => {})
       }
     },
-    [profile],
+    [profile, profileId],
   )
 
   const value = React.useMemo<UniversityThemeContextValue>(

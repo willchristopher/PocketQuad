@@ -1,9 +1,13 @@
 import { NextRequest } from 'next/server'
 
 import { assertRateLimit, withRateLimitHeaders } from '@/lib/api/rateLimit'
-import { forgotPasswordSchema } from '@/lib/validations/auth'
+import { prisma } from '@/lib/prisma'
 import { ApiError, handleApiError, successResponse } from '@/lib/api/utils'
+import { ensurePasswordRecoveryAuthUser } from '@/lib/auth/passwordRecovery'
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server'
+import { forgotPasswordSchema } from '@/lib/validations/auth'
+
+export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,19 +19,38 @@ export async function POST(request: NextRequest) {
       message: 'Too many password reset attempts. Please try again later.',
     })
     const payload = forgotPasswordSchema.parse(await request.json())
+    const email = payload.email.toLowerCase()
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        supabaseId: true,
+      },
+    })
+
+    if (!user) {
+      throw new ApiError(404, 'No account was found for this email address.')
+    }
+
+    await ensurePasswordRecoveryAuthUser(user)
+
     const supabase = await createSupabaseRouteHandlerClient()
-
-    const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/reset-password`
-
-    const { error } = await supabase.auth.resetPasswordForEmail(payload.email.toLowerCase(), {
-      redirectTo,
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: false,
+      },
     })
 
     if (error) {
-      throw new ApiError(400, error.message)
+      throw new ApiError(400, error.message || 'Unable to send one-time passcode')
     }
 
-    return withRateLimitHeaders(successResponse({ success: true }), rateLimit)
+    return withRateLimitHeaders(successResponse({ sent: true }), rateLimit)
   } catch (error) {
     return handleApiError(error)
   }

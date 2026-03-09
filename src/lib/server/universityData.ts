@@ -1,7 +1,13 @@
 import type { CampusServiceStatus, ResourceLinkCategory } from '@prisma/client'
 import { revalidateTag, unstable_cache } from 'next/cache'
 
+import {
+  getStudentFacingFacultyAvailability,
+  parseLegacyFacultyAvailability,
+  summarizeFacultyOfficeHours,
+} from '@/lib/faculty'
 import { prisma } from '@/lib/prisma'
+import { isMissingDatabaseFieldError } from '@/lib/server/dbCompatibility'
 
 export const UNIVERSITY_DATA_TAGS = {
   buildings: 'university-buildings',
@@ -135,36 +141,142 @@ const getFacultyCachedInternal = unstable_cache(
     query: string | null,
     viewerId: string,
   ) => {
-    const faculty = await prisma.faculty.findMany({
-      where: {
-        ...(universityId ? { universityId } : {}),
-        ...(department ? { department } : {}),
-        ...(query
-          ? {
-              OR: [
-                { name: { contains: query, mode: 'insensitive' as const } },
-                { title: { contains: query, mode: 'insensitive' as const } },
-              ],
-            }
-          : {}),
-      },
-      include: {
-        favorites: {
-          where: {
-            userId: viewerId,
+    const where = {
+      ...(universityId ? { universityId } : {}),
+      ...(department ? { department } : {}),
+      ...(query
+        ? {
+            OR: [
+              { name: { contains: query, mode: 'insensitive' as const } },
+              { title: { contains: query, mode: 'insensitive' as const } },
+              { department: { contains: query, mode: 'insensitive' as const } },
+              { officeLocation: { contains: query, mode: 'insensitive' as const } },
+              { tags: { hasSome: [query] } },
+            ],
+          }
+        : {}),
+    }
+
+    try {
+      const faculty = await prisma.faculty.findMany({
+        where,
+        select: {
+          id: true,
+          userId: true,
+          universityId: true,
+          name: true,
+          title: true,
+          department: true,
+          email: true,
+          phone: true,
+          officeLocation: true,
+          officeHours: true,
+          imageUrl: true,
+          bio: true,
+          courses: true,
+          rating: true,
+          ratingCount: true,
+          tags: true,
+          availabilityStatus: true,
+          availabilityNote: true,
+          officeHourSlots: {
+            select: {
+              dayOfWeek: true,
+              startTime: true,
+              endTime: true,
+            },
+            orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
           },
-          select: {
-            id: true,
+          favorites: {
+            where: {
+              userId: viewerId,
+            },
+            select: {
+              id: true,
+            },
           },
         },
-      },
-      orderBy: [{ department: 'asc' }, { name: 'asc' }],
-    })
+        orderBy: [{ department: 'asc' }, { name: 'asc' }],
+      })
 
-    return faculty.map((item) => ({
-      ...item,
-      isFavorited: item.favorites.length > 0,
-    }))
+      return faculty.map(({ favorites, officeHourSlots, ...item }) => {
+        const studentAvailability = getStudentFacingFacultyAvailability(
+          item.availabilityStatus,
+          item.availabilityNote,
+          officeHourSlots,
+        )
+
+        return {
+          ...item,
+          officeHours: summarizeFacultyOfficeHours(officeHourSlots),
+          studentAvailabilityLabel: studentAvailability.label,
+          studentAvailabilityState: studentAvailability.state,
+          isFavorited: favorites.length > 0,
+        }
+      })
+    } catch (error) {
+      if (!isMissingDatabaseFieldError(error)) {
+        throw error
+      }
+
+      const faculty = await prisma.faculty.findMany({
+        where,
+        select: {
+          id: true,
+          userId: true,
+          universityId: true,
+          name: true,
+          title: true,
+          department: true,
+          email: true,
+          phone: true,
+          officeLocation: true,
+          officeHours: true,
+          imageUrl: true,
+          bio: true,
+          courses: true,
+          rating: true,
+          ratingCount: true,
+          tags: true,
+          officeHourSlots: {
+            select: {
+              dayOfWeek: true,
+              startTime: true,
+              endTime: true,
+            },
+            orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+          },
+          favorites: {
+            where: {
+              userId: viewerId,
+            },
+            select: {
+              id: true,
+            },
+          },
+        },
+        orderBy: [{ department: 'asc' }, { name: 'asc' }],
+      })
+
+      return faculty.map(({ favorites, officeHourSlots, ...item }) => {
+        const availability = parseLegacyFacultyAvailability(item.officeHours)
+        const studentAvailability = getStudentFacingFacultyAvailability(
+          availability.status,
+          availability.note,
+          officeHourSlots,
+        )
+
+        return {
+          ...item,
+          officeHours: summarizeFacultyOfficeHours(officeHourSlots),
+          availabilityStatus: availability.status,
+          availabilityNote: availability.note || null,
+          studentAvailabilityLabel: studentAvailability.label,
+          studentAvailabilityState: studentAvailability.state,
+          isFavorited: favorites.length > 0,
+        }
+      })
+    }
   },
   ['faculty-directory'],
   { revalidate: UNIVERSITY_DATA_TTL_SECONDS, tags: [UNIVERSITY_DATA_TAGS.faculty] },

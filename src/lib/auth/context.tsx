@@ -61,6 +61,7 @@ type AuthContextValue = {
   loading: boolean
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
+  refreshSession: () => Promise<AuthSessionPayload | null>
 }
 
 const AuthContext = React.createContext<AuthContextValue | undefined>(undefined)
@@ -73,46 +74,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<User | null>(null)
   const [profile, setProfile] = React.useState<UserProfile | null>(null)
   const [loading, setLoading] = React.useState(true)
+  const mountedRef = React.useRef(true)
+  const syncRequestIdRef = React.useRef(0)
 
-  const fetchSession = React.useCallback(async () => {
+  const fetchSession = React.useCallback(async (options?: { showLoader?: boolean }) => {
+    const requestId = ++syncRequestIdRef.current
+    const showLoader = options?.showLoader ?? false
+
+    if (showLoader && mountedRef.current) {
+      setLoading(true)
+    }
+
     try {
       const data = await apiRequest<AuthSessionPayload>('/api/auth/session')
-      setUser(data.user)
-      setProfile(data.profile)
+      if (mountedRef.current && requestId === syncRequestIdRef.current) {
+        setUser(data.user)
+        setProfile(data.profile)
+      }
+      return data
     } catch {
-      setUser(null)
-      setProfile(null)
+      if (mountedRef.current && requestId === syncRequestIdRef.current) {
+        setUser(null)
+        setProfile(null)
+      }
+      return null
+    } finally {
+      if (showLoader && mountedRef.current && requestId === syncRequestIdRef.current) {
+        setLoading(false)
+      }
     }
   }, [])
 
   React.useEffect(() => {
-    let mounted = true
+    mountedRef.current = true
 
     const bootstrap = async () => {
-      try {
-        await fetchSession()
-      } finally {
-        if (mounted) {
-          setLoading(false)
-        }
-      }
+      await fetchSession({ showLoader: true })
     }
 
     void bootstrap()
 
     if (!hasSupabaseClientEnv()) {
       return () => {
-        mounted = false
+        mountedRef.current = false
       }
     }
 
     const supabase = createSupabaseBrowserClient()
     const { data } = supabase.auth.onAuthStateChange(() => {
-      void fetchSession()
+      void fetchSession({ showLoader: true })
     })
 
     return () => {
-      mounted = false
+      mountedRef.current = false
       data.subscription.unsubscribe()
     }
   }, [fetchSession])
@@ -121,6 +135,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const nextProfile = await apiRequest<UserProfile>('/api/users/me')
     setProfile(nextProfile)
   }, [])
+
+  const refreshSession = React.useCallback(
+    async () => fetchSession({ showLoader: true }),
+    [fetchSession],
+  )
 
   const signOut = React.useCallback(async () => {
     try {
@@ -138,8 +157,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       signOut,
       refreshProfile,
+      refreshSession,
     }),
-    [loading, profile, refreshProfile, signOut, user],
+    [loading, profile, refreshProfile, refreshSession, signOut, user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

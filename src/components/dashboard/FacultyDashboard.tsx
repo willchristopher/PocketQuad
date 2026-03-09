@@ -1,7 +1,28 @@
 'use client'
 
 import React from 'react'
+import {
+  BellRing,
+  Clock3,
+  Loader2,
+  MapPin,
+  Megaphone,
+  PencilLine,
+  Plus,
+  Save,
+  Send,
+  ShieldCheck,
+  Trash2,
+  UserRoundCheck,
+} from 'lucide-react'
+
 import { ApiClientError, apiRequest } from '@/lib/api/client'
+import { formatFacultyAvailability, formatFacultySlotLabel } from '@/lib/faculty'
+import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 
 type OfficeHourSlot = {
   id: string
@@ -14,7 +35,7 @@ type OfficeHourSlot = {
   maxQueue: number
 }
 
-type FacultyStatus = 'AVAILABLE' | 'LIMITED' | 'OUT_OF_OFFICE'
+type FacultyStatus = 'AVAILABLE' | 'LIMITED' | 'AWAY'
 
 type StatusResponse = {
   status: FacultyStatus
@@ -22,8 +43,45 @@ type StatusResponse = {
   display: string
 }
 
-type AnnouncementResponse = {
-  canPublish: boolean
+type FacultyWorkspaceResponse = {
+  id: string
+  name: string
+  title: string
+  department: string
+  officeLocation: string
+  officeHours: string
+  availabilityStatus: FacultyStatus
+  availabilityNote: string | null
+}
+
+type AnnouncementScope = 'CAMPUS' | 'BUILDING' | 'SERVICE'
+
+type AnnouncementComposerResponse = {
+  permissions: {
+    canPublishCampus: boolean
+    canPublishBuildings: boolean
+    canPublishServices: boolean
+  }
+  availableBuildings: Array<{
+    id: string
+    name: string
+    type: string
+  }>
+  availableServices: Array<{
+    id: string
+    name: string
+    location: string
+  }>
+  items: Array<{
+    id: string
+    scope: AnnouncementScope
+    title: string
+    message: string
+    linkUrl: string | null
+    createdAt: string
+    audienceLabel: string
+    authorName: string | null
+  }>
 }
 
 type OfficeHourFormState = {
@@ -35,14 +93,12 @@ type OfficeHourFormState = {
   maxQueue: number
 }
 
-type EventFormState = {
+type AnnouncementFormState = {
   title: string
-  description: string
-  date: string
-  time: string
-  location: string
-  category: 'ACADEMIC' | 'SOCIAL' | 'SPORTS' | 'ARTS' | 'CAREER' | 'CLUBS' | 'WELLNESS' | 'OTHER'
-  maxAttendees: string
+  message: string
+  linkUrl: string
+  scope: AnnouncementScope
+  targetId: string
 }
 
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -56,14 +112,12 @@ const defaultOfficeHourForm: OfficeHourFormState = {
   maxQueue: 20,
 }
 
-const defaultEventForm: EventFormState = {
+const defaultAnnouncementForm: AnnouncementFormState = {
   title: '',
-  description: '',
-  date: '',
-  time: '12:00',
-  location: '',
-  category: 'ACADEMIC',
-  maxAttendees: '',
+  message: '',
+  linkUrl: '',
+  scope: 'CAMPUS',
+  targetId: '',
 }
 
 const defaultStatusState: StatusResponse = {
@@ -72,7 +126,44 @@ const defaultStatusState: StatusResponse = {
   display: 'Available',
 }
 
+const availabilityOptions: Array<{ value: FacultyStatus; label: string; description: string }> = [
+  { value: 'AVAILABLE', label: 'Available', description: 'Students can expect normal office-hours access.' },
+  { value: 'LIMITED', label: 'Limited', description: 'Use this when responses or drop-ins will be slower than usual.' },
+  { value: 'AWAY', label: 'Away', description: 'Mark yourself away when students should not expect immediate availability.' },
+]
+
+const modeLabels: Record<OfficeHourSlot['mode'], string> = {
+  IN_PERSON: 'In person',
+  VIRTUAL: 'Virtual',
+  HYBRID: 'Hybrid',
+}
+
+function formatTo12Hour(time24: string) {
+  const [hoursRaw, minutes] = time24.split(':').map(Number)
+  const isPm = hoursRaw >= 12
+  const hours = hoursRaw % 12 || 12
+  return `${hours}:${String(minutes).padStart(2, '0')} ${isPm ? 'PM' : 'AM'}`
+}
+
+function formatAnnouncementTime(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(value))
+}
+
+const scopeLabels: Record<AnnouncementScope, string> = {
+  CAMPUS: 'Whole campus',
+  BUILDING: 'Building update',
+  SERVICE: 'Service update',
+}
+
 export function FacultyDashboard() {
+  const [workspace, setWorkspace] = React.useState<FacultyWorkspaceResponse | null>(null)
+  const [workspaceLoading, setWorkspaceLoading] = React.useState(true)
+
   const [officeHours, setOfficeHours] = React.useState<OfficeHourSlot[]>([])
   const [officeHoursLoading, setOfficeHoursLoading] = React.useState(true)
   const [officeHoursError, setOfficeHoursError] = React.useState<string | null>(null)
@@ -86,22 +177,28 @@ export function FacultyDashboard() {
   const [statusError, setStatusError] = React.useState<string | null>(null)
   const [statusSuccess, setStatusSuccess] = React.useState<string | null>(null)
 
-  const [eventForm, setEventForm] = React.useState<EventFormState>(defaultEventForm)
-  const [eventSaving, setEventSaving] = React.useState(false)
-  const [eventError, setEventError] = React.useState<string | null>(null)
-  const [eventSuccess, setEventSuccess] = React.useState<string | null>(null)
-
-  const [canPublishAnnouncements, setCanPublishAnnouncements] = React.useState(false)
+  const [announcementState, setAnnouncementState] = React.useState<AnnouncementComposerResponse | null>(null)
   const [announcementsLoading, setAnnouncementsLoading] = React.useState(true)
-  const [announcementTitle, setAnnouncementTitle] = React.useState('')
-  const [announcementMessage, setAnnouncementMessage] = React.useState('')
-  const [announcementLinkUrl, setAnnouncementLinkUrl] = React.useState('')
+  const [announcementForm, setAnnouncementForm] = React.useState<AnnouncementFormState>(defaultAnnouncementForm)
   const [announcementSaving, setAnnouncementSaving] = React.useState(false)
   const [announcementError, setAnnouncementError] = React.useState<string | null>(null)
   const [announcementSuccess, setAnnouncementSuccess] = React.useState<string | null>(null)
 
   const getErrorMessage = (error: unknown, fallback: string) =>
     error instanceof ApiClientError ? error.message : fallback
+
+  const loadWorkspace = React.useCallback(async () => {
+    setWorkspaceLoading(true)
+
+    try {
+      const result = await apiRequest<FacultyWorkspaceResponse>('/api/faculty/me')
+      setWorkspace(result)
+    } catch {
+      setWorkspace(null)
+    } finally {
+      setWorkspaceLoading(false)
+    }
+  }, [])
 
   const loadOfficeHours = React.useCallback(async () => {
     setOfficeHoursLoading(true)
@@ -127,30 +224,56 @@ export function FacultyDashboard() {
       setStatusState(result)
     } catch (error) {
       setStatusState(defaultStatusState)
-      setStatusError(getErrorMessage(error, 'Unable to load faculty status'))
+      setStatusError(getErrorMessage(error, 'Unable to load availability status'))
     } finally {
       setStatusLoading(false)
     }
   }, [])
 
-  const loadAnnouncementPermission = React.useCallback(async () => {
+  const loadAnnouncements = React.useCallback(async () => {
     setAnnouncementsLoading(true)
+    setAnnouncementError(null)
 
     try {
-      const result = await apiRequest<AnnouncementResponse>('/api/announcements')
-      setCanPublishAnnouncements(result.canPublish)
-    } catch {
-      setCanPublishAnnouncements(false)
+      const result = await apiRequest<AnnouncementComposerResponse>('/api/announcements')
+      setAnnouncementState(result)
+      setAnnouncementForm((current) => {
+        const nextScope =
+          current.scope === 'CAMPUS' && !result.permissions.canPublishCampus
+            ? result.permissions.canPublishBuildings
+              ? 'BUILDING'
+              : result.permissions.canPublishServices
+                ? 'SERVICE'
+                : 'CAMPUS'
+            : current.scope
+
+        return {
+          ...current,
+          scope: nextScope,
+          targetId:
+            nextScope === 'BUILDING'
+              ? current.targetId || result.availableBuildings[0]?.id || ''
+              : nextScope === 'SERVICE'
+                ? current.targetId || result.availableServices[0]?.id || ''
+                : '',
+        }
+      })
+    } catch (error) {
+      setAnnouncementState(null)
+      setAnnouncementError(getErrorMessage(error, 'Unable to load announcement tools'))
     } finally {
       setAnnouncementsLoading(false)
     }
   }, [])
 
   React.useEffect(() => {
-    void loadOfficeHours()
-    void loadStatus()
-    void loadAnnouncementPermission()
-  }, [loadAnnouncementPermission, loadOfficeHours, loadStatus])
+    void Promise.all([
+      loadWorkspace(),
+      loadOfficeHours(),
+      loadStatus(),
+      loadAnnouncements(),
+    ])
+  }, [loadAnnouncements, loadOfficeHours, loadStatus, loadWorkspace])
 
   const resetOfficeHourForm = () => {
     setOfficeHourForm(defaultOfficeHourForm)
@@ -181,7 +304,7 @@ export function FacultyDashboard() {
       }
 
       resetOfficeHourForm()
-      await loadOfficeHours()
+      await Promise.all([loadOfficeHours(), loadWorkspace()])
     } catch (error) {
       setOfficeHoursError(getErrorMessage(error, 'Unable to save office hour'))
     } finally {
@@ -209,7 +332,7 @@ export function FacultyDashboard() {
       if (editingOfficeHourId === slotId) {
         resetOfficeHourForm()
       }
-      await loadOfficeHours()
+      await Promise.all([loadOfficeHours(), loadWorkspace()])
     } catch (error) {
       setOfficeHoursError(getErrorMessage(error, 'Unable to delete office hour'))
     }
@@ -244,40 +367,12 @@ export function FacultyDashboard() {
       })
 
       setStatusState(updated)
-      setStatusSuccess('Status saved')
+      setStatusSuccess('Availability saved')
+      await loadWorkspace()
     } catch (error) {
-      setStatusError(getErrorMessage(error, 'Unable to save status'))
+      setStatusError(getErrorMessage(error, 'Unable to save availability'))
     } finally {
       setStatusSaving(false)
-    }
-  }
-
-  const onSubmitEvent = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setEventSaving(true)
-    setEventError(null)
-    setEventSuccess(null)
-
-    try {
-      await apiRequest('/api/events', {
-        method: 'POST',
-        body: {
-          title: eventForm.title,
-          description: eventForm.description,
-          date: eventForm.date,
-          time: eventForm.time,
-          location: eventForm.location,
-          category: eventForm.category,
-          maxAttendees: eventForm.maxAttendees ? Number(eventForm.maxAttendees) : undefined,
-        },
-      })
-
-      setEventForm(defaultEventForm)
-      setEventSuccess('Event created and notifications sent')
-    } catch (error) {
-      setEventError(getErrorMessage(error, 'Unable to create event'))
-    } finally {
-      setEventSaving(false)
     }
   }
 
@@ -291,16 +386,23 @@ export function FacultyDashboard() {
       await apiRequest('/api/announcements', {
         method: 'POST',
         body: {
-          title: announcementTitle,
-          message: announcementMessage,
-          linkUrl: announcementLinkUrl.trim() || undefined,
+          title: announcementForm.title,
+          message: announcementForm.message,
+          linkUrl: announcementForm.linkUrl.trim() || undefined,
+          scope: announcementForm.scope,
+          buildingId: announcementForm.scope === 'BUILDING' ? announcementForm.targetId : undefined,
+          serviceId: announcementForm.scope === 'SERVICE' ? announcementForm.targetId : undefined,
         },
       })
 
-      setAnnouncementTitle('')
-      setAnnouncementMessage('')
-      setAnnouncementLinkUrl('')
+      setAnnouncementForm((current) => ({
+        ...current,
+        title: '',
+        message: '',
+        linkUrl: '',
+      }))
       setAnnouncementSuccess('Announcement published')
+      await loadAnnouncements()
     } catch (error) {
       setAnnouncementError(getErrorMessage(error, 'Unable to publish announcement'))
     } finally {
@@ -308,452 +410,553 @@ export function FacultyDashboard() {
     }
   }
 
+  const announcementPermissions = announcementState?.permissions
+  const currentTargets = React.useMemo(
+    () =>
+      announcementForm.scope === 'BUILDING'
+        ? announcementState?.availableBuildings ?? []
+        : announcementForm.scope === 'SERVICE'
+          ? announcementState?.availableServices ?? []
+          : [],
+    [
+      announcementForm.scope,
+      announcementState?.availableBuildings,
+      announcementState?.availableServices,
+    ],
+  )
+
+  React.useEffect(() => {
+    if (announcementForm.scope === 'BUILDING' && currentTargets.length > 0 && !currentTargets.some((item) => item.id === announcementForm.targetId)) {
+      setAnnouncementForm((current) => ({
+        ...current,
+        targetId: currentTargets[0]?.id ?? '',
+      }))
+    }
+
+    if (announcementForm.scope === 'SERVICE' && currentTargets.length > 0 && !currentTargets.some((item) => item.id === announcementForm.targetId)) {
+      setAnnouncementForm((current) => ({
+        ...current,
+        targetId: currentTargets[0]?.id ?? '',
+      }))
+    }
+
+    if (announcementForm.scope === 'CAMPUS' && announcementForm.targetId) {
+      setAnnouncementForm((current) => ({
+        ...current,
+        targetId: '',
+      }))
+    }
+  }, [announcementForm.scope, announcementForm.targetId, currentTargets])
+
+  const activeSlots = officeHours.filter((slot) => slot.isActive).length
+  const totalAnnouncementAccess =
+    (announcementPermissions?.canPublishCampus ? 1 : 0) +
+    (announcementPermissions?.canPublishBuildings ? 1 : 0) +
+    (announcementPermissions?.canPublishServices ? 1 : 0)
+
   return (
     <div className="space-y-6">
-      <section id="office-hours" className="rounded-2xl border border-border/60 bg-card p-5 space-y-4">
-        <h1 className="font-display text-xl font-bold tracking-tight">Office Hours</h1>
+      <section className="relative overflow-hidden rounded-[28px] border border-border/60 bg-card px-6 py-6 md:px-7 md:py-7">
+        <div className="pointer-events-none absolute -left-12 top-0 h-44 w-44 rounded-full bg-primary/10 blur-3xl" />
+        <div className="pointer-events-none absolute right-0 top-6 h-36 w-36 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="relative space-y-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-2">
+              <Badge variant="outline" className="rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.18em]">
+                Faculty Dashboard
+              </Badge>
+              <div>
+                <h1 className="font-display text-3xl font-extrabold tracking-tight">
+                  {workspaceLoading ? 'Loading faculty workspace...' : `Manage ${workspace?.name ?? 'your faculty workspace'}`}
+                </h1>
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+                  Keep your availability current, maintain clean office hours, and publish the right updates without bouncing between admin screens.
+                </p>
+              </div>
+            </div>
 
-        <form className="grid gap-3 md:grid-cols-2 lg:grid-cols-3" onSubmit={onSubmitOfficeHour}>
-          <label className="space-y-1 text-sm">
-            <span>Day</span>
-            <select
-              value={officeHourForm.dayOfWeek}
-              onChange={(input) =>
-                setOfficeHourForm((current) => ({ ...current, dayOfWeek: Number(input.target.value) }))
-              }
-              className="h-10 w-full rounded-xl border border-border/60 bg-background px-3"
-              required
-            >
-              {weekdays.map((day, index) => (
-                <option key={day} value={index}>
-                  {day}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="space-y-1 text-sm">
-            <span>Start</span>
-            <input
-              type="time"
-              value={officeHourForm.startTime}
-              onChange={(input) =>
-                setOfficeHourForm((current) => ({ ...current, startTime: input.target.value }))
-              }
-              className="h-10 w-full rounded-xl border border-border/60 bg-background px-3"
-              required
-            />
-          </label>
-
-          <label className="space-y-1 text-sm">
-            <span>End</span>
-            <input
-              type="time"
-              value={officeHourForm.endTime}
-              onChange={(input) =>
-                setOfficeHourForm((current) => ({ ...current, endTime: input.target.value }))
-              }
-              className="h-10 w-full rounded-xl border border-border/60 bg-background px-3"
-              required
-            />
-          </label>
-
-          <label className="space-y-1 text-sm">
-            <span>Location</span>
-            <input
-              value={officeHourForm.location}
-              onChange={(input) =>
-                setOfficeHourForm((current) => ({ ...current, location: input.target.value }))
-              }
-              className="h-10 w-full rounded-xl border border-border/60 bg-background px-3"
-              required
-            />
-          </label>
-
-          <label className="space-y-1 text-sm">
-            <span>Mode</span>
-            <select
-              value={officeHourForm.mode}
-              onChange={(input) =>
-                setOfficeHourForm((current) => ({
-                  ...current,
-                  mode: input.target.value as OfficeHourSlot['mode'],
-                }))
-              }
-              className="h-10 w-full rounded-xl border border-border/60 bg-background px-3"
-              required
-            >
-              <option value="IN_PERSON">In person</option>
-              <option value="VIRTUAL">Virtual</option>
-              <option value="HYBRID">Hybrid</option>
-            </select>
-          </label>
-
-          <label className="space-y-1 text-sm">
-            <span>Max queue</span>
-            <input
-              type="number"
-              min={1}
-              value={officeHourForm.maxQueue}
-              onChange={(input) =>
-                setOfficeHourForm((current) => ({ ...current, maxQueue: Number(input.target.value) }))
-              }
-              className="h-10 w-full rounded-xl border border-border/60 bg-background px-3"
-              required
-            />
-          </label>
-
-          <div className="md:col-span-2 lg:col-span-3 flex flex-wrap gap-2">
-            <button
-              type="submit"
-              className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-              disabled={savingOfficeHour}
-            >
-              {savingOfficeHour ? 'Saving...' : editingOfficeHourId ? 'Update slot' : 'Add slot'}
-            </button>
-
-            {editingOfficeHourId && (
-              <button
-                type="button"
-                className="rounded-xl border border-border/60 px-4 py-2 text-sm font-semibold"
-                onClick={resetOfficeHourForm}
-              >
-                Cancel edit
-              </button>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary" className="rounded-full px-3 py-1.5 text-xs">
+                <MapPin className="mr-1.5 h-3.5 w-3.5" />
+                {workspace?.officeLocation ?? 'No office location'}
+              </Badge>
+              <Badge variant="secondary" className="rounded-full px-3 py-1.5 text-xs">
+                <Clock3 className="mr-1.5 h-3.5 w-3.5" />
+                {workspace?.officeHours ?? 'No office hours posted'}
+              </Badge>
+            </div>
           </div>
-        </form>
 
-        {officeHoursError && (
-          <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-700 dark:text-red-300">
-            {officeHoursError}
-          </p>
-        )}
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-2xl border border-border/60 bg-muted/10 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Availability</p>
+              <p className="mt-2 text-lg font-semibold">
+                {statusLoading ? 'Loading...' : formatFacultyAvailability(statusState.status, statusState.note)}
+              </p>
+            </div>
 
-        <div className="overflow-x-auto rounded-xl border border-border/60">
-          <table className="w-full min-w-[720px]">
-            <thead>
-              <tr className="bg-muted/30 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-3 py-2">Day</th>
-                <th className="px-3 py-2">Time</th>
-                <th className="px-3 py-2">Location</th>
-                <th className="px-3 py-2">Mode</th>
-                <th className="px-3 py-2">Queue</th>
-                <th className="px-3 py-2">Active</th>
-                <th className="px-3 py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {officeHoursLoading && (
-                <tr>
-                  <td className="px-3 py-3 text-sm text-muted-foreground" colSpan={7}>
-                    Loading office hours...
-                  </td>
-                </tr>
-              )}
+            <div className="rounded-2xl border border-border/60 bg-muted/10 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Office hours</p>
+              <p className="mt-2 text-lg font-semibold">{officeHours.length} scheduled slot{officeHours.length === 1 ? '' : 's'}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{activeSlots} active right now</p>
+            </div>
 
-              {!officeHoursLoading && officeHours.length === 0 && (
-                <tr>
-                  <td className="px-3 py-3 text-sm text-muted-foreground" colSpan={7}>
-                    No office hour slots
-                  </td>
-                </tr>
-              )}
-
-              {!officeHoursLoading &&
-                officeHours.map((slot) => (
-                  <tr key={slot.id} className="border-t border-border/40 text-sm">
-                    <td className="px-3 py-2">{weekdays[slot.dayOfWeek]}</td>
-                    <td className="px-3 py-2">
-                      {slot.startTime} - {slot.endTime}
-                    </td>
-                    <td className="px-3 py-2">{slot.location}</td>
-                    <td className="px-3 py-2">{slot.mode.replace('_', ' ')}</td>
-                    <td className="px-3 py-2">{slot.maxQueue}</td>
-                    <td className="px-3 py-2">{slot.isActive ? 'Yes' : 'No'}</td>
-                    <td className="px-3 py-2">
-                      <div className="flex gap-2">
-                        <button
-                          className="rounded-lg border border-border/60 px-2 py-1 text-xs font-semibold"
-                          onClick={() => onEditOfficeHour(slot)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="rounded-lg border border-border/60 px-2 py-1 text-xs font-semibold"
-                          onClick={() => void onToggleOfficeHour(slot.id)}
-                        >
-                          {slot.isActive ? 'Disable' : 'Enable'}
-                        </button>
-                        <button
-                          className="rounded-lg border border-red-500/40 px-2 py-1 text-xs font-semibold text-red-600 dark:text-red-300"
-                          onClick={() => void onDeleteOfficeHour(slot.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
+            <div className="rounded-2xl border border-border/60 bg-muted/10 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Announcement access</p>
+              <p className="mt-2 text-lg font-semibold">{totalAnnouncementAccess} publishing channel{totalAnnouncementAccess === 1 ? '' : 's'}</p>
+              <p className="mt-1 text-sm text-muted-foreground">Campus, buildings, and service updates are permission-aware.</p>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-border/60 bg-card p-5 space-y-4">
-        <h2 className="font-display text-xl font-bold tracking-tight">Faculty Status</h2>
-
-        <form className="grid gap-3 md:grid-cols-2" onSubmit={onSubmitStatus}>
-          <label className="space-y-1 text-sm">
-            <span>Status</span>
-            <select
-              value={statusState.status}
-              onChange={(input) =>
-                setStatusState((current) => ({
-                  ...current,
-                  status: input.target.value as FacultyStatus,
-                }))
-              }
-              className="h-10 w-full rounded-xl border border-border/60 bg-background px-3"
-              disabled={statusLoading}
-            >
-              <option value="AVAILABLE">Available</option>
-              <option value="LIMITED">Limited availability</option>
-              <option value="OUT_OF_OFFICE">Out of office</option>
-            </select>
-          </label>
-
-          <label className="space-y-1 text-sm">
-            <span>Note</span>
-            <input
-              value={statusState.note}
-              onChange={(input) =>
-                setStatusState((current) => ({ ...current, note: input.target.value }))
-              }
-              className="h-10 w-full rounded-xl border border-border/60 bg-background px-3"
-              disabled={statusLoading}
-            />
-          </label>
-
-          <div className="md:col-span-2 flex flex-wrap items-center gap-3">
-            <button
-              type="submit"
-              className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-              disabled={statusLoading || statusSaving}
-            >
-              {statusSaving ? 'Saving...' : 'Save status'}
-            </button>
-            <p className="text-sm text-muted-foreground">{statusState.display}</p>
-          </div>
-        </form>
-
-        {statusError && (
-          <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-700 dark:text-red-300">
-            {statusError}
-          </p>
-        )}
-
-        {statusSuccess && (
-          <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-            {statusSuccess}
-          </p>
-        )}
-      </section>
-
-      <section className="rounded-2xl border border-border/60 bg-card p-5 space-y-4">
-        <h2 className="font-display text-xl font-bold tracking-tight">Create Event</h2>
-
-        <form className="grid gap-3 md:grid-cols-2" onSubmit={onSubmitEvent}>
-          <label className="space-y-1 text-sm md:col-span-2">
-            <span>Title</span>
-            <input
-              value={eventForm.title}
-              onChange={(input) =>
-                setEventForm((current) => ({ ...current, title: input.target.value }))
-              }
-              className="h-10 w-full rounded-xl border border-border/60 bg-background px-3"
-              required
-            />
-          </label>
-
-          <label className="space-y-1 text-sm md:col-span-2">
-            <span>Description</span>
-            <textarea
-              value={eventForm.description}
-              onChange={(input) =>
-                setEventForm((current) => ({ ...current, description: input.target.value }))
-              }
-              className="min-h-28 w-full rounded-xl border border-border/60 bg-background px-3 py-2"
-              required
-            />
-          </label>
-
-          <label className="space-y-1 text-sm">
-            <span>Date</span>
-            <input
-              type="date"
-              value={eventForm.date}
-              onChange={(input) =>
-                setEventForm((current) => ({ ...current, date: input.target.value }))
-              }
-              className="h-10 w-full rounded-xl border border-border/60 bg-background px-3"
-              required
-            />
-          </label>
-
-          <label className="space-y-1 text-sm">
-            <span>Time</span>
-            <input
-              type="time"
-              value={eventForm.time}
-              onChange={(input) =>
-                setEventForm((current) => ({ ...current, time: input.target.value }))
-              }
-              className="h-10 w-full rounded-xl border border-border/60 bg-background px-3"
-              required
-            />
-          </label>
-
-          <label className="space-y-1 text-sm">
-            <span>Location</span>
-            <input
-              value={eventForm.location}
-              onChange={(input) =>
-                setEventForm((current) => ({ ...current, location: input.target.value }))
-              }
-              className="h-10 w-full rounded-xl border border-border/60 bg-background px-3"
-              required
-            />
-          </label>
-
-          <label className="space-y-1 text-sm">
-            <span>Category</span>
-            <select
-              value={eventForm.category}
-              onChange={(input) =>
-                setEventForm((current) => ({
-                  ...current,
-                  category: input.target.value as EventFormState['category'],
-                }))
-              }
-              className="h-10 w-full rounded-xl border border-border/60 bg-background px-3"
-              required
-            >
-              <option value="ACADEMIC">Academic</option>
-              <option value="SOCIAL">Social</option>
-              <option value="SPORTS">Sports</option>
-              <option value="ARTS">Arts</option>
-              <option value="CAREER">Career</option>
-              <option value="CLUBS">Clubs</option>
-              <option value="WELLNESS">Wellness</option>
-              <option value="OTHER">Other</option>
-            </select>
-          </label>
-
-          <label className="space-y-1 text-sm">
-            <span>Max attendees</span>
-            <input
-              type="number"
-              min={1}
-              value={eventForm.maxAttendees}
-              onChange={(input) =>
-                setEventForm((current) => ({ ...current, maxAttendees: input.target.value }))
-              }
-              className="h-10 w-full rounded-xl border border-border/60 bg-background px-3"
-            />
-          </label>
-
-          <div className="md:col-span-2">
-            <button
-              type="submit"
-              className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-              disabled={eventSaving}
-            >
-              {eventSaving ? 'Creating...' : 'Create event'}
-            </button>
-          </div>
-        </form>
-
-        {eventError && (
-          <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-700 dark:text-red-300">
-            {eventError}
-          </p>
-        )}
-
-        {eventSuccess && (
-          <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-            {eventSuccess}
-          </p>
-        )}
-      </section>
-
-      <section className="rounded-2xl border border-border/60 bg-card p-5 space-y-4">
-        <h2 className="font-display text-xl font-bold tracking-tight">Campus Announcement</h2>
-
-        {announcementsLoading && <p className="text-sm text-muted-foreground">Checking permissions...</p>}
-
-        {!announcementsLoading && !canPublishAnnouncements && (
-          <p className="text-sm text-muted-foreground">
-            Your account does not have campus announcement permission.
-          </p>
-        )}
-
-        {!announcementsLoading && canPublishAnnouncements && (
-          <form className="grid gap-3" onSubmit={onSubmitAnnouncement}>
-            <label className="space-y-1 text-sm">
-              <span>Title</span>
-              <input
-                value={announcementTitle}
-                onChange={(input) => setAnnouncementTitle(input.target.value)}
-                className="h-10 w-full rounded-xl border border-border/60 bg-background px-3"
-                required
-              />
-            </label>
-
-            <label className="space-y-1 text-sm">
-              <span>Message</span>
-              <textarea
-                value={announcementMessage}
-                onChange={(input) => setAnnouncementMessage(input.target.value)}
-                className="min-h-28 w-full rounded-xl border border-border/60 bg-background px-3 py-2"
-                required
-              />
-            </label>
-
-            <label className="space-y-1 text-sm">
-              <span>Link URL (optional)</span>
-              <input
-                type="url"
-                value={announcementLinkUrl}
-                onChange={(input) => setAnnouncementLinkUrl(input.target.value)}
-                className="h-10 w-full rounded-xl border border-border/60 bg-background px-3"
-              />
-            </label>
-
-            <div>
-              <button
-                type="submit"
-                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-                disabled={announcementSaving}
-              >
-                {announcementSaving ? 'Publishing...' : 'Publish announcement'}
-              </button>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_380px]">
+        <section className="space-y-6">
+          <section className="rounded-[24px] border border-border/60 bg-card p-5 md:p-6">
+            <div className="mb-5 flex items-start gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <UserRoundCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-display text-xl font-bold tracking-tight">Availability and away status</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Keep students informed when you are available, limited, or away entirely.
+                </p>
+              </div>
             </div>
-          </form>
-        )}
 
-        {announcementError && (
-          <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-700 dark:text-red-300">
-            {announcementError}
-          </p>
-        )}
+            <form onSubmit={onSubmitStatus} className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-3">
+                {availabilityOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setStatusState((current) => ({ ...current, status: option.value }))}
+                    className={cn(
+                      'rounded-2xl border px-4 py-4 text-left transition-colors',
+                      statusState.status === option.value
+                        ? 'border-primary bg-primary/8 shadow-sm'
+                        : 'border-border/60 bg-muted/10 hover:bg-muted/20',
+                    )}
+                  >
+                    <p className="text-sm font-semibold">{option.label}</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{option.description}</p>
+                  </button>
+                ))}
+              </div>
 
-        {announcementSuccess && (
-          <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-            {announcementSuccess}
-          </p>
-        )}
-      </section>
+              <label className="space-y-2 text-sm font-medium">
+                <span>Status note</span>
+                <Textarea
+                  value={statusState.note}
+                  onChange={(event) => setStatusState((current) => ({ ...current, note: event.target.value }))}
+                  placeholder="Optional context like conference travel, delayed responses, or alternate contact timing."
+                  className="min-h-28 resize-none"
+                  disabled={statusLoading}
+                />
+              </label>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Button type="submit" size="lg" className="rounded-2xl px-5" disabled={statusLoading || statusSaving}>
+                  {statusSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save availability
+                    </>
+                  )}
+                </Button>
+                <p className="text-sm text-muted-foreground">{statusState.display}</p>
+              </div>
+            </form>
+
+            {statusError && (
+              <p className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-700 dark:text-red-300">
+                {statusError}
+              </p>
+            )}
+
+            {statusSuccess && (
+              <p className="mt-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                {statusSuccess}
+              </p>
+            )}
+          </section>
+
+          <section className="rounded-[24px] border border-border/60 bg-card p-5 md:p-6">
+            <div className="mb-5 flex items-start gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-700 dark:text-cyan-300">
+                <Clock3 className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-display text-xl font-bold tracking-tight">Office hours schedule</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Publish clean weekly slots, turn them on when you start meeting with students, and keep locations current.
+                </p>
+              </div>
+            </div>
+
+            {officeHoursError && (
+              <p className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-700 dark:text-red-300">
+                {officeHoursError}
+              </p>
+            )}
+
+            {officeHoursLoading ? (
+              <p className="text-sm text-muted-foreground">Loading office hours...</p>
+            ) : officeHours.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border/60 bg-muted/10 px-5 py-8 text-center">
+                <p className="text-sm font-medium">No office hours yet</p>
+                <p className="mt-1 text-sm text-muted-foreground">Create your first slot from the editor on the right.</p>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {officeHours.map((slot) => (
+                  <div key={slot.id} className="rounded-2xl border border-border/60 bg-muted/10 p-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-base font-semibold">{formatFacultySlotLabel(slot)}</p>
+                          <Badge variant={slot.isActive ? 'default' : 'outline'} className="rounded-full">
+                            {slot.isActive ? 'Live' : 'Scheduled'}
+                          </Badge>
+                          <Badge variant="outline" className="rounded-full">
+                            {modeLabels[slot.mode]}
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                          <span className="inline-flex items-center gap-1.5">
+                            <MapPin className="h-4 w-4" />
+                            {slot.location}
+                          </span>
+                          <span className="inline-flex items-center gap-1.5">
+                            <Clock3 className="h-4 w-4" />
+                            {formatTo12Hour(slot.startTime)} - {formatTo12Hour(slot.endTime)}
+                          </span>
+                          <span className="inline-flex items-center gap-1.5">
+                            <ShieldCheck className="h-4 w-4" />
+                            Max queue {slot.maxQueue}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button type="button" variant="outline" onClick={() => onEditOfficeHour(slot)} className="rounded-xl">
+                          <PencilLine className="mr-2 h-4 w-4" />
+                          Edit
+                        </Button>
+                        <Button type="button" variant="outline" onClick={() => void onToggleOfficeHour(slot.id)} className="rounded-xl">
+                          {slot.isActive ? 'Pause slot' : 'Go live'}
+                        </Button>
+                        <Button type="button" variant="outline" onClick={() => void onDeleteOfficeHour(slot.id)} className="rounded-xl text-red-600 hover:text-red-600 dark:text-red-300">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </section>
+
+        <aside className="space-y-6">
+          <section className="rounded-[24px] border border-border/60 bg-card p-5 md:p-6">
+            <div className="mb-5 flex items-start gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                <Plus className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-display text-lg font-bold tracking-tight">
+                  {editingOfficeHourId ? 'Edit office hour' : 'Add office hour'}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Keep the slot list concise and use the exact room or meeting location students should use.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={onSubmitOfficeHour} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="space-y-2 text-sm font-medium">
+                  <span>Day</span>
+                  <select
+                    value={officeHourForm.dayOfWeek}
+                    onChange={(event) =>
+                      setOfficeHourForm((current) => ({
+                        ...current,
+                        dayOfWeek: Number(event.target.value),
+                      }))
+                    }
+                    className="h-10 w-full rounded-xl border border-border/60 bg-background px-3 text-sm"
+                    required
+                  >
+                    {weekdays.map((day, index) => (
+                      <option key={day} value={index}>
+                        {day}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-2 text-sm font-medium">
+                  <span>Mode</span>
+                  <select
+                    value={officeHourForm.mode}
+                    onChange={(event) =>
+                      setOfficeHourForm((current) => ({
+                        ...current,
+                        mode: event.target.value as OfficeHourSlot['mode'],
+                      }))
+                    }
+                    className="h-10 w-full rounded-xl border border-border/60 bg-background px-3 text-sm"
+                    required
+                  >
+                    <option value="IN_PERSON">In person</option>
+                    <option value="VIRTUAL">Virtual</option>
+                    <option value="HYBRID">Hybrid</option>
+                  </select>
+                </label>
+
+                <label className="space-y-2 text-sm font-medium">
+                  <span>Start time</span>
+                  <Input
+                    type="time"
+                    value={officeHourForm.startTime}
+                    onChange={(event) => setOfficeHourForm((current) => ({ ...current, startTime: event.target.value }))}
+                    required
+                  />
+                </label>
+
+                <label className="space-y-2 text-sm font-medium">
+                  <span>End time</span>
+                  <Input
+                    type="time"
+                    value={officeHourForm.endTime}
+                    onChange={(event) => setOfficeHourForm((current) => ({ ...current, endTime: event.target.value }))}
+                    required
+                  />
+                </label>
+              </div>
+
+              <label className="space-y-2 text-sm font-medium">
+                <span>Location</span>
+                <Input
+                  value={officeHourForm.location}
+                  onChange={(event) => setOfficeHourForm((current) => ({ ...current, location: event.target.value }))}
+                  placeholder="Engineering Hall 314 or Zoom room"
+                  required
+                />
+              </label>
+
+              <label className="space-y-2 text-sm font-medium">
+                <span>Max queue</span>
+                <Input
+                  type="number"
+                  min={1}
+                  value={officeHourForm.maxQueue}
+                  onChange={(event) => setOfficeHourForm((current) => ({ ...current, maxQueue: Number(event.target.value) }))}
+                  required
+                />
+              </label>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="submit" className="rounded-xl" disabled={savingOfficeHour}>
+                  {savingOfficeHour ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      {editingOfficeHourId ? 'Update slot' : 'Add slot'}
+                    </>
+                  )}
+                </Button>
+
+                {editingOfficeHourId && (
+                  <Button type="button" variant="outline" className="rounded-xl" onClick={resetOfficeHourForm}>
+                    Cancel edit
+                  </Button>
+                )}
+              </div>
+            </form>
+          </section>
+
+          <section className="rounded-[24px] border border-border/60 bg-card p-5 md:p-6">
+            <div className="mb-5 flex items-start gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-700 dark:text-rose-300">
+                <Megaphone className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-display text-lg font-bold tracking-tight">Announcement composer</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Publish whole-campus updates if you have campus permission, or target buildings and services you manage.
+                </p>
+              </div>
+            </div>
+
+            {announcementsLoading ? (
+              <p className="text-sm text-muted-foreground">Loading announcement access...</p>
+            ) : !announcementPermissions ||
+              (!announcementPermissions.canPublishCampus &&
+                !announcementPermissions.canPublishBuildings &&
+                !announcementPermissions.canPublishServices) ? (
+              <div className="rounded-2xl border border-dashed border-border/60 bg-muted/10 px-4 py-6 text-center">
+                <p className="text-sm font-medium">No announcement permissions</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Faculty without publishing access can still keep their profile and office hours current here.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={onSubmitAnnouncement} className="space-y-4">
+                <label className="space-y-2 text-sm font-medium">
+                  <span>Audience</span>
+                  <select
+                    value={announcementForm.scope}
+                    onChange={(event) =>
+                      setAnnouncementForm((current) => ({
+                        ...current,
+                        scope: event.target.value as AnnouncementScope,
+                        targetId:
+                          event.target.value === 'BUILDING'
+                            ? announcementState?.availableBuildings[0]?.id ?? ''
+                            : event.target.value === 'SERVICE'
+                              ? announcementState?.availableServices[0]?.id ?? ''
+                              : '',
+                      }))
+                    }
+                    className="h-10 w-full rounded-xl border border-border/60 bg-background px-3 text-sm"
+                  >
+                    {announcementPermissions.canPublishCampus && <option value="CAMPUS">{scopeLabels.CAMPUS}</option>}
+                    {announcementPermissions.canPublishBuildings && <option value="BUILDING">{scopeLabels.BUILDING}</option>}
+                    {announcementPermissions.canPublishServices && <option value="SERVICE">{scopeLabels.SERVICE}</option>}
+                  </select>
+                </label>
+
+                {announcementForm.scope !== 'CAMPUS' && (
+                  <label className="space-y-2 text-sm font-medium">
+                    <span>{announcementForm.scope === 'BUILDING' ? 'Building' : 'Service'}</span>
+                    <select
+                      value={announcementForm.targetId}
+                      onChange={(event) => setAnnouncementForm((current) => ({ ...current, targetId: event.target.value }))}
+                      className="h-10 w-full rounded-xl border border-border/60 bg-background px-3 text-sm"
+                      required
+                    >
+                      {currentTargets.map((target) => (
+                        <option key={target.id} value={target.id}>
+                          {'location' in target ? `${target.name} · ${target.location}` : `${target.name} · ${target.type}`}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                <label className="space-y-2 text-sm font-medium">
+                  <span>Title</span>
+                  <Input
+                    value={announcementForm.title}
+                    onChange={(event) => setAnnouncementForm((current) => ({ ...current, title: event.target.value }))}
+                    placeholder="Library elevator maintenance on Tuesday"
+                    required
+                  />
+                </label>
+
+                <label className="space-y-2 text-sm font-medium">
+                  <span>Message</span>
+                  <Textarea
+                    value={announcementForm.message}
+                    onChange={(event) => setAnnouncementForm((current) => ({ ...current, message: event.target.value }))}
+                    placeholder="Share what changed, who it affects, and what students should do next."
+                    className="min-h-32 resize-none"
+                    required
+                  />
+                </label>
+
+                <label className="space-y-2 text-sm font-medium">
+                  <span>Link URL (optional)</span>
+                  <Input
+                    type="url"
+                    value={announcementForm.linkUrl}
+                    onChange={(event) => setAnnouncementForm((current) => ({ ...current, linkUrl: event.target.value }))}
+                    placeholder="https://..."
+                  />
+                </label>
+
+                <Button type="submit" className="w-full rounded-xl" disabled={announcementSaving}>
+                  {announcementSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Publishing...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      Publish announcement
+                    </>
+                  )}
+                </Button>
+              </form>
+            )}
+
+            {announcementError && (
+              <p className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-700 dark:text-red-300">
+                {announcementError}
+              </p>
+            )}
+
+            {announcementSuccess && (
+              <p className="mt-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                {announcementSuccess}
+              </p>
+            )}
+
+            <div className="mt-6 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <BellRing className="h-4 w-4 text-muted-foreground" />
+                Recent published updates
+              </div>
+
+              {!announcementState || announcementState.items.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-border/60 px-4 py-5 text-sm text-muted-foreground">
+                  No announcements published yet.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {announcementState.items.slice(0, 4).map((item) => (
+                    <div key={item.id} className="rounded-2xl border border-border/60 bg-muted/10 p-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="rounded-full">
+                          {item.audienceLabel}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">{formatAnnouncementTime(item.createdAt)}</span>
+                      </div>
+                      <p className="mt-2 text-sm font-semibold">{item.title}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{item.message}</p>
+                      {item.linkUrl && (
+                        <a
+                          href={item.linkUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary transition-colors hover:text-primary/80"
+                        >
+                          Open link
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        </aside>
+      </div>
     </div>
   )
 }

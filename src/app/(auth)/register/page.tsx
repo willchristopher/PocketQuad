@@ -59,7 +59,7 @@ export default function RegisterPage() {
   const [checkingDomain, setCheckingDomain] = React.useState(false)
 
   const router = useRouter()
-  const { refreshProfile } = useAuth()
+  const { refreshSession } = useAuth()
   const domainCheckTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isFaculty = role === 'FACULTY'
@@ -118,7 +118,7 @@ export default function RegisterPage() {
 
   const redirectToSessionHome = async () => {
     try {
-      await refreshProfile()
+      await refreshSession()
     } catch {
       // Continue anyway so onboarding can load.
     }

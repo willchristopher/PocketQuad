@@ -7,6 +7,7 @@ import { SidebarProvider, useSidebarCollapsed } from '@/components/layout/Sideba
 import { MobileNav } from '@/components/layout/MobileNav'
 import { Header } from '@/components/layout/Header'
 import { SkipLink } from '@/components/layout/SkipLink'
+import { AuthenticatedLayoutGate } from '@/components/auth/AuthenticatedLayoutGate'
 
 const CommandPalette = dynamic(
   () => import('@/components/layout/CommandPalette').then((module) => module.CommandPalette),
@@ -49,7 +50,12 @@ export default function StudentLayout({
 }) {
   return (
     <SidebarProvider>
-      <LayoutShell>{children}</LayoutShell>
+      <AuthenticatedLayoutGate
+        title="Loading your dashboard"
+        message="Please wait while PocketQuad loads your account details and dashboard preferences."
+      >
+        <LayoutShell>{children}</LayoutShell>
+      </AuthenticatedLayoutGate>
     </SidebarProvider>
   )
 }

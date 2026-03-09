@@ -1,4 +1,10 @@
 import { prisma } from '@/lib/prisma'
+import {
+  formatFacultyAvailability,
+  parseLegacyFacultyAvailability,
+} from '@/lib/faculty'
+import { getAnnouncementAudienceLabel } from '@/lib/server/announcements'
+import { isMissingDatabaseFieldError } from '@/lib/server/dbCompatibility'
 
 export const AI_CONTEXT_SECTIONS = [
   'announcements',
@@ -124,6 +130,111 @@ const BROAD_QUERY_PATTERNS = [
   /\beverything\b/,
 ]
 
+async function loadFacultyContext(universityId: string, limit: number) {
+  try {
+    return await prisma.faculty.findMany({
+      where: { universityId },
+      select: {
+        name: true,
+        title: true,
+        department: true,
+        email: true,
+        officeLocation: true,
+        officeHours: true,
+        courses: true,
+        phone: true,
+        tags: true,
+        availabilityStatus: true,
+        availabilityNote: true,
+      },
+      orderBy: { name: 'asc' },
+      take: limit,
+    })
+  } catch (error) {
+    if (!isMissingDatabaseFieldError(error)) {
+      throw error
+    }
+
+    const faculty = await prisma.faculty.findMany({
+      where: { universityId },
+      select: {
+        name: true,
+        title: true,
+        department: true,
+        email: true,
+        officeLocation: true,
+        officeHours: true,
+        courses: true,
+        phone: true,
+        tags: true,
+      },
+      orderBy: { name: 'asc' },
+      take: limit,
+    })
+
+    return faculty.map((item) => {
+      const availability = parseLegacyFacultyAvailability(item.officeHours)
+      return {
+        ...item,
+        availabilityStatus: availability.status,
+        availabilityNote: availability.note || null,
+      }
+    })
+  }
+}
+
+async function loadAnnouncementContext(universityId: string, limit: number) {
+  const now = new Date()
+
+  try {
+    return await prisma.announcement.findMany({
+      where: {
+        isActive: true,
+        universityId,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+      },
+      select: {
+        scope: true,
+        title: true,
+        message: true,
+        building: {
+          select: {
+            name: true,
+          },
+        },
+        service: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
+  } catch (error) {
+    if (!isMissingDatabaseFieldError(error)) {
+      throw error
+    }
+
+    return prisma.announcement.findMany({
+      where: { isActive: true },
+      select: {
+        title: true,
+        message: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    }).then((announcements) =>
+      announcements.map((item) => ({
+        ...item,
+        scope: 'CAMPUS' as const,
+        building: null,
+        service: null,
+      })),
+    )
+  }
+}
+
 const SECTION_LIMITS: Record<AIContextSection, number> = {
   announcements: 5,
   events: 15,
@@ -223,21 +334,7 @@ export async function gatherUniversityContext(
 
     // Faculty directory — scoped to university
     shouldInclude('faculty')
-      ? prisma.faculty.findMany({
-          where: { universityId },
-          select: {
-            name: true,
-            title: true,
-            department: true,
-            email: true,
-            officeLocation: true,
-            officeHours: true,
-            courses: true,
-            phone: true,
-          },
-          orderBy: { name: 'asc' },
-          take: SECTION_LIMITS.faculty,
-        })
+      ? loadFacultyContext(universityId, SECTION_LIMITS.faculty)
       : Promise.resolve([]),
 
     // Upcoming events — scoped to university, next 30 days
@@ -304,9 +401,27 @@ export async function gatherUniversityContext(
             type: true,
             address: true,
             description: true,
+            accessibilityNotes: true,
+            operatingHours: true,
+            operationalStatus: true,
+            operationalNote: true,
             categories: true,
             services: true,
             departments: true,
+            events: {
+              where: {
+                isPublished: true,
+                isCancelled: false,
+                date: { gte: now },
+              },
+              select: {
+                title: true,
+                date: true,
+                time: true,
+              },
+              orderBy: { date: 'asc' },
+              take: 2,
+            },
           },
           orderBy: { name: 'asc' },
           take: SECTION_LIMITS.buildings,
@@ -373,15 +488,7 @@ export async function gatherUniversityContext(
 
     // Active campus-wide announcements
     shouldInclude('announcements')
-      ? prisma.announcement.findMany({
-          where: { isActive: true },
-          select: {
-            title: true,
-            message: true,
-          },
-          orderBy: { createdAt: 'desc' },
-          take: SECTION_LIMITS.announcements,
-        })
+      ? loadAnnouncementContext(universityId, SECTION_LIMITS.announcements)
       : Promise.resolve([]),
   ])
 
@@ -407,7 +514,9 @@ export async function gatherUniversityContext(
   if (shouldInclude('announcements') && announcements.length > 0) {
     sections.push(
       'ACTIVE ANNOUNCEMENTS:\n' +
-        announcements.map((a) => `• ${a.title}: ${a.message}`).join('\n'),
+        announcements
+          .map((a) => `• [${getAnnouncementAudienceLabel(a)}] ${a.title}: ${a.message}`)
+          .join('\n'),
     )
   }
 
@@ -438,7 +547,9 @@ export async function gatherUniversityContext(
               ` — Office: ${f.officeLocation}, Hours: ${f.officeHours}` +
               (f.courses.length > 0 ? `, Courses: ${f.courses.join(', ')}` : '') +
               `, Email: ${f.email}` +
-              (f.phone ? `, Phone: ${f.phone}` : ''),
+              (f.phone ? `, Phone: ${f.phone}` : '') +
+              `, Availability: ${formatFacultyAvailability(f.availabilityStatus, f.availabilityNote)}` +
+              (f.tags.length > 0 ? `, Tags: ${f.tags.join(', ')}` : ''),
           )
           .join('\n'),
     )
@@ -477,9 +588,18 @@ export async function gatherUniversityContext(
             (b) =>
               `• ${b.name}${b.code ? ` (${b.code})` : ''} — ${b.type}, ${b.address}` +
               (b.description ? ` — ${b.description.slice(0, 100)}` : '') +
+              (b.operatingHours ? ` | Hours: ${b.operatingHours}` : '') +
+              ` | Status: ${b.operationalStatus}` +
+              (b.operationalNote ? ` (${b.operationalNote})` : '') +
+              (b.accessibilityNotes ? ` | Accessibility: ${b.accessibilityNotes.slice(0, 120)}` : '') +
               (b.categories.length > 0 ? ` | Categories: ${b.categories.join(', ')}` : '') +
               (b.services.length > 0 ? ` | Services: ${b.services.slice(0, 5).join(', ')}` : '') +
-              (b.departments.length > 0 ? ` | Depts: ${b.departments.slice(0, 4).join(', ')}` : ''),
+              (b.departments.length > 0 ? ` | Depts: ${b.departments.slice(0, 4).join(', ')}` : '') +
+              (b.events.length > 0
+                ? ` | Upcoming: ${b.events
+                    .map((event) => `${event.title} on ${event.date.toLocaleDateString()} at ${event.time}`)
+                    .join('; ')}`
+                : ''),
           )
           .join('\n'),
     )
