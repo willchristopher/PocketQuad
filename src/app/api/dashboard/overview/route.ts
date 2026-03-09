@@ -1,6 +1,13 @@
 import { prisma } from '@/lib/prisma'
 import { getAuthenticatedUser, handleApiError, successResponse } from '@/lib/api/utils'
 import {
+  getStudentFacingFacultyAvailability,
+  parseLegacyFacultyAvailability,
+  summarizeFacultyOfficeHours,
+} from '@/lib/faculty'
+import { listUniversityAnnouncements } from '@/lib/server/announcements'
+import { isMissingDatabaseFieldError } from '@/lib/server/dbCompatibility'
+import {
   getClubsCached,
   getCampusServicesCached,
   getResourceLinksCached,
@@ -20,6 +27,97 @@ export async function GET() {
     })
     const pinnedBuildingIds = preferences?.buildingIds ?? []
     const pinnedClubIds = preferences?.clubInterestIds ?? []
+
+    const favoriteFacultyPromise = prisma.facultyFavorite.findMany({
+      where: { userId: profile.id },
+      select: {
+        faculty: {
+          select: {
+            id: true,
+            name: true,
+            title: true,
+            department: true,
+            officeHours: true,
+            officeLocation: true,
+            tags: true,
+            availabilityStatus: true,
+            availabilityNote: true,
+            officeHourSlots: {
+              select: {
+                dayOfWeek: true,
+                startTime: true,
+                endTime: true,
+              },
+              orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    }).then((rows) => rows.map((row) => {
+      const studentAvailability = getStudentFacingFacultyAvailability(
+        row.faculty.availabilityStatus,
+        row.faculty.availabilityNote,
+        row.faculty.officeHourSlots,
+      )
+
+      return {
+        ...row.faculty,
+        officeHours: summarizeFacultyOfficeHours(row.faculty.officeHourSlots),
+        studentAvailabilityLabel: studentAvailability.label,
+        studentAvailabilityState: studentAvailability.state,
+      }
+    })).catch(async (error) => {
+      if (!isMissingDatabaseFieldError(error)) {
+        throw error
+      }
+
+      const rows = await prisma.facultyFavorite.findMany({
+        where: { userId: profile.id },
+        select: {
+          faculty: {
+            select: {
+              id: true,
+              name: true,
+              title: true,
+              department: true,
+              officeHours: true,
+              officeLocation: true,
+              tags: true,
+              officeHourSlots: {
+                select: {
+                  dayOfWeek: true,
+                  startTime: true,
+                  endTime: true,
+                },
+                orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      })
+
+      return rows.map((row) => {
+        const availability = parseLegacyFacultyAvailability(row.faculty.officeHours)
+        const studentAvailability = getStudentFacingFacultyAvailability(
+          availability.status,
+          availability.note,
+          row.faculty.officeHourSlots,
+        )
+
+        return {
+          ...row.faculty,
+          officeHours: summarizeFacultyOfficeHours(row.faculty.officeHourSlots),
+          availabilityStatus: availability.status,
+          availabilityNote: availability.note || null,
+          studentAvailabilityLabel: studentAvailability.label,
+          studentAvailabilityState: studentAvailability.state,
+        }
+      })
+    })
 
     const [
       upcomingEvents,
@@ -82,34 +180,8 @@ export async function GET() {
               return pinnedClubIds.map((id) => byId.get(id)).filter(Boolean).slice(0, 3)
             })
           : getClubsCached(universityId, undefined, undefined).then((records) => records.slice(0, 3)),
-        prisma.facultyFavorite.findMany({
-          where: { userId: profile.id },
-          select: {
-            faculty: {
-              select: {
-                id: true,
-                name: true,
-                department: true,
-                officeHours: true,
-                officeLocation: true,
-              },
-            },
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-        }).then((rows) => rows.map((r) => r.faculty)),
-        prisma.announcement.findMany({
-          where: { isActive: true },
-          select: {
-            id: true,
-            title: true,
-            message: true,
-            linkUrl: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 4,
-        }),
+        favoriteFacultyPromise,
+        listUniversityAnnouncements(universityId, 4),
         pinnedBuildingIds.length > 0
           ? prisma.campusBuilding.findMany({
               where: {

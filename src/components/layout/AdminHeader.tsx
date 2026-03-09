@@ -59,7 +59,7 @@ export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
         </Button>
         <div className="min-w-0">
           <h1 className="truncate text-base font-display font-semibold tracking-tight">{content.title}</h1>
-          <p className="hidden truncate text-[11px] text-muted-foreground md:block">{content.subtitle}</p>
+          <p className="truncate text-[11px] text-muted-foreground">{content.subtitle}</p>
         </div>
       </div>
 

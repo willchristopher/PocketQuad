@@ -11,7 +11,7 @@ export function FacultyHeader() {
   const { theme, setTheme } = useTheme()
 
   return (
-    <header className="flex h-14 items-center gap-4 border-b border-border/50 bg-background/80 backdrop-blur-xl px-4 lg:px-6 fixed top-0 right-0 left-0 md:left-[240px] z-20">
+    <header className="sticky top-0 z-20 flex h-14 w-full items-center gap-4 border-b border-border/50 bg-background/80 backdrop-blur-xl px-4 lg:px-6">
       <Sheet>
         <SheetTrigger asChild>
           <Button variant="ghost" size="icon" className="shrink-0 md:hidden rounded-lg h-8 w-8">
@@ -28,7 +28,7 @@ export function FacultyHeader() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="search"
-            placeholder="Search students, classes..."
+            placeholder="Search faculty tools..."
             className="w-full rounded-lg border border-border/60 bg-muted/30 pl-9 pr-4 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
           />
         </div>

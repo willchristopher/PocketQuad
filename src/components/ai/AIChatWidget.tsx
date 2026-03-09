@@ -93,7 +93,7 @@ export function AIChatWidget() {
       <>
         <button
           onClick={() => setOpen(true)}
-          style={{ bottom: scrollingDown ? 48 : 80 }}
+          style={{ bottom: scrollingDown ? 72 : 100 }}
           className="fixed right-4 z-40 w-12 h-12 rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/30 flex items-center justify-center hover:scale-105 transition-all duration-300"
           aria-label="Open AI Assistant"
         >

@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 
+import { canManageBuilding } from '@/lib/facultyPermissions'
 import { prisma } from '@/lib/prisma'
 import { createEventSchema, eventQuerySchema } from '@/lib/validations'
 import {
@@ -88,7 +89,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { profile } = await getAuthenticatedUser()
+    const { profile } = await getAuthenticatedUser({
+      includeManagedBuildings: true,
+    })
 
     if (profile.role !== 'FACULTY' && profile.role !== 'ADMIN') {
       throw new ApiError(403, 'Faculty access required')
@@ -96,14 +99,45 @@ export async function POST(request: NextRequest) {
 
     const payload = createEventSchema.parse(await request.json())
 
+    let building:
+      | {
+          id: string
+          name: string
+          address: string
+        }
+      | null = null
+
+    if (payload.buildingId) {
+      if (!canManageBuilding(profile, payload.buildingId)) {
+        throw new ApiError(403, 'You do not manage that building')
+      }
+
+      building = await prisma.campusBuilding.findFirst({
+        where: {
+          id: payload.buildingId,
+          ...(profile.universityId ? { universityId: profile.universityId } : {}),
+        },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+        },
+      })
+
+      if (!building) {
+        throw new ApiError(404, 'Building not found')
+      }
+    }
+
     const event = await prisma.event.create({
       data: {
         universityId: profile.universityId,
+        buildingId: building?.id ?? null,
         title: payload.title,
         description: payload.description,
         date: new Date(`${payload.date}T00:00:00`),
         time: formatTimeLabel(payload.time),
-        location: payload.location,
+        location: payload.location || (building ? `${building.name} · ${building.address}` : payload.location),
         category: payload.category,
         organizer: profile.displayName,
         organizerId: profile.id,

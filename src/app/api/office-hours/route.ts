@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
+import { refreshFacultyOfficeHoursSummary } from '@/lib/server/facultyProfile'
 import { createOfficeHourSchema } from '@/lib/validations'
 import {
   ApiError,
@@ -69,6 +70,8 @@ export async function POST(request: NextRequest) {
         meetingLink: payload.meetingLink,
       },
     })
+
+    await refreshFacultyOfficeHoursSummary(faculty.id)
 
     return successResponse(officeHour, 201)
   } catch (error) {

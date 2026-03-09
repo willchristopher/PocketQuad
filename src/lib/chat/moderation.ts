@@ -12,10 +12,11 @@ const moderationSchema = z.object({
 })
 
 const hardBlockPattern =
-  /\b(fuck|fucking|shit|bitch|asshole|dick|pussy|cunt|slut|whore|motherfucker|bullshit)\b/i
+  /\b(fuck|fucking|shitty|shit|bitch|asshole|dick|pussy|cunt|slut|whore|motherfucker|bullshit)\b/i
+const hardHatePattern =
+  /\b(?:i am|i'm|im|you are|you're|youre|he is|she is|they are|we are)\s+(?:a\s+)?(racist|sexist|homophobic|transphobic|bigot|white supremacist|neo-nazi)\b/i
 const hardThreatPattern =
   /\b(kill yourself|go die|i(?:'|’)ll kill you|i will kill you|beat you up|shoot you|stab you|i'm going to hurt you)\b/i
-const AUTO_REMOVED_MESSAGE = '[removed by AI moderation]'
 const SCAN_WINDOW_MS = 1000 * 60 * 60 * 24
 const SCAN_BATCH_SIZE = 20
 const CACHE_TTL_MS = 1000 * 60 * 10
@@ -113,6 +114,13 @@ async function runAiModeration(trimmed: string): Promise<ChatModerationResult> {
     }
   }
 
+  if (hardHatePattern.test(trimmed)) {
+    return {
+      allowed: false,
+      reason: 'Hateful or discriminatory language is not allowed here.',
+    }
+  }
+
   if (hardThreatPattern.test(trimmed)) {
     return {
       allowed: false,
@@ -187,15 +195,10 @@ export async function scanChannelMessagesForModeration(channelId: string) {
       continue
     }
 
-    const removal = await prisma.chatMessage.updateMany({
+    const removal = await prisma.chatMessage.deleteMany({
       where: {
         id: message.id,
         isDeleted: false,
-      },
-      data: {
-        isDeleted: true,
-        isEdited: true,
-        content: AUTO_REMOVED_MESSAGE,
       },
     })
 
@@ -246,15 +249,10 @@ export async function reviewReportedMessage(messageId: string) {
     }
   }
 
-  const removal = await prisma.chatMessage.updateMany({
+  const removal = await prisma.chatMessage.deleteMany({
     where: {
       id: message.id,
       isDeleted: false,
-    },
-    data: {
-      isDeleted: true,
-      isEdited: true,
-      content: AUTO_REMOVED_MESSAGE,
     },
   })
 

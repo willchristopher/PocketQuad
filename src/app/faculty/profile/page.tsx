@@ -1,5 +1,5 @@
-import { ProfileSettings } from '@/components/profile/ProfileSettings'
+import { FacultyProfileSettings } from '@/components/profile/FacultyProfileSettings'
 
 export default function FacultyProfilePage() {
-  return <ProfileSettings />
+  return <FacultyProfileSettings />
 }

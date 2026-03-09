@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
+import { refreshFacultyOfficeHoursSummary } from '@/lib/server/facultyProfile'
 import { createOfficeHourSchema } from '@/lib/validations'
 import {
   ApiError,
@@ -40,7 +41,7 @@ export async function PATCH(
     }
 
     const { id } = await resolveParams(context)
-    await getOwnedOfficeHour(id, profile.id)
+    const officeHour = await getOwnedOfficeHour(id, profile.id)
 
     const payload = updateOfficeHourSchema.parse(await request.json())
 
@@ -48,6 +49,8 @@ export async function PATCH(
       where: { id },
       data: payload,
     })
+
+    await refreshFacultyOfficeHoursSummary(officeHour.facultyId)
 
     return successResponse(updated)
   } catch (error) {
@@ -67,11 +70,13 @@ export async function DELETE(
     }
 
     const { id } = await resolveParams(context)
-    await getOwnedOfficeHour(id, profile.id)
+    const officeHour = await getOwnedOfficeHour(id, profile.id)
 
     await prisma.officeHour.delete({
       where: { id },
     })
+
+    await refreshFacultyOfficeHoursSummary(officeHour.facultyId)
 
     return successResponse({ success: true })
   } catch (error) {

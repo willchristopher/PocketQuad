@@ -43,7 +43,10 @@ export async function GET(
     const limit = Math.min(100, Math.max(1, parseNumber(request.nextUrl.searchParams.get('limit'), 30)))
 
     const messages = await prisma.chatMessage.findMany({
-      where: { channelId: id },
+      where: {
+        channelId: id,
+        isDeleted: false,
+      },
       include: {
         user: {
           select: {

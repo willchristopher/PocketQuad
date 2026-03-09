@@ -98,12 +98,8 @@ export async function DELETE(
       return successResponse({ success: true })
     }
 
-    await prisma.chatMessage.update({
+    await prisma.chatMessage.delete({
       where: { id },
-      data: {
-        isDeleted: true,
-        content: '[deleted]',
-      },
     })
 
     return successResponse({ success: true })
