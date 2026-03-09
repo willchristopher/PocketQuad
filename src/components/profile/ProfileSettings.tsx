@@ -1,15 +1,19 @@
 'use client'
 
 import React from 'react'
-import { Check, GraduationCap, Mail, Moon, Monitor, Palette, Pencil, Sun, Trash2, Upload } from 'lucide-react'
-import Image from 'next/image'
+import { Check, ChevronDown, GraduationCap, LayoutGrid, Mail, Moon, Monitor, Palette, Pencil, Sun } from 'lucide-react'
 
 import { ApiClientError, apiRequest } from '@/lib/api/client'
 import { useAuth } from '@/lib/auth/context'
+import {
+  dashboardModuleConfig,
+  dashboardModuleIds,
+  dashboardModulesToPreferences,
+  type DashboardModuleId,
+} from '@/lib/studentData'
 import { useUniversityTheme, type ThemeMode } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 
 type NotificationPreferences = {
   officeHourChanges: boolean
@@ -19,9 +23,10 @@ type NotificationPreferences = {
   emailDigest: boolean
   pushEnabled: boolean
   theme?: 'system' | 'light' | 'dark' | 'university'
+  dashboardModules?: DashboardModuleId[]
 }
 
-type PreferenceToggleKey = Exclude<keyof NotificationPreferences, 'theme'>
+type PreferenceToggleKey = Exclude<keyof NotificationPreferences, 'theme' | 'dashboardModules'>
 
 const defaultPreferences: NotificationPreferences = {
   officeHourChanges: true,
@@ -47,18 +52,17 @@ export function ProfileSettings() {
   const isFaculty = profile?.role === 'FACULTY'
 
   const [displayName, setDisplayName] = React.useState('')
-  const [bio, setBio] = React.useState('')
-  const [location, setLocation] = React.useState('')
-  const [website, setWebsite] = React.useState('')
-  const [major, setMajor] = React.useState('')
-  const [year, setYear] = React.useState('')
-  const [department, setDepartment] = React.useState('')
-
   const [editingProfile, setEditingProfile] = React.useState(false)
   const [preferences, setPreferences] = React.useState<NotificationPreferences>(defaultPreferences)
   const [savingProfile, setSavingProfile] = React.useState(false)
   const [savingPrefs, setSavingPrefs] = React.useState(false)
-  const [uploadingAvatar, setUploadingAvatar] = React.useState(false)
+  const [savingDashboardPrefs, setSavingDashboardPrefs] = React.useState(false)
+  const [openSections, setOpenSections] = React.useState({
+    details: true,
+    notifications: false,
+    dashboard: false,
+    appearance: false,
+  })
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState<string | null>(null)
 
@@ -66,44 +70,42 @@ export function ProfileSettings() {
     if (!profile) return
 
     setDisplayName(profile.displayName ?? '')
-    setBio(profile.bio ?? '')
-    setLocation(profile.location ?? '')
-    setWebsite(profile.website ?? '')
-    setMajor(profile.major ?? '')
-    setYear(profile.year ?? '')
-    setDepartment(profile.department ?? '')
     setPreferences({
       ...defaultPreferences,
       ...(profile.notificationPreferences ?? {}),
+      dashboardModules:
+        profile.notificationPreferences?.dashboardModules?.length
+          ? profile.notificationPreferences.dashboardModules
+          : [...dashboardModuleIds],
     })
   }, [profile])
+
+  const dashboardPreferences = React.useMemo(
+    () => dashboardModulesToPreferences(preferences.dashboardModules),
+    [preferences.dashboardModules],
+  )
+
+  const visibleDashboardModules = React.useMemo(
+    () => dashboardModuleIds.filter((moduleId) => dashboardPreferences[moduleId]),
+    [dashboardPreferences],
+  )
+
+  const toggleSection = (section: keyof typeof openSections) => {
+    setOpenSections((current) => ({
+      ...current,
+      [section]: !current[section],
+    }))
+  }
 
   const handleProfileSave = async () => {
     setSavingProfile(true)
     setError(null)
     setSuccess(null)
 
-    const payload = isFaculty
-      ? {
-          displayName,
-          bio: bio || null,
-          location: location || null,
-          website: website || null,
-          department: department || null,
-        }
-      : {
-          displayName,
-          bio: bio || null,
-          location: location || null,
-          website: website || null,
-          major: major || null,
-          year: year || null,
-        }
-
     try {
       await apiRequest('/api/users/me', {
         method: 'PATCH',
-        body: payload,
+        body: { displayName },
       })
       await refreshProfile()
       setEditingProfile(false)
@@ -139,66 +141,78 @@ export function ProfileSettings() {
     }
   }
 
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+  const handleDashboardModuleToggle = async (moduleId: DashboardModuleId) => {
+    const previousModules = preferences.dashboardModules?.length
+      ? preferences.dashboardModules
+      : [...dashboardModuleIds]
+    const nextVisibility = {
+      ...dashboardPreferences,
+      [moduleId]: !dashboardPreferences[moduleId],
+    }
+    const nextModules = dashboardModuleIds.filter((id) => nextVisibility[id])
 
-    const body = new FormData()
-    body.append('file', file)
-
-    setUploadingAvatar(true)
+    setPreferences((current) => ({
+      ...current,
+      dashboardModules: nextModules,
+    }))
+    setSavingDashboardPrefs(true)
     setError(null)
     setSuccess(null)
 
     try {
-      await apiRequest('/api/users/me/avatar', {
-        method: 'POST',
-        body,
+      await apiRequest('/api/users/me/preferences', {
+        method: 'PATCH',
+        body: {
+          dashboardModules: nextModules,
+        },
       })
       await refreshProfile()
-      setSuccess('Avatar updated')
+      setSuccess('Dashboard layout updated')
     } catch (err) {
-      const message = err instanceof ApiClientError ? err.message : 'Unable to upload avatar'
+      const message = err instanceof ApiClientError ? err.message : 'Unable to save dashboard layout'
       setError(message)
+      setPreferences((current) => ({
+        ...current,
+        dashboardModules: previousModules,
+      }))
     } finally {
-      setUploadingAvatar(false)
-      event.target.value = ''
+      setSavingDashboardPrefs(false)
     }
   }
 
-  const removeAvatar = async () => {
-    setUploadingAvatar(true)
+  const handleDashboardReset = async () => {
+    const nextModules = [...dashboardModuleIds]
+
+    setPreferences((current) => ({
+      ...current,
+      dashboardModules: nextModules,
+    }))
+    setSavingDashboardPrefs(true)
     setError(null)
     setSuccess(null)
 
     try {
-      await apiRequest('/api/users/me/avatar', {
-        method: 'DELETE',
+      await apiRequest('/api/users/me/preferences', {
+        method: 'PATCH',
+        body: {
+          dashboardModules: nextModules,
+        },
       })
       await refreshProfile()
-      setSuccess('Avatar removed')
+      setSuccess('Dashboard layout reset')
     } catch (err) {
-      const message = err instanceof ApiClientError ? err.message : 'Unable to remove avatar'
+      const message = err instanceof ApiClientError ? err.message : 'Unable to reset dashboard layout'
       setError(message)
+      setPreferences((current) => ({
+        ...current,
+        dashboardModules: profile?.notificationPreferences?.dashboardModules?.length
+          ? profile.notificationPreferences.dashboardModules
+          : [...dashboardModuleIds],
+      }))
     } finally {
-      setUploadingAvatar(false)
+      setSavingDashboardPrefs(false)
     }
   }
-
-  const detailFields = isFaculty
-    ? [
-        { label: 'Display Name', value: displayName, setter: setDisplayName },
-        { label: 'Department', value: department, setter: setDepartment },
-        { label: 'Location', value: location, setter: setLocation },
-        { label: 'Website', value: website, setter: setWebsite },
-      ]
-    : [
-        { label: 'Display Name', value: displayName, setter: setDisplayName },
-        { label: 'Major', value: major, setter: setMajor },
-        { label: 'Year', value: year, setter: setYear },
-        { label: 'Location', value: location, setter: setLocation },
-        { label: 'Website', value: website, setter: setWebsite },
-      ]
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -209,41 +223,8 @@ export function ProfileSettings() {
             Profile and Preferences
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage account details, avatar, and notification settings for your {isFaculty ? 'faculty' : 'student'} account.
+            Manage your account name and notification settings for your {isFaculty ? 'faculty' : 'student'} account.
           </p>
-
-          <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center">
-            <Image
-              src={profile?.avatar ?? '/next.svg'}
-              alt="Avatar"
-              width={80}
-              height={80}
-              className="h-20 w-20 rounded-2xl border border-border/60 object-cover"
-            />
-            <div className="flex flex-wrap gap-2">
-              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-border/60 px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted/35">
-                <Upload className="h-3.5 w-3.5" />
-                {uploadingAvatar ? 'Uploading...' : 'Upload Avatar'}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  className="hidden"
-                  onChange={handleAvatarUpload}
-                  disabled={uploadingAvatar}
-                />
-              </label>
-              {profile?.avatar && (
-                <button
-                  onClick={removeAvatar}
-                  disabled={uploadingAvatar}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-border/60 px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted/35"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Remove Avatar
-                </button>
-              )}
-            </div>
-          </div>
 
           <div className="mt-5 rounded-xl border border-border/50 bg-muted/20 p-4">
             <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Account Email</p>
@@ -280,102 +261,192 @@ export function ProfileSettings() {
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-border/60 bg-card animate-in-up stagger-1">
-        <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
+        <button
+          type="button"
+          onClick={() => toggleSection('details')}
+          className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/20"
+        >
           <div>
             <h2 className="text-base font-bold">Profile Details</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              {isFaculty ? 'Update your faculty directory information and contact details.' : 'Keep your student profile details current.'}
+              Update the name shown on your account.
             </p>
           </div>
-          {!editingProfile ? (
-            <button
-              onClick={() => setEditingProfile(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border/60 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted/35"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Edit
-            </button>
-          ) : (
-            <button
-              onClick={handleProfileSave}
-              disabled={savingProfile}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-70"
-            >
-              <Check className="h-3.5 w-3.5" />
-              {savingProfile ? 'Saving...' : 'Save'}
-            </button>
-          )}
-        </div>
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+              openSections.details && 'rotate-180',
+            )}
+          />
+        </button>
 
-        <div className="grid gap-3 p-4 sm:grid-cols-2">
-          {detailFields.map((field) => (
-            <div key={field.label}>
+        {openSections.details && (
+          <div className="border-t border-border/60 p-4">
+            <div className="mb-4 flex justify-end">
+              {!editingProfile ? (
+                <button
+                  onClick={() => setEditingProfile(true)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-border/60 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted/35"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit
+                </button>
+              ) : (
+                <button
+                  onClick={handleProfileSave}
+                  disabled={savingProfile}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-70"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  {savingProfile ? 'Saving...' : 'Save'}
+                </button>
+              )}
+            </div>
+
+            <div className="max-w-md">
               <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
-                {field.label}
+                Name
               </label>
               <Input
-                value={field.value}
-                onChange={(event) => field.setter(event.target.value)}
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
                 disabled={!editingProfile || savingProfile}
                 variant="soft"
               />
             </div>
-          ))}
-
-          <div className="sm:col-span-2">
-            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
-              Bio
-            </label>
-            <Textarea
-              value={bio}
-              onChange={(event) => setBio(event.target.value)}
-              disabled={!editingProfile || savingProfile}
-              className="min-h-[120px] rounded-xl border-border/60 bg-muted/20 focus-visible:ring-primary/20"
-            />
           </div>
-        </div>
+        )}
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-border/60 bg-card animate-in-up stagger-2">
-        <div className="border-b border-border/60 px-5 py-4">
-          <h2 className="text-base font-bold">Notification Preferences</h2>
-          <p className="mt-1 text-xs text-muted-foreground">These settings are saved to your account.</p>
-        </div>
+        <button
+          type="button"
+          onClick={() => toggleSection('notifications')}
+          className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/20"
+        >
+          <div>
+            <h2 className="text-base font-bold">Notification Preferences</h2>
+            <p className="mt-1 text-xs text-muted-foreground">These settings are saved to your account.</p>
+          </div>
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+              openSections.notifications && 'rotate-180',
+            )}
+          />
+        </button>
 
-        <div className="divide-y divide-border/40">
-          {preferenceLabels.map((item, index) => (
-            <button
-              key={item.key}
-              onClick={() => void handlePreferenceToggle(item.key)}
-              className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-muted/20 animate-in-up"
-              style={{ animationDelay: `${0.03 * (index + 1)}s` }}
-              disabled={savingPrefs}
-            >
-              <span className="text-sm font-medium">{item.label}</span>
-              <span
-                className={cn(
-                  'inline-flex h-6 w-11 items-center rounded-full p-1 transition-colors',
-                  preferences[item.key] ? 'bg-primary' : 'bg-muted',
-                )}
+        {openSections.notifications && (
+          <div className="divide-y divide-border/40 border-t border-border/60">
+            {preferenceLabels.map((item, index) => (
+              <button
+                key={item.key}
+                onClick={() => void handlePreferenceToggle(item.key)}
+                className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-muted/20 animate-in-up"
+                style={{ animationDelay: `${0.03 * (index + 1)}s` }}
+                disabled={savingPrefs}
               >
+                <span className="text-sm font-medium">{item.label}</span>
                 <span
                   className={cn(
-                    'h-4 w-4 rounded-full bg-white transition-transform',
-                    preferences[item.key] ? 'translate-x-5' : 'translate-x-0',
+                    'inline-flex h-6 w-11 items-center rounded-full p-1 transition-colors',
+                    preferences[item.key] ? 'bg-primary' : 'bg-muted',
                   )}
-                />
-              </span>
-            </button>
-          ))}
-        </div>
+                >
+                  <span
+                    className={cn(
+                      'h-4 w-4 rounded-full bg-white transition-transform',
+                      preferences[item.key] ? 'translate-x-5' : 'translate-x-0',
+                    )}
+                  />
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
-      <ThemeSelector />
+      <section className="overflow-hidden rounded-2xl border border-border/60 bg-card animate-in-up stagger-3">
+        <button
+          type="button"
+          onClick={() => toggleSection('dashboard')}
+          className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/20"
+        >
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <LayoutGrid className="h-4 w-4 text-primary" />
+              <h2 className="text-base font-bold">Customize Dashboard</h2>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {visibleDashboardModules.length} of {dashboardModuleIds.length} sections visible. Changes save to your account automatically.
+            </p>
+          </div>
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+              openSections.dashboard && 'rotate-180',
+            )}
+          />
+        </button>
+
+        {openSections.dashboard && (
+          <div className="border-t border-border/60 px-5 py-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">
+                Turn dashboard sections on or off. Your home dashboard will reflect these changes the next time it renders.
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleDashboardReset()}
+                disabled={savingDashboardPrefs}
+                className="shrink-0 rounded-xl border border-border/60 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted/35 disabled:opacity-60"
+              >
+                Reset
+              </button>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              {dashboardModuleConfig.map((module) => {
+                const enabled = dashboardPreferences[module.id]
+
+                return (
+                  <button
+                    key={module.id}
+                    type="button"
+                    onClick={() => void handleDashboardModuleToggle(module.id)}
+                    disabled={savingDashboardPrefs}
+                    className={cn(
+                      'rounded-xl border px-3 py-3 text-left transition-colors disabled:opacity-60',
+                      enabled
+                        ? 'border-primary/40 bg-primary/10 text-foreground'
+                        : 'border-border/60 bg-muted/10 text-muted-foreground hover:bg-muted/25',
+                    )}
+                  >
+                    <p className="text-sm font-semibold">{module.label}</p>
+                    <p className="mt-1 text-[11px]">{enabled ? 'Visible on dashboard' : 'Hidden from dashboard'}</p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <ThemeSelector
+        open={openSections.appearance}
+        onToggle={() => toggleSection('appearance')}
+      />
     </div>
   )
 }
 
-function ThemeSelector() {
+function ThemeSelector({
+  open,
+  onToggle,
+}: {
+  open: boolean
+  onToggle: () => void
+}) {
   const { themeMode, setThemeMode, universityName, universityColors } = useUniversityTheme()
 
   const themeOptions: Array<{ id: ThemeMode; label: string; description: string; icon: React.ReactNode }> = [
@@ -411,62 +482,78 @@ function ThemeSelector() {
   }
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-border/60 bg-card animate-in-up stagger-3">
-      <div className="border-b border-border/60 px-5 py-4">
-        <h2 className="text-base font-bold">Appearance</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Choose how PocketQuad looks for you. Your preference is saved across sessions.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 p-4">
-        {themeOptions.map((option) => (
-          <button
-            key={option.id}
-            onClick={() => setThemeMode(option.id)}
-            className={cn(
-              'flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all hover:bg-muted/20',
-              themeMode === option.id
-                ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                : 'border-border/60',
-            )}
-          >
-            <div
-              className={cn(
-                'flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
-                themeMode === option.id ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
-              )}
-            >
-              {option.icon}
-            </div>
-            <div>
-              <p className="text-sm font-semibold">{option.label}</p>
-              <p className="text-[11px] text-muted-foreground">{option.description}</p>
-            </div>
-            {themeMode === option.id && (
-              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary">
-                <Check className="h-3 w-3 text-primary-foreground" />
-              </div>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {hasUniversityColors && (
-        <div className="border-t border-border/60 px-5 py-3">
-          <p className="text-xs text-muted-foreground">
-            University colors:{' '}
-            <span
-              className="inline-block h-3 w-3 rounded-full border border-border/60 align-middle"
-              style={{ backgroundColor: universityColors!.mainColor }}
-            />{' '}
-            <span
-              className="inline-block h-3 w-3 rounded-full border border-border/60 align-middle"
-              style={{ backgroundColor: universityColors!.accentColor }}
-            />{' '}
-            set by your admin.
+    <section className="overflow-hidden rounded-2xl border border-border/60 bg-card animate-in-up stagger-4">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/20"
+      >
+        <div>
+          <h2 className="text-base font-bold">Appearance</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Choose how PocketQuad looks for you. Your preference is saved across sessions.
           </p>
         </div>
+        <ChevronDown
+          className={cn(
+            'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+            open && 'rotate-180',
+          )}
+        />
+      </button>
+
+      {open && (
+        <>
+          <div className="grid grid-cols-2 gap-3 border-t border-border/60 p-4">
+            {themeOptions.map((option) => (
+              <button
+                key={option.id}
+                onClick={() => setThemeMode(option.id)}
+                className={cn(
+                  'flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all hover:bg-muted/20',
+                  themeMode === option.id
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                    : 'border-border/60',
+                )}
+              >
+                <div
+                  className={cn(
+                    'flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
+                    themeMode === option.id ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+                  )}
+                >
+                  {option.icon}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">{option.label}</p>
+                  <p className="text-[11px] text-muted-foreground">{option.description}</p>
+                </div>
+                {themeMode === option.id && (
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary">
+                    <Check className="h-3 w-3 text-primary-foreground" />
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {hasUniversityColors && (
+            <div className="border-t border-border/60 px-5 py-3">
+              <p className="text-xs text-muted-foreground">
+                University colors:{' '}
+                <span
+                  className="inline-block h-3 w-3 rounded-full border border-border/60 align-middle"
+                  style={{ backgroundColor: universityColors!.mainColor }}
+                />{' '}
+                <span
+                  className="inline-block h-3 w-3 rounded-full border border-border/60 align-middle"
+                  style={{ backgroundColor: universityColors!.accentColor }}
+                />{' '}
+                set by your admin.
+              </p>
+            </div>
+          )}
+        </>
       )}
     </section>
   )

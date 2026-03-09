@@ -36,9 +36,9 @@
 
     --radius: 0.875rem;
 
-    --font-display: 'Calistoga', Georgia, serif;
-    --font-body: 'Inter', system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
+    --font-display: 'Nunito', system-ui, sans-serif;
+    --font-body: 'Nunito', system-ui, sans-serif;
+    --font-mono: 'Nunito', system-ui, sans-serif;
     --line-height-body: 1.6;
     --max-line-length: 70ch;
 

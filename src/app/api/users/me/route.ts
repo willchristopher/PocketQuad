@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 
 import { assertRateLimit, withRateLimitHeaders } from '@/lib/api/rateLimit'
+import { attachDashboardModules } from '@/lib/dashboardPreferences'
 import { prisma } from '@/lib/prisma'
 import { getAuthenticatedUser, handleApiError, successResponse } from '@/lib/api/utils'
 import { updateProfileSchema } from '@/lib/validations'
@@ -34,7 +35,7 @@ export async function GET() {
       },
     })
 
-    return successResponse(fullProfile)
+    return successResponse(await attachDashboardModules(fullProfile))
   } catch (error) {
     return handleApiError(error)
   }

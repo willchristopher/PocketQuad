@@ -1,3 +1,4 @@
+import { attachDashboardModules } from '@/lib/dashboardPreferences'
 import { prisma } from '@/lib/prisma'
 import { handleApiError, successResponse } from '@/lib/api/utils'
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server'
@@ -42,7 +43,7 @@ export async function GET() {
     return successResponse({
       session: sessionData.session,
       user: userData.user,
-      profile,
+      profile: await attachDashboardModules(profile),
     })
   } catch (error) {
     return handleApiError(error)

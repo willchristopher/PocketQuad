@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Send } from 'lucide-react'
+import { Flag, Send } from 'lucide-react'
 
 import { useAuth } from '@/lib/auth/context'
 import { ApiClientError, apiRequest } from '@/lib/api/client'
@@ -49,6 +49,7 @@ export default function ChatroomPage() {
   const [loadingRoom, setLoadingRoom] = React.useState(true)
   const [loadingMessages, setLoadingMessages] = React.useState(false)
   const [sending, setSending] = React.useState(false)
+  const [reportingMessageId, setReportingMessageId] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const reloadTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastLocalSendAtRef = React.useRef(0)
@@ -160,6 +161,30 @@ export default function ChatroomPage() {
     }
   }
 
+  const reportMessage = async (messageId: string) => {
+    const reason = window.prompt('Why are you reporting this message?')
+    if (!reason) return
+
+    setReportingMessageId(messageId)
+    setError(null)
+
+    try {
+      const result = await apiRequest<{ reported: boolean; removed: boolean }>(`/api/messages/${messageId}/report`, {
+        method: 'POST',
+        body: { reason },
+      })
+
+      if (room?.id && result.removed) {
+        await loadMessages(room.id)
+      }
+    } catch (err) {
+      const message = err instanceof ApiClientError ? err.message : 'Unable to report message'
+      setError(message)
+    } finally {
+      setReportingMessageId(null)
+    }
+  }
+
   return (
     <div className="overflow-hidden rounded-2xl border border-border/60 bg-card animate-in-up">
       <section className="flex min-h-[70vh] flex-col">
@@ -171,7 +196,7 @@ export default function ChatroomPage() {
             One shared campus room for respectful, informational, and lighthearted conversation.
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            AI moderation removes bullying, violent threats, and inappropriate language.
+            Chat room is monitored.
           </p>
           {room && (
             <p className="mt-1 text-[11px] text-muted-foreground">
@@ -214,7 +239,20 @@ export default function ChatroomPage() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold">{isOwn ? 'You' : message.user.displayName}</p>
-                  <p className="text-[11px] text-muted-foreground">{formatTime(message.createdAt)}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[11px] text-muted-foreground">{formatTime(message.createdAt)}</p>
+                    {!isOwn && !message.isDeleted && (
+                      <button
+                        type="button"
+                        onClick={() => void reportMessage(message.id)}
+                        disabled={reportingMessageId === message.id}
+                        className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground disabled:opacity-60"
+                      >
+                        <Flag className="h-3 w-3" />
+                        {reportingMessageId === message.id ? 'Reporting...' : 'Report'}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <p
                   className={cn(
