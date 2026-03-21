@@ -195,6 +195,7 @@
   }
 
   .animate-in-up {
+    opacity: 0;
     animation: animateInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
@@ -243,11 +244,13 @@
   }
 
   .stagger-1 { animation-delay: 0.05s; }
-  .stagger-2 { animation-delay: 0.1s; }
-  .stagger-3 { animation-delay: 0.15s; }
-  .stagger-4 { animation-delay: 0.2s; }
-  .stagger-5 { animation-delay: 0.25s; }
-  .stagger-6 { animation-delay: 0.3s; }
+  .stagger-2 { animation-delay: 0.3s; }
+  .stagger-3 { animation-delay: 0.6s; }
+  .stagger-4 { animation-delay: 0.9s; }
+  .stagger-5 { animation-delay: 1.2s; }
+  .stagger-6 { animation-delay: 1.5s; }
+  .stagger-7 { animation-delay: 1.8s; }
+  .stagger-8 { animation-delay: 2.1s; }
 }
 
 /* Reduced motion */

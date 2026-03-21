@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "launch": "bash ./scripts/launch.sh",
+    "stop-local": "bash ./scripts/stop.sh",
     "build": "prisma generate && prisma migrate deploy && next build",
     "postinstall": "prisma generate",
     "start": "next start",
