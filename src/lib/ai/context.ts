@@ -1,10 +1,14 @@
 import { prisma } from '@/lib/prisma'
-import {
-  formatFacultyAvailability,
-  parseLegacyFacultyAvailability,
-} from '@/lib/faculty'
+import { formatFacultyAvailability } from '@/lib/faculty'
 import { getAnnouncementAudienceLabel } from '@/lib/server/announcements'
 import { isMissingDatabaseFieldError } from '@/lib/server/dbCompatibility'
+import {
+  getBuildingsCached,
+  getCampusServicesCached,
+  getClubsCached,
+  getFacultyCached,
+  getResourceLinksCached,
+} from '@/lib/server/universityData'
 
 export const AI_CONTEXT_SECTIONS = [
   'announcements',
@@ -27,8 +31,11 @@ export interface AIContextQueryPlan {
 const DEFAULT_QUERY_SECTIONS: AIContextSection[] = [
   'announcements',
   'events',
+  'faculty',
   'services',
   'resourceLinks',
+  'buildings',
+  'clubs',
 ]
 
 const SECTION_PATTERNS: Record<AIContextSection, RegExp[]> = {
@@ -130,57 +137,305 @@ const BROAD_QUERY_PATTERNS = [
   /\beverything\b/,
 ]
 
-async function loadFacultyContext(universityId: string, limit: number) {
-  try {
-    return await prisma.faculty.findMany({
-      where: { universityId },
-      select: {
-        name: true,
-        title: true,
-        department: true,
-        email: true,
-        officeLocation: true,
-        officeHours: true,
-        courses: true,
-        phone: true,
-        tags: true,
-        availabilityStatus: true,
-        availabilityNote: true,
-      },
-      orderBy: { name: 'asc' },
-      take: limit,
-    })
-  } catch (error) {
-    if (!isMissingDatabaseFieldError(error)) {
-      throw error
+const SEARCH_STOP_WORDS = new Set([
+  'a',
+  'all',
+  'an',
+  'and',
+  'any',
+  'are',
+  'at',
+  'assistant',
+  'building',
+  'buildings',
+  'campus',
+  'can',
+  'clubs',
+  'club',
+  'directory',
+  'directories',
+  'do',
+  'event',
+  'events',
+  'faculty',
+  'for',
+  'from',
+  'give',
+  'help',
+  'i',
+  'info',
+  'information',
+  'is',
+  'it',
+  'links',
+  'list',
+  'me',
+  'my',
+  'of',
+  'on',
+  'or',
+  'organization',
+  'organizations',
+  'please',
+  'professor',
+  'professors',
+  'resource',
+  'resources',
+  'service',
+  'services',
+  'show',
+  'student',
+  'students',
+  'tell',
+  'the',
+  'their',
+  'there',
+  'these',
+  'those',
+  'to',
+  'university',
+  'announcement',
+  'announcements',
+  'what',
+  'when',
+  'where',
+  'which',
+  'who',
+  'with',
+])
+
+const MATCH_RESULT_LIMITS: Partial<Record<AIContextSection, number>> = {
+  announcements: 6,
+  events: 10,
+  faculty: 8,
+  services: 8,
+  resourceLinks: 8,
+  buildings: 8,
+  clubs: 8,
+  officeHours: 8,
+  userDeadlines: 12,
+}
+
+type SearchTerms = {
+  normalizedQuery: string
+  tokens: string[]
+  phrases: string[]
+}
+
+type RankedMatch<T> = {
+  item: T
+  score: number
+}
+
+type SearchFields = {
+  primary: string[]
+  secondary?: string[]
+}
+
+type SearchFieldBuilder<T> = (item: T) => SearchFields
+
+type FacultyDirectoryRecord = Awaited<ReturnType<typeof getFacultyCached>>[number]
+type BuildingDirectoryRecord = Awaited<ReturnType<typeof getBuildingsCached>>[number]
+type ClubDirectoryRecord = Awaited<ReturnType<typeof getClubsCached>>[number]
+type ServiceDirectoryRecord = Awaited<ReturnType<typeof getCampusServicesCached>>[number]
+type ResourceLinkDirectoryRecord = Awaited<ReturnType<typeof getResourceLinksCached>>[number]
+
+function normalizeSearchText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)))
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function extractSearchTerms(value: string): SearchTerms {
+  const normalizedQuery = normalizeSearchText(value)
+
+  if (!normalizedQuery) {
+    return {
+      normalizedQuery: '',
+      tokens: [],
+      phrases: [],
+    }
+  }
+
+  const rawTokens = normalizedQuery.split(' ')
+  const tokens = uniqueStrings(
+    rawTokens.filter((token) => token.length > 1 && !SEARCH_STOP_WORDS.has(token)),
+  )
+
+  const phrases: string[] = []
+
+  for (let index = 0; index < tokens.length - 1; index += 1) {
+    phrases.push(`${tokens[index]} ${tokens[index + 1]}`)
+  }
+
+  for (let index = 0; index < tokens.length - 2; index += 1) {
+    phrases.push(`${tokens[index]} ${tokens[index + 1]} ${tokens[index + 2]}`)
+  }
+
+  if (normalizedQuery.length <= 100) {
+    phrases.push(normalizedQuery)
+  }
+
+  return {
+    normalizedQuery,
+    tokens,
+    phrases: uniqueStrings(phrases.filter((phrase) => phrase.length > 3)),
+  }
+}
+
+function scoreNormalizedField(field: string, terms: SearchTerms, weight: number) {
+  if (!field) {
+    return 0
+  }
+
+  let score = 0
+
+  if (terms.normalizedQuery) {
+    if (field === terms.normalizedQuery) {
+      score += 30 * weight
+    } else if (field.includes(terms.normalizedQuery)) {
+      score += 16 * weight
+    }
+  }
+
+  for (const phrase of terms.phrases) {
+    if (field === phrase) {
+      score += 18 * weight
+      continue
     }
 
-    const faculty = await prisma.faculty.findMany({
-      where: { universityId },
-      select: {
-        name: true,
-        title: true,
-        department: true,
-        email: true,
-        officeLocation: true,
-        officeHours: true,
-        courses: true,
-        phone: true,
-        tags: true,
-      },
-      orderBy: { name: 'asc' },
-      take: limit,
-    })
-
-    return faculty.map((item) => {
-      const availability = parseLegacyFacultyAvailability(item.officeHours)
-      return {
-        ...item,
-        availabilityStatus: availability.status,
-        availabilityNote: availability.note || null,
-      }
-    })
+    if (field.includes(phrase)) {
+      score += 10 * weight
+    }
   }
+
+  for (const token of terms.tokens) {
+    const wholeWordPattern = new RegExp(`\\b${escapeRegExp(token)}\\b`)
+
+    if (wholeWordPattern.test(field)) {
+      score += 5 * weight
+      continue
+    }
+
+    if (field.includes(token)) {
+      score += 2 * weight
+    }
+  }
+
+  return score
+}
+
+function rankRecords<T>(
+  records: T[],
+  terms: SearchTerms,
+  buildFields: SearchFieldBuilder<T>,
+  limit: number,
+) {
+  if (!terms.normalizedQuery || terms.tokens.length === 0) {
+    return []
+  }
+
+  return records
+    .map<RankedMatch<T>>((item) => {
+      const { primary, secondary = [] } = buildFields(item)
+      const score =
+        primary.reduce(
+          (total, field) => total + scoreNormalizedField(normalizeSearchText(field), terms, 3),
+          0,
+        ) +
+        secondary.reduce(
+          (total, field) => total + scoreNormalizedField(normalizeSearchText(field), terms, 1),
+          0,
+        )
+
+      return { item, score }
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, limit)
+    .map((entry) => entry.item)
+}
+
+function truncateText(value: string | null | undefined, maxLength: number) {
+  const normalized = value?.trim()
+  if (!normalized) {
+    return null
+  }
+
+  if (normalized.length <= maxLength) {
+    return normalized
+  }
+
+  return `${normalized.slice(0, maxLength - 1).trimEnd()}…`
+}
+
+function selectOverviewRecords<T>(records: T[], section: AIContextSection) {
+  const limit = MATCH_RESULT_LIMITS[section] ?? 8
+  return records.length <= limit * 2 ? records : records.slice(0, limit)
+}
+
+function renderFacultyLine(faculty: FacultyDirectoryRecord) {
+  return (
+    `• ${faculty.name} (${faculty.title}), ${faculty.department}` +
+    ` — Office: ${faculty.officeLocation}, Hours: ${faculty.officeHours}` +
+    `, Email: ${faculty.email}` +
+    (faculty.phone ? `, Phone: ${faculty.phone}` : '') +
+    `, Availability: ${formatFacultyAvailability(faculty.availabilityStatus, faculty.availabilityNote)}` +
+    (faculty.courses.length > 0 ? `, Courses: ${faculty.courses.join(', ')}` : '') +
+    (faculty.tags.length > 0 ? `, Tags: ${faculty.tags.join(', ')}` : '') +
+    (faculty.bio ? `, Bio: ${truncateText(faculty.bio, 180)}` : '')
+  )
+}
+
+function renderBuildingLine(building: BuildingDirectoryRecord) {
+  return (
+    `• ${building.name}${building.code ? ` (${building.code})` : ''} — ${building.type}, ${building.address}` +
+    (building.purpose ? ` | Purpose: ${building.purpose}` : '') +
+    (building.description ? ` | About: ${truncateText(building.description, 180)}` : '') +
+    (building.operatingHours ? ` | Hours: ${building.operatingHours}` : '') +
+    ` | Status: ${building.operationalStatus}` +
+    (building.operationalNote ? ` (${building.operationalNote})` : '') +
+    (building.accessibilityNotes ? ` | Accessibility: ${truncateText(building.accessibilityNotes, 140)}` : '') +
+    (building.categories.length > 0 ? ` | Categories: ${building.categories.join(', ')}` : '') +
+    (building.services.length > 0 ? ` | Services: ${building.services.join(', ')}` : '') +
+    (building.departments.length > 0 ? ` | Departments: ${building.departments.join(', ')}` : '')
+  )
+}
+
+function renderClubLine(club: ClubDirectoryRecord) {
+  return (
+    `• ${club.name} (${club.category})` +
+    ` — ${truncateText(club.description, 180)}` +
+    (club.meetingInfo ? ` | Meetings: ${club.meetingInfo}` : '') +
+    (club.contactEmail ? ` | Contact: ${club.contactEmail}` : '') +
+    (club.websiteUrl ? ` | Website: ${club.websiteUrl}` : '')
+  )
+}
+
+function renderServiceLine(service: ServiceDirectoryRecord) {
+  return (
+    `• ${service.name} — ${service.status}, ${service.location}` +
+    (service.hours ? ` | Hours: ${service.hours}` : '') +
+    (service.directionsUrl ? ` | Directions: ${service.directionsUrl}` : '')
+  )
+}
+
+function renderResourceLinkLine(resourceLink: ResourceLinkDirectoryRecord) {
+  return (
+    `• ${resourceLink.label} [${resourceLink.category}]` +
+    ` — ${resourceLink.href}` +
+    (resourceLink.description ? ` | ${truncateText(resourceLink.description, 180)}` : '')
+  )
 }
 
 async function loadAnnouncementContext(universityId: string, limit: number) {
@@ -292,6 +547,7 @@ export function buildAIContextQueryPlan(userMessage: string): AIContextQueryPlan
 
 interface GatherUniversityContextOptions {
   sections?: AIContextSection[]
+  userQuery?: string
 }
 
 /**
@@ -311,6 +567,12 @@ export async function gatherUniversityContext(
 
   const now = new Date()
   const selectedSections = toSectionSet(options?.sections)
+  const latestUserQuery = options?.userQuery?.trim() ?? ''
+  const searchTerms = extractSearchTerms(latestUserQuery)
+  const isOverviewQuery =
+    searchTerms.normalizedQuery.length > 0 &&
+    includesPattern(searchTerms.normalizedQuery, BROAD_QUERY_PATTERNS)
+  const shouldUseSearchMatches = searchTerms.tokens.length > 0 && !isOverviewQuery
 
   const shouldInclude = (section: AIContextSection) => selectedSections.has(section)
 
@@ -332,9 +594,9 @@ export async function gatherUniversityContext(
       select: { name: true, slug: true, domain: true },
     }),
 
-    // Faculty directory — scoped to university
+    // Faculty directory — full university directory, filtered in-memory for prompt relevance
     shouldInclude('faculty')
-      ? loadFacultyContext(universityId, SECTION_LIMITS.faculty)
+      ? getFacultyCached(universityId, undefined, undefined, userId)
       : Promise.resolve([]),
 
     // Upcoming events — scoped to university, next 30 days
@@ -361,88 +623,24 @@ export async function gatherUniversityContext(
         })
       : Promise.resolve([]),
 
-    // Campus services — scoped to university
+    // Campus services — full university directory, filtered in-memory for prompt relevance
     shouldInclude('services')
-      ? prisma.campusService.findMany({
-          where: { universityId },
-          select: {
-            name: true,
-            status: true,
-            hours: true,
-            location: true,
-          },
-          orderBy: { name: 'asc' },
-          take: SECTION_LIMITS.services,
-        })
+      ? getCampusServicesCached(universityId, undefined)
       : Promise.resolve([]),
 
-    // Resource links — scoped to university
+    // Resource links — full university directory, filtered in-memory for prompt relevance
     shouldInclude('resourceLinks')
-      ? prisma.campusResourceLink.findMany({
-          where: { universityId },
-          select: {
-            label: true,
-            category: true,
-            href: true,
-            description: true,
-          },
-          orderBy: { label: 'asc' },
-          take: SECTION_LIMITS.resourceLinks,
-        })
+      ? getResourceLinksCached(universityId, undefined, undefined)
       : Promise.resolve([]),
 
-    // Buildings — scoped to university and capped to control prompt size
+    // Buildings — full university directory, filtered in-memory for prompt relevance
     shouldInclude('buildings')
-      ? prisma.campusBuilding.findMany({
-          where: { universityId },
-          select: {
-            name: true,
-            code: true,
-            type: true,
-            address: true,
-            description: true,
-            accessibilityNotes: true,
-            operatingHours: true,
-            operationalStatus: true,
-            operationalNote: true,
-            categories: true,
-            services: true,
-            departments: true,
-            events: {
-              where: {
-                isPublished: true,
-                isCancelled: false,
-                date: { gte: now },
-              },
-              select: {
-                title: true,
-                date: true,
-                time: true,
-              },
-              orderBy: { date: 'asc' },
-              take: 2,
-            },
-          },
-          orderBy: { name: 'asc' },
-          take: SECTION_LIMITS.buildings,
-        })
+      ? getBuildingsCached(universityId, undefined)
       : Promise.resolve([]),
 
-    // Clubs — scoped to university
+    // Clubs — full university directory, filtered in-memory for prompt relevance
     shouldInclude('clubs')
-      ? prisma.clubOrganization.findMany({
-          where: { universityId },
-          select: {
-            name: true,
-            category: true,
-            description: true,
-            meetingInfo: true,
-            contactEmail: true,
-            websiteUrl: true,
-          },
-          orderBy: { name: 'asc' },
-          take: SECTION_LIMITS.clubs,
-        })
+      ? getClubsCached(universityId, undefined, undefined)
       : Promise.resolve([]),
 
     // Office hours — from faculty at this university, active slots
@@ -494,6 +692,156 @@ export async function gatherUniversityContext(
 
   const universityName = university?.name ?? 'Unknown University'
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  const facultyMatches = shouldInclude('faculty')
+    ? (
+        shouldUseSearchMatches
+          ? rankRecords(
+              faculty,
+              searchTerms,
+              (item) => ({
+                primary: [item.name, item.department, item.title, item.officeLocation],
+                secondary: [
+                  item.bio ?? '',
+                  item.email,
+                  item.phone ?? '',
+                  item.officeHours,
+                  item.courses.join(' '),
+                  item.tags.join(' '),
+                ],
+              }),
+              MATCH_RESULT_LIMITS.faculty ?? 8,
+            )
+          : selectOverviewRecords(faculty, 'faculty')
+      )
+    : []
+  const eventMatches = shouldInclude('events')
+    ? (
+        shouldUseSearchMatches
+          ? rankRecords(
+              upcomingEvents,
+              searchTerms,
+              (item) => ({
+                primary: [item.title, item.location, item.category],
+                secondary: [item.description ?? '', item.organizer ?? '', item.time ?? ''],
+              }),
+              MATCH_RESULT_LIMITS.events ?? 10,
+            )
+          : selectOverviewRecords(upcomingEvents, 'events')
+      )
+    : []
+  const serviceMatches = shouldInclude('services')
+    ? (
+        shouldUseSearchMatches
+          ? rankRecords(
+              services,
+              searchTerms,
+              (item) => ({
+                primary: [item.name, item.location],
+                secondary: [item.hours, item.status, item.directionsUrl],
+              }),
+              MATCH_RESULT_LIMITS.services ?? 8,
+            )
+          : selectOverviewRecords(services, 'services')
+      )
+    : []
+  const resourceLinkMatches = shouldInclude('resourceLinks')
+    ? (
+        shouldUseSearchMatches
+          ? rankRecords(
+              resourceLinks,
+              searchTerms,
+              (item) => ({
+                primary: [item.label, item.category],
+                secondary: [item.description, item.href],
+              }),
+              MATCH_RESULT_LIMITS.resourceLinks ?? 8,
+            )
+          : selectOverviewRecords(resourceLinks, 'resourceLinks')
+      )
+    : []
+  const buildingMatches = shouldInclude('buildings')
+    ? (
+        shouldUseSearchMatches
+          ? rankRecords(
+              buildings,
+              searchTerms,
+              (item) => ({
+                primary: [item.name, item.code ?? '', item.type, item.address, item.mapQuery],
+                secondary: [
+                  item.purpose ?? '',
+                  item.description ?? '',
+                  item.accessibilityNotes ?? '',
+                  item.operatingHours ?? '',
+                  item.operationalNote ?? '',
+                  item.categories.join(' '),
+                  item.services.join(' '),
+                  item.departments.join(' '),
+                ],
+              }),
+              MATCH_RESULT_LIMITS.buildings ?? 8,
+            )
+          : selectOverviewRecords(buildings, 'buildings')
+      )
+    : []
+  const clubMatches = shouldInclude('clubs')
+    ? (
+        shouldUseSearchMatches
+          ? rankRecords(
+              clubs,
+              searchTerms,
+              (item) => ({
+                primary: [item.name, item.category],
+                secondary: [
+                  item.description,
+                  item.meetingInfo ?? '',
+                  item.contactEmail ?? '',
+                  item.websiteUrl ?? '',
+                ],
+              }),
+              MATCH_RESULT_LIMITS.clubs ?? 8,
+            )
+          : selectOverviewRecords(clubs, 'clubs')
+      )
+    : []
+  const officeHourMatches = shouldInclude('officeHours')
+    ? (
+        shouldUseSearchMatches
+          ? rankRecords(
+              officeHours,
+              searchTerms,
+              (item) => ({
+                primary: [item.faculty.name, item.faculty.department, item.location],
+                secondary: [item.mode, dayNames[item.dayOfWeek], item.startTime, item.endTime],
+              }),
+              MATCH_RESULT_LIMITS.officeHours ?? 8,
+            )
+          : selectOverviewRecords(officeHours, 'officeHours')
+      )
+    : []
+  const announcementMatches = shouldInclude('announcements')
+    ? (
+        shouldUseSearchMatches
+          ? rankRecords(
+              announcements,
+              searchTerms,
+              (item) => ({
+                primary: [item.title, item.building?.name ?? '', item.service?.name ?? ''],
+                secondary: [item.message, item.scope],
+              }),
+              MATCH_RESULT_LIMITS.announcements ?? 6,
+            )
+          : selectOverviewRecords(announcements, 'announcements')
+      )
+    : []
+  const anySearchMatches =
+    facultyMatches.length > 0 ||
+    eventMatches.length > 0 ||
+    serviceMatches.length > 0 ||
+    resourceLinkMatches.length > 0 ||
+    buildingMatches.length > 0 ||
+    clubMatches.length > 0 ||
+    officeHourMatches.length > 0 ||
+    announcementMatches.length > 0
 
   const sections: string[] = []
 
@@ -510,21 +858,61 @@ export async function gatherUniversityContext(
       '• Do not infer class locations from office locations, departments, or building names.',
   )
 
-  // ----- Announcements -----
-  if (shouldInclude('announcements') && announcements.length > 0) {
+  if (
+    shouldInclude('faculty') ||
+    shouldInclude('services') ||
+    shouldInclude('resourceLinks') ||
+    shouldInclude('buildings') ||
+    shouldInclude('clubs')
+  ) {
+    const coverage: string[] = []
+
+    if (shouldInclude('faculty')) {
+      coverage.push(`• Faculty profiles available: ${faculty.length}`)
+    }
+
+    if (shouldInclude('buildings')) {
+      coverage.push(`• Building records available: ${buildings.length}`)
+    }
+
+    if (shouldInclude('clubs')) {
+      coverage.push(`• Clubs and organizations available: ${clubs.length}`)
+    }
+
+    if (shouldInclude('services')) {
+      coverage.push(`• Campus services available: ${services.length}`)
+    }
+
+    if (shouldInclude('resourceLinks')) {
+      coverage.push(`• Resource links available: ${resourceLinks.length}`)
+    }
+
+    sections.push('UNIVERSITY DIRECTORY COVERAGE:\n' + coverage.join('\n'))
+  }
+
+  if (shouldUseSearchMatches) {
     sections.push(
-      'ACTIVE ANNOUNCEMENTS:\n' +
-        announcements
+      anySearchMatches
+        ? 'QUERY MATCHING:\n• The sections below are filtered to the records that best match the latest user question.'
+        : 'QUERY MATCHING:\n• No exact faculty, building, club, service, resource link, event, or announcement matches were found for the latest user question.',
+    )
+  }
+
+  // ----- Announcements -----
+  if (shouldInclude('announcements') && announcementMatches.length > 0) {
+    sections.push(
+      `${shouldUseSearchMatches ? 'MATCHED ANNOUNCEMENTS' : 'ACTIVE ANNOUNCEMENTS'}:\n` +
+        announcementMatches
           .map((a) => `• [${getAnnouncementAudienceLabel(a)}] ${a.title}: ${a.message}`)
           .join('\n'),
     )
   }
 
   // ----- Events -----
-  if (shouldInclude('events') && upcomingEvents.length > 0) {
+  if (shouldInclude('events') && eventMatches.length > 0) {
     sections.push(
-      'UPCOMING EVENTS:\n' +
-        upcomingEvents
+      `${shouldUseSearchMatches ? 'MATCHED EVENTS' : 'UPCOMING EVENTS'}:\n` +
+        eventMatches
           .map(
             (e) =>
               `• "${e.title}" — ${e.date.toLocaleDateString()} at ${e.time}, ${e.location} [${e.category}]` +
@@ -537,29 +925,18 @@ export async function gatherUniversityContext(
   }
 
   // ----- Faculty -----
-  if (shouldInclude('faculty') && faculty.length > 0) {
+  if (shouldInclude('faculty') && facultyMatches.length > 0) {
     sections.push(
-      'FACULTY DIRECTORY:\n' +
-        faculty
-          .map(
-            (f) =>
-              `• ${f.name} (${f.title}), ${f.department}` +
-              ` — Office: ${f.officeLocation}, Hours: ${f.officeHours}` +
-              (f.courses.length > 0 ? `, Courses: ${f.courses.join(', ')}` : '') +
-              `, Email: ${f.email}` +
-              (f.phone ? `, Phone: ${f.phone}` : '') +
-              `, Availability: ${formatFacultyAvailability(f.availabilityStatus, f.availabilityNote)}` +
-              (f.tags.length > 0 ? `, Tags: ${f.tags.join(', ')}` : ''),
-          )
-          .join('\n'),
+      `${shouldUseSearchMatches ? 'MATCHED FACULTY DIRECTORY' : 'FACULTY DIRECTORY'}:\n` +
+        facultyMatches.map((item) => renderFacultyLine(item)).join('\n'),
     )
   }
 
   // ----- Office Hours Detail -----
-  if (shouldInclude('officeHours') && officeHours.length > 0) {
+  if (shouldInclude('officeHours') && officeHourMatches.length > 0) {
     sections.push(
-      'OFFICE HOURS SCHEDULE:\n' +
-        officeHours
+      `${shouldUseSearchMatches ? 'MATCHED OFFICE HOURS' : 'OFFICE HOURS SCHEDULE'}:\n` +
+        officeHourMatches
           .map(
             (oh) =>
               `• ${oh.faculty.name} (${oh.faculty.department}): ${dayNames[oh.dayOfWeek]} ${oh.startTime}–${oh.endTime}` +
@@ -570,63 +947,34 @@ export async function gatherUniversityContext(
   }
 
   // ----- Services -----
-  if (shouldInclude('services') && services.length > 0) {
+  if (shouldInclude('services') && serviceMatches.length > 0) {
     sections.push(
-      'CAMPUS SERVICES:\n' +
-        services
-          .map((s) => `• ${s.name}: ${s.status} — ${s.hours}, ${s.location}`)
-          .join('\n'),
+      `${shouldUseSearchMatches ? 'MATCHED CAMPUS SERVICES' : 'CAMPUS SERVICES'}:\n` +
+        serviceMatches.map((item) => renderServiceLine(item)).join('\n'),
     )
   }
 
   // ----- Buildings -----
-  if (shouldInclude('buildings') && buildings.length > 0) {
+  if (shouldInclude('buildings') && buildingMatches.length > 0) {
     sections.push(
-      'CAMPUS BUILDINGS:\n' +
-        buildings
-          .map(
-            (b) =>
-              `• ${b.name}${b.code ? ` (${b.code})` : ''} — ${b.type}, ${b.address}` +
-              (b.description ? ` — ${b.description.slice(0, 100)}` : '') +
-              (b.operatingHours ? ` | Hours: ${b.operatingHours}` : '') +
-              ` | Status: ${b.operationalStatus}` +
-              (b.operationalNote ? ` (${b.operationalNote})` : '') +
-              (b.accessibilityNotes ? ` | Accessibility: ${b.accessibilityNotes.slice(0, 120)}` : '') +
-              (b.categories.length > 0 ? ` | Categories: ${b.categories.join(', ')}` : '') +
-              (b.services.length > 0 ? ` | Services: ${b.services.slice(0, 5).join(', ')}` : '') +
-              (b.departments.length > 0 ? ` | Depts: ${b.departments.slice(0, 4).join(', ')}` : '') +
-              (b.events.length > 0
-                ? ` | Upcoming: ${b.events
-                    .map((event) => `${event.title} on ${event.date.toLocaleDateString()} at ${event.time}`)
-                    .join('; ')}`
-                : ''),
-          )
-          .join('\n'),
+      `${shouldUseSearchMatches ? 'MATCHED CAMPUS BUILDINGS' : 'CAMPUS BUILDINGS'}:\n` +
+        buildingMatches.map((item) => renderBuildingLine(item)).join('\n'),
     )
   }
 
   // ----- Resource Links -----
-  if (shouldInclude('resourceLinks') && resourceLinks.length > 0) {
+  if (shouldInclude('resourceLinks') && resourceLinkMatches.length > 0) {
     sections.push(
-      'RESOURCE LINKS:\n' +
-        resourceLinks
-          .map((r) => `• ${r.label} [${r.category}]: ${r.href} — ${r.description}`)
-          .join('\n'),
+      `${shouldUseSearchMatches ? 'MATCHED RESOURCE LINKS' : 'RESOURCE LINKS'}:\n` +
+        resourceLinkMatches.map((item) => renderResourceLinkLine(item)).join('\n'),
     )
   }
 
   // ----- Clubs -----
-  if (shouldInclude('clubs') && clubs.length > 0) {
+  if (shouldInclude('clubs') && clubMatches.length > 0) {
     sections.push(
-      'CLUBS & ORGANIZATIONS:\n' +
-        clubs
-          .map(
-            (c) =>
-              `• ${c.name} (${c.category}): ${c.description.slice(0, 100)}` +
-              (c.meetingInfo ? ` — Meetings: ${c.meetingInfo}` : '') +
-              (c.contactEmail ? ` — Contact: ${c.contactEmail}` : ''),
-          )
-          .join('\n'),
+      `${shouldUseSearchMatches ? 'MATCHED CLUBS & ORGANIZATIONS' : 'CLUBS & ORGANIZATIONS'}:\n` +
+        clubMatches.map((item) => renderClubLine(item)).join('\n'),
     )
   }
 

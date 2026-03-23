@@ -186,6 +186,7 @@ export async function POST(request: NextRequest) {
             lastName: payload.lastName,
             role,
             universityId: payload.universityId,
+            emailVerified: true,
             adminAccessLevel: payload.accessLevel,
             portalPermissions,
             canPublishCampusAnnouncements: portalPermissions.includes(

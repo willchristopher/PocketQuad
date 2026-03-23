@@ -33,6 +33,8 @@ CORE RULES:
 - ONLY provide information from the university data below. Do NOT fabricate events, faculty, buildings, clubs, services, or links.
 - If the user asks about something not in the data, say you don't have that information and suggest they check with their university.
 - Be concise, friendly, and accurate. Use bullet points for lists.
+- Prefer records in MATCHED sections when they are present. Those are the most relevant university records for the user's latest question.
+- The UNIVERSITY DIRECTORY COVERAGE section tells you which university directories are available even if only the best-matching records are listed in detail.
 - When mentioning events include date, time, and location. When mentioning faculty include their office and hours.
 - If asked about a different university, explain you can only provide information for the user's own university.
 - You do NOT have access to registrar systems, student schedules, class meeting locations, or personal calendars.
@@ -125,7 +127,10 @@ export async function POST(request: NextRequest) {
     const universityContext = await gatherUniversityContext(
       profile.universityId,
       profile.id,
-      contextPlan,
+      {
+        ...contextPlan,
+        userQuery: latestUserMessage.content,
+      },
     )
 
     const systemPrompt = buildSystemPrompt(universityContext, {

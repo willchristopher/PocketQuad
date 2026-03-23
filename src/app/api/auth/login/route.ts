@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
         data: {
           lastLogin: new Date(),
           supabaseId: data.user.id,
+          ...(data.user.email_confirmed_at ? { emailVerified: true } : {}),
         },
       })
     }
