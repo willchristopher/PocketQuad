@@ -89,6 +89,16 @@ function ensureLegacyDatabaseCanSkipCoordinates(
   }
 }
 
+type CampusBuildingCreateData = Prisma.CampusBuildingUncheckedCreateInput
+
+type CampusBuildingUpdateData = Prisma.CampusBuildingUncheckedUpdateInput
+
+function withoutCoordinates<T extends { latitude?: unknown; longitude?: unknown }>(data: T) {
+  const { latitude: _latitude, longitude: _longitude, ...legacyData } = data
+
+  return legacyData
+}
+
 export async function listCampusBuildingsCompatible({
   where,
   orderBy,
@@ -122,7 +132,7 @@ export async function listCampusBuildingsCompatible({
 }
 
 export async function createCampusBuildingCompatible(
-  data: Prisma.CampusBuildingCreateInput & { latitude?: number; longitude?: number },
+  data: CampusBuildingCreateData & { latitude?: number; longitude?: number },
 ) {
   try {
     const record = await prisma.campusBuilding.create({
@@ -137,9 +147,7 @@ export async function createCampusBuildingCompatible(
     }
 
     ensureLegacyDatabaseCanSkipCoordinates(data)
-    const legacyData = { ...data }
-    delete legacyData.latitude
-    delete legacyData.longitude
+    const legacyData = withoutCoordinates(data)
 
     const record = await prisma.campusBuilding.create({
       data: legacyData,
@@ -152,7 +160,7 @@ export async function createCampusBuildingCompatible(
 
 export async function updateCampusBuildingCompatible(
   id: string,
-  data: Prisma.CampusBuildingUpdateInput & { latitude?: number | null; longitude?: number | null },
+  data: CampusBuildingUpdateData & { latitude?: number | null; longitude?: number | null },
 ) {
   try {
     const record = await prisma.campusBuilding.update({
@@ -168,9 +176,7 @@ export async function updateCampusBuildingCompatible(
     }
 
     ensureLegacyDatabaseCanSkipCoordinates(data)
-    const legacyData = { ...data }
-    delete legacyData.latitude
-    delete legacyData.longitude
+    const legacyData = withoutCoordinates(data)
 
     const record = await prisma.campusBuilding.update({
       where: { id },
