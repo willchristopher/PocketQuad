@@ -271,12 +271,14 @@ export function FacultyProfileSettings() {
         setBuildingError(null);
         setBuildingSuccess(null);
         try {
-            await apiRequest(`/api/faculty/buildings/${selectedBuilding.id}`, {
+            const result = await apiRequest(`/api/faculty/buildings/${selectedBuilding.id}`, {
                 method: 'PATCH',
                 body: buildingDraft,
             });
             await loadBuildingManagement();
-            setBuildingSuccess('Building status saved');
+            setBuildingSuccess(result.notifiedCount > 0
+                ? `Building status saved and ${result.notifiedCount} student${result.notifiedCount === 1 ? '' : 's'} notified`
+                : 'Building status saved');
         }
         catch (err) {
             setBuildingError(getErrorMessage(err, 'Unable to save building status'));
@@ -293,7 +295,7 @@ export function FacultyProfileSettings() {
         setBuildingError(null);
         setBuildingSuccess(null);
         try {
-            await apiRequest('/api/announcements', {
+            const result = await apiRequest('/api/announcements', {
                 method: 'POST',
                 body: {
                     title: announcementDraft.title,
@@ -305,7 +307,9 @@ export function FacultyProfileSettings() {
             });
             setAnnouncementDraft(emptyAnnouncementDraft);
             await loadBuildingManagement();
-            setBuildingSuccess('Building alert published');
+            setBuildingSuccess(result.notifiedCount > 0
+                ? `Building alert published to ${result.notifiedCount} student${result.notifiedCount === 1 ? '' : 's'}`
+                : 'Building alert published');
         }
         catch (err) {
             setBuildingError(getErrorMessage(err, 'Unable to publish building alert'));
@@ -322,7 +326,7 @@ export function FacultyProfileSettings() {
         setBuildingError(null);
         setBuildingSuccess(null);
         try {
-            await apiRequest('/api/events', {
+            await apiRequest('/api/faculty/me/events', {
                 method: 'POST',
                 body: {
                     title: eventDraft.title,

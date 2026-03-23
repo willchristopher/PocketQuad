@@ -1,18 +1,16 @@
 'use client';
+import * as React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { CalendarRange, ChevronDown, ChevronLeft, ExternalLink, Flag, LayoutGrid, LogOut, MapPinned, MessageCircleMore, UserCircle2, Users2, BellRing, CalendarClock, } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { BellRing, CalendarClock, ExternalLink, Flag, LayoutGrid, LogOut, MapPinned, MessageCircleMore, UserCircle2, Users2, } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth/context';
-import { useSidebarCollapsed } from '@/components/layout/SidebarContext';
-import { useRouter } from 'next/navigation';
-import React from 'react';
+
 const sections = [
     {
         title: null,
         items: [
             { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard' },
-            { icon: CalendarRange, label: 'Calendar', href: '/calendar' },
         ],
     },
     {
@@ -32,87 +30,91 @@ const sections = [
         ],
     },
 ];
+
 const bottomItems = [
     { icon: BellRing, label: 'Notifications', href: '/notifications' },
     { icon: UserCircle2, label: 'Profile', href: '/profile' },
 ];
+
+const ITEM_SIZE = 44;
+const ITEM_GAP = 8;
+const DOCK_PADDING = 10;
+
+function isActivePath(pathname, href) {
+    return pathname === href ||
+        pathname?.startsWith(href + '/') ||
+        (href === '/dashboard' && pathname === '/') ||
+        (href === '/campus-map' && pathname === '/services-status');
+}
+
 export function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
     const { signOut } = useAuth();
-    const [collapsed, setCollapsed] = React.useState({});
-    const { sidebarCollapsed, toggleSidebar } = useSidebarCollapsed();
+    const [hovered, setHovered] = React.useState(false);
+    const [focusWithin, setFocusWithin] = React.useState(false);
+
+    const navItems = [...sections.flatMap((section) => section.items), ...bottomItems];
+    const dockItems = [...navItems, { icon: LogOut, label: 'Log out', action: 'logout' }];
+    const activeIndex = Math.max(navItems.findIndex((item) => isActivePath(pathname, item.href)), 0);
+    const expanded = hovered || focusWithin;
+    const trackWidth = dockItems.length * ITEM_SIZE + (dockItems.length - 1) * ITEM_GAP;
+    const collapsedWidth = ITEM_SIZE + DOCK_PADDING * 2;
+    const expandedWidth = trackWidth + DOCK_PADDING * 2;
+    const glowWidth = expandedWidth + 96;
+    const collapsedOffset = activeIndex * (ITEM_SIZE + ITEM_GAP);
+
     const handleLogout = async () => {
         await signOut();
         router.push('/login');
     };
-    const toggleSection = (title) => {
-        setCollapsed((prev) => ({ ...prev, [title]: !prev[title] }));
+
+    const handleBlurCapture = (event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+            setFocusWithin(false);
+        }
     };
-    return (<aside className={cn('hidden md:flex fixed left-0 top-0 z-40 h-screen flex-col border-r border-border/50 bg-card/95 backdrop-blur-xl transition-[width] duration-200', sidebarCollapsed ? 'w-[68px]' : 'w-[260px]')}>
-      <div className="flex h-14 items-center border-b border-border/50 px-3">
-        <Link href="/dashboard" className={cn('flex items-center gap-3', sidebarCollapsed && 'justify-center w-full')}>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-            <LayoutGrid className="h-4 w-4"/>
+
+    return (<div className="pointer-events-none fixed bottom-0 left-1/2 z-40 hidden -translate-x-1/2 md:block" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+      <div className="pointer-events-none absolute bottom-0 left-1/2 h-20 -translate-x-1/2 rounded-full bg-gradient-to-t from-background via-background/86 to-transparent blur-xl transition-[width,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]" style={{
+            width: `${expanded ? glowWidth : collapsedWidth + 72}px`,
+            opacity: expanded ? 1 : 0.78,
+        }}/>
+
+      <nav aria-label="Primary" className="pointer-events-auto glass-card relative overflow-hidden rounded-full border border-white/12 shadow-[0_20px_48px_rgba(15,23,42,0.16)] transition-[width,transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] dark:border-white/10" style={{
+            width: `${expanded ? expandedWidth : collapsedWidth}px`,
+            transform: expanded ? 'translateY(-2px)' : 'translateY(0)',
+            padding: `${DOCK_PADDING}px`,
+            boxShadow: expanded
+                ? '0 24px 56px rgba(15, 23, 42, 0.2)'
+                : '0 18px 40px rgba(15, 23, 42, 0.14)',
+        }} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onFocusCapture={() => setFocusWithin(true)} onBlurCapture={handleBlurCapture}>
+        <div className="overflow-hidden">
+          <div className="flex items-center will-change-transform transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]" style={{
+                gap: `${ITEM_GAP}px`,
+                width: `${trackWidth}px`,
+                transform: `translate3d(${expanded ? 0 : -collapsedOffset}px, 0, 0)`,
+            }}>
+            {dockItems.map((item) => {
+                const isLogout = item.action === 'logout';
+                const isActive = !isLogout && isActivePath(pathname, item.href);
+                const sharedClassName = cn('relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-[color,background-color,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background', isActive
+                    ? 'bg-primary/12 text-primary shadow-[inset_0_0_0_1px_rgba(59,130,246,0.16)]'
+                    : isLogout
+                        ? 'text-muted-foreground hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400'
+                        : 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground');
+                const Icon = item.icon;
+                if (isLogout) {
+                    return (<button key={item.label} onClick={() => { void handleLogout(); }} className={sharedClassName} aria-label={item.label} title={item.label} type="button">
+                    <Icon className="h-[18px] w-[18px]"/>
+                  </button>);
+                }
+                return (<Link key={item.href} href={item.href} className={sharedClassName} aria-current={isActive ? 'page' : undefined} title={item.label}>
+                  <Icon className="h-[18px] w-[18px]"/>
+                </Link>);
+            })}
           </div>
-          {!sidebarCollapsed && (<div>
-              <p className="font-display text-base font-bold tracking-tight text-foreground">PocketQuad</p>
-              <p className="text-[10px] text-muted-foreground -mt-0.5">Student Hub</p>
-            </div>)}
-        </Link>
-      </div>
-
-      {/* Collapse toggle */}
-      <button onClick={toggleSidebar} className="absolute -right-3 top-[42px] z-50 flex h-6 w-6 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground" aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-        <ChevronLeft className={cn('h-3.5 w-3.5 transition-transform duration-200', sidebarCollapsed && 'rotate-180')}/>
-      </button>
-
-      <nav className="flex-1 overflow-y-auto px-2 pt-3 pb-1 custom-scrollbar">
-        {sections.map((section, sectionIndex) => {
-            const isSectionCollapsed = section.title ? collapsed[section.title] : false;
-            return (<div key={sectionIndex} className={cn(section.title && 'mt-4')}>
-              {section.title && !sidebarCollapsed && (<button onClick={() => toggleSection(section.title)} className="flex w-full items-center justify-between px-3 mb-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                    {section.title}
-                  </span>
-                  <ChevronDown className={cn('h-3 w-3 text-muted-foreground/50 transition-transform duration-200', isSectionCollapsed && '-rotate-90')}/>
-                </button>)}
-              {!isSectionCollapsed && (<div className="space-y-0.5">
-                  {section.items.map((item) => {
-                        const isActive = pathname === item.href ||
-                            pathname?.startsWith(item.href + '/') ||
-                            (item.href === '/dashboard' && pathname === '/') ||
-                            (item.href === '/campus-map' && pathname === '/services-status');
-                        const Icon = item.icon;
-                        return (<Link key={item.href} href={item.href} title={sidebarCollapsed ? item.label : undefined} className={cn('group relative flex items-center rounded-lg text-[13px] font-medium transition-colors duration-150', sidebarCollapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2', isActive
-                                ? 'bg-primary/10 text-primary'
-                                : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground')}>
-                        {isActive && (<span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary"/>)}
-                        <Icon className="h-4 w-4 shrink-0"/>
-                        {!sidebarCollapsed && <span>{item.label}</span>}
-                      </Link>);
-                    })}
-                </div>)}
-            </div>);
-        })}
+        </div>
       </nav>
-
-      <div className="border-t border-border/50 px-2 py-2 space-y-0.5">
-        {bottomItems.map((item) => {
-            const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
-            const Icon = item.icon;
-            return (<Link key={item.href} href={item.href} title={sidebarCollapsed ? item.label : undefined} className={cn('group relative flex items-center rounded-lg text-[13px] font-medium transition-colors duration-150', sidebarCollapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2', isActive
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground')}>
-              {isActive && (<span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary"/>)}
-              <Icon className="h-4 w-4 shrink-0"/>
-              {!sidebarCollapsed && <span>{item.label}</span>}
-            </Link>);
-        })}
-        <button onClick={() => { void handleLogout(); }} title={sidebarCollapsed ? 'Log Out' : undefined} className={cn('group flex w-full items-center rounded-lg text-[13px] font-medium text-muted-foreground transition-colors duration-150 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400', sidebarCollapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2')}>
-          <LogOut className="h-4 w-4 shrink-0"/>
-          {!sidebarCollapsed && <span>Log Out</span>}
-        </button>
-      </div>
-    </aside>);
+    </div>);
 }

@@ -86,13 +86,13 @@ export function AIChatWidget() {
       </>);
     }
     return (<>
-      <div className="fixed bottom-6 right-6 z-40 flex items-center gap-2">
+      <div className="fixed bottom-24 right-6 z-40 flex items-center gap-2 transition-[bottom] duration-300">
         <button onClick={() => setOpen(prev => !prev)} className="w-12 h-12 rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/30 flex items-center justify-center hover:scale-105 transition-transform" aria-label="Toggle AI Assistant">
           {open ? <X className="w-5 h-5"/> : <Sparkles className="w-5 h-5"/>}
         </button>
       </div>
 
-      {open && (<div className="fixed bottom-20 right-6 z-40 w-[360px] max-w-[90vw] rounded-2xl border border-border/60 bg-card shadow-2xl overflow-hidden">
+      {open && (<div className="fixed bottom-40 right-6 z-40 w-[360px] max-w-[90vw] rounded-2xl border border-border/60 bg-card shadow-2xl overflow-hidden">
           <div className="p-4 border-b border-border/60 flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-primary"/>

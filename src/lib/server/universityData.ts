@@ -4,9 +4,9 @@ import { revalidateTag, unstable_cache } from 'next/cache'
 import {
   getStudentFacingFacultyAvailability,
   parseLegacyFacultyAvailability,
-  summarizeFacultyOfficeHours,
 } from '@/lib/faculty'
 import { prisma } from '@/lib/prisma'
+import { listCampusBuildingsCompatible } from '@/lib/server/campusBuildings'
 import { isMissingDatabaseFieldError } from '@/lib/server/dbCompatibility'
 
 export const UNIVERSITY_DATA_TAGS = {
@@ -23,6 +23,20 @@ type UniversityDataTag = (typeof UNIVERSITY_DATA_TAGS)[keyof typeof UNIVERSITY_D
 export const ALL_UNIVERSITY_DATA_TAGS = Object.values(UNIVERSITY_DATA_TAGS)
 
 const UNIVERSITY_DATA_TTL_SECONDS = 30
+
+function normalizeSearchValue(value: string | null) {
+  return value?.trim().toLowerCase() ?? ''
+}
+
+function fieldMatchesQuery(value: string | null | undefined, query: string) {
+  if (!value) return false
+  return value.toLowerCase().includes(query)
+}
+
+function listMatchesQuery(values: string[] | null | undefined, query: string) {
+  if (!values || values.length === 0) return false
+  return values.some((value) => fieldMatchesQuery(value, query))
+}
 
 export function invalidateUniversityData(...tags: UniversityDataTag[]) {
   for (const tag of tags) {
@@ -109,26 +123,32 @@ const getClubsCachedInternal = unstable_cache(
 
 const getBuildingsCachedInternal = unstable_cache(
   async (universityId: string | null, query: string | null) => {
-    return prisma.campusBuilding.findMany({
+    const records = await listCampusBuildingsCompatible({
       where: {
         ...(universityId ? { universityId } : {}),
-        ...(query
-          ? {
-              OR: [
-                { name: { contains: query, mode: 'insensitive' as const } },
-                { address: { contains: query, mode: 'insensitive' as const } },
-                { type: { contains: query, mode: 'insensitive' as const } },
-              ],
-            }
-          : {}),
-      },
-      include: {
-        university: {
-          select: { id: true, name: true, slug: true },
-        },
       },
       orderBy: [{ name: 'asc' }],
     })
+
+    const normalizedQuery = normalizeSearchValue(query)
+    if (!normalizedQuery) {
+      return records
+    }
+
+    return records.filter((record) =>
+      [
+        record.name,
+        record.code,
+        record.type,
+        record.address,
+        record.description,
+        record.purpose,
+        record.mapQuery,
+      ].some((value) => fieldMatchesQuery(value, normalizedQuery)) ||
+      listMatchesQuery(record.categories, normalizedQuery) ||
+      listMatchesQuery(record.services, normalizedQuery) ||
+      listMatchesQuery(record.departments, normalizedQuery),
+    )
   },
   ['campus-buildings'],
   { revalidate: UNIVERSITY_DATA_TTL_SECONDS, tags: [UNIVERSITY_DATA_TAGS.buildings] },
@@ -208,7 +228,6 @@ const getFacultyCachedInternal = unstable_cache(
 
         return {
           ...item,
-          officeHours: summarizeFacultyOfficeHours(officeHourSlots),
           studentAvailabilityLabel: studentAvailability.label,
           studentAvailabilityState: studentAvailability.state,
           isFavorited: favorites.length > 0,
@@ -268,7 +287,6 @@ const getFacultyCachedInternal = unstable_cache(
 
         return {
           ...item,
-          officeHours: summarizeFacultyOfficeHours(officeHourSlots),
           availabilityStatus: availability.status,
           availabilityNote: availability.note || null,
           studentAvailabilityLabel: studentAvailability.label,

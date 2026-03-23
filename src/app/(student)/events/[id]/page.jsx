@@ -53,6 +53,8 @@ export default function EventDetailPage({ params }) {
     const toggleInterest = async () => {
         if (!event)
             return;
+        if (event.isCancelled)
+            return;
         setError(null);
         try {
             const result = await apiRequest(`/api/events/${event.id}/interest`, {
@@ -73,6 +75,8 @@ export default function EventDetailPage({ params }) {
     };
     const addToCalendar = async () => {
         if (!event)
+            return;
+        if (event.isCancelled)
             return;
         setError(null);
         try {
@@ -123,10 +127,17 @@ export default function EventDetailPage({ params }) {
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">{event.category}</span>
             <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">{event.organizer}</span>
+            {event.isCancelled ? (<span className="rounded-full bg-red-500/10 px-2.5 py-1 text-xs font-semibold text-red-600 dark:text-red-400">
+                Canceled
+              </span>) : null}
           </div>
 
           <h1 className="mt-4 font-display text-2xl font-extrabold tracking-tight md:text-3xl">{event.title}</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{event.description}</p>
+
+          {event.isCancelled ? (<div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-700 dark:text-red-300">
+              This event has been canceled. The details below are kept for reference from your notification history.
+            </div>) : null}
 
           <div className="mt-5 space-y-2 rounded-xl border border-border/50 bg-muted/20 p-4 text-sm">
             <p><span className="font-semibold">Date:</span> {formatLongDate(event.date)}</p>
@@ -139,16 +150,16 @@ export default function EventDetailPage({ params }) {
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
-            <button onClick={() => void addToCalendar()} className={cn('inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all duration-200', added ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-primary text-primary-foreground shadow-lg shadow-primary/20')}>
+            <button onClick={() => void addToCalendar()} disabled={event.isCancelled} className={cn('inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60', added ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-primary text-primary-foreground shadow-lg shadow-primary/20')}>
               <CalendarPlus className="h-4 w-4"/>
-              {added ? 'Added to Calendar' : 'Add to Calendar'}
+              {event.isCancelled ? 'Unavailable' : added ? 'Added to Calendar' : 'Add to Calendar'}
             </button>
 
-            <button onClick={() => void toggleInterest()} className={cn('inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-all duration-200', event.isInterested
+            <button onClick={() => void toggleInterest()} disabled={event.isCancelled} className={cn('inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60', event.isInterested
             ? 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400'
             : 'border-border/60 hover:bg-muted/35')}>
               <Heart className={cn('h-4 w-4', event.isInterested && 'fill-red-600 dark:fill-red-400')}/>
-              {event.isInterested ? 'Interested' : 'Mark Interested'}
+              {event.isCancelled ? 'Unavailable' : event.isInterested ? 'Interested' : 'Mark Interested'}
             </button>
 
             <a href={mapUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-xl border border-border/60 px-3.5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted/35">

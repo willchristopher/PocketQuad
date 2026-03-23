@@ -64,74 +64,89 @@ function FacultyCard({ entry, pending, onToggleFavorite }) {
 export default function FacultyDirectoryPage() {
     const [query, setQuery] = React.useState('');
     const [department, setDepartment] = React.useState('All');
+    const deferredQuery = React.useDeferredValue(query.trim());
     const [entries, setEntries] = React.useState([]);
+    const [allEntries, setAllEntries] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState(null);
     const [pendingFacultyId, setPendingFacultyId] = React.useState(null);
-    const loadFaculty = React.useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const result = await apiRequest('/api/faculty');
-            setEntries(result);
-        }
-        catch (err) {
-            const message = err instanceof ApiClientError ? err.message : 'Unable to load faculty directory';
-            setError(message);
-            setEntries([]);
-        }
-        finally {
-            setLoading(false);
-        }
-    }, []);
     React.useEffect(() => {
+        const controller = new AbortController();
+        let active = true;
+        const params = new URLSearchParams();
+        if (department !== 'All') {
+            params.set('department', department);
+        }
+        if (deferredQuery) {
+            params.set('search', deferredQuery);
+        }
+        const endpoint = params.size > 0 ? `/api/faculty?${params.toString()}` : '/api/faculty';
+        const loadFaculty = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const result = await apiRequest(endpoint, {
+                    signal: controller.signal,
+                });
+                if (!active) {
+                    return;
+                }
+                setEntries(result);
+                if (department === 'All' && !deferredQuery) {
+                    setAllEntries(result);
+                }
+            }
+            catch (err) {
+                if (!active || (err instanceof DOMException && err.name === 'AbortError')) {
+                    return;
+                }
+                const message = err instanceof ApiClientError ? err.message : 'Unable to load faculty directory';
+                setError(message);
+                setEntries([]);
+            }
+            finally {
+                if (active) {
+                    setLoading(false);
+                }
+            }
+        };
         void loadFaculty();
-    }, [loadFaculty]);
-    const departments = React.useMemo(() => ['All', ...Array.from(new Set(entries.map((entry) => entry.department))).sort()], [entries]);
-    const filteredEntries = React.useMemo(() => {
-        const normalizedQuery = query.trim().toLowerCase();
-        return entries.filter((entry) => {
-            const matchesDepartment = department === 'All' || entry.department === department;
-            if (!matchesDepartment)
-                return false;
-            if (!normalizedQuery)
-                return true;
-            const searchable = [
-                entry.name,
-                entry.title,
-                entry.department,
-                entry.officeLocation,
-                entry.bio ?? '',
-                ...entry.tags,
-            ].join(' ').toLowerCase();
-            return searchable.includes(normalizedQuery);
-        });
-    }, [department, entries, query]);
-    const favoriteEntries = React.useMemo(() => filteredEntries.filter((entry) => entry.isFavorited), [filteredEntries]);
-    const totalFavorites = React.useMemo(() => entries.filter((entry) => entry.isFavorited).length, [entries]);
+        return () => {
+            active = false;
+            controller.abort();
+        };
+    }, [deferredQuery, department]);
+    const departments = React.useMemo(() => ['All', ...Array.from(new Set(allEntries.map((entry) => entry.department))).sort()], [allEntries]);
+    const favoriteEntries = React.useMemo(() => entries.filter((entry) => entry.isFavorited), [entries]);
+    const totalFavorites = React.useMemo(() => allEntries.filter((entry) => entry.isFavorited).length, [allEntries]);
+    const updateFavoriteState = React.useCallback((facultyId, isFavorited) => {
+        const applyUpdate = (collection) => collection.map((entry) => (entry.id === facultyId ? { ...entry, isFavorited } : entry));
+        setEntries(applyUpdate);
+        setAllEntries(applyUpdate);
+    }, []);
     const onToggleFavorite = React.useCallback(async (facultyId) => {
-        const current = entries.find((entry) => entry.id === facultyId);
+        const current = entries.find((entry) => entry.id === facultyId) ?? allEntries.find((entry) => entry.id === facultyId);
         if (!current || pendingFacultyId === facultyId)
             return;
         const nextState = !current.isFavorited;
         setPendingFacultyId(facultyId);
         setError(null);
-        setEntries((previous) => previous.map((entry) => (entry.id === facultyId ? { ...entry, isFavorited: nextState } : entry)));
+        updateFavoriteState(facultyId, nextState);
         try {
             const result = await apiRequest(`/api/faculty/${facultyId}/favorite`, {
                 method: 'POST',
             });
-            setEntries((previous) => previous.map((entry) => entry.id === facultyId ? { ...entry, isFavorited: result.isFavorited } : entry));
+            updateFavoriteState(facultyId, result.isFavorited);
         }
         catch (err) {
             const message = err instanceof ApiClientError ? err.message : 'Unable to update favorite';
             setError(message);
-            setEntries((previous) => previous.map((entry) => entry.id === facultyId ? { ...entry, isFavorited: current.isFavorited } : entry));
+            updateFavoriteState(facultyId, current.isFavorited);
         }
         finally {
             setPendingFacultyId((previous) => (previous === facultyId ? null : previous));
         }
-    }, [entries, pendingFacultyId]);
+    }, [allEntries, entries, pendingFacultyId, updateFavoriteState]);
     return (<div className="space-y-6">
       <section className="relative overflow-hidden rounded-[28px] border border-border/60 bg-card px-6 py-6 md:px-7 md:py-7">
         <div className="pointer-events-none absolute -left-10 top-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl"/>
@@ -169,7 +184,7 @@ export default function FacultyDirectoryPage() {
             <div>
               <h2 className="font-display text-2xl font-bold tracking-tight">All faculty</h2>
               <p className="text-sm text-muted-foreground">
-                {loading ? 'Loading directory...' : `${filteredEntries.length} match${filteredEntries.length === 1 ? '' : 'es'}`}
+                {loading ? 'Loading directory...' : `${entries.length} match${entries.length === 1 ? '' : 'es'}`}
               </p>
             </div>
           </div>
@@ -177,7 +192,7 @@ export default function FacultyDirectoryPage() {
           {loading && <p className="text-sm text-muted-foreground">Loading faculty...</p>}
 
           {!loading &&
-            filteredEntries.map((entry) => (<FacultyCard key={entry.id} entry={entry} pending={pendingFacultyId === entry.id} onToggleFavorite={onToggleFavorite}/>))}
+            entries.map((entry) => (<FacultyCard key={entry.id} entry={entry} pending={pendingFacultyId === entry.id} onToggleFavorite={onToggleFavorite}/>))}
         </div>
 
         <aside className="xl:sticky xl:top-6">
@@ -235,7 +250,7 @@ export default function FacultyDirectoryPage() {
         </aside>
       </section>
 
-      {!loading && filteredEntries.length === 0 && (<section className="rounded-[24px] border border-dashed border-border/60 bg-card p-10 text-center">
+      {!loading && entries.length === 0 && (<section className="rounded-[24px] border border-dashed border-border/60 bg-card p-10 text-center">
           <p className="text-base font-semibold">No faculty matched that search</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Try a department filter, a broader keyword, or a tag like advising, tutoring, or scholarships.

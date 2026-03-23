@@ -107,6 +107,9 @@ function asErrorMessage(error, fallback) {
     if (error instanceof ApiClientError) {
         return error.message;
     }
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
     return fallback;
 }
 function formatDateTimeInput(value) {
@@ -123,6 +126,57 @@ function splitCsv(value) {
         .split(',')
         .map((item) => item.trim())
         .filter(Boolean);
+}
+const coordinateFieldConfig = {
+    latitude: {
+        label: 'Latitude',
+        min: -90,
+        max: 90,
+    },
+    longitude: {
+        label: 'Longitude',
+        min: -180,
+        max: 180,
+    },
+};
+function formatCoordinateInput(value) {
+    if (value === null || typeof value === 'undefined') {
+        return '';
+    }
+    return `${value}`;
+}
+function parseCoordinateValue(value, field, blankValue) {
+    const normalized = typeof value === 'string' ? value.trim() : value;
+    if (normalized === '' || normalized === null || typeof normalized === 'undefined') {
+        return blankValue;
+    }
+    const number = typeof normalized === 'number' ? normalized : Number(normalized);
+    const config = coordinateFieldConfig[field];
+    if (!Number.isFinite(number)) {
+        throw new Error(`${config.label} must be a valid number`);
+    }
+    if (number < config.min || number > config.max) {
+        throw new Error(`${config.label} must be between ${config.min} and ${config.max}`);
+    }
+    return number;
+}
+function buildBuildingPayload(building, options = {}) {
+    const { clearBlankCoordinates = false } = options;
+    return {
+        universityId: building.universityId,
+        name: building.name,
+        code: building.code || undefined,
+        type: building.type,
+        address: building.address,
+        mapQuery: building.mapQuery,
+        latitude: parseCoordinateValue(building.latitude, 'latitude', clearBlankCoordinates ? null : undefined),
+        longitude: parseCoordinateValue(building.longitude, 'longitude', clearBlankCoordinates ? null : undefined),
+        purpose: building.purpose || undefined,
+        operatingHours: building.operatingHours || undefined,
+        operationalStatus: building.operationalStatus,
+        operationalNote: building.operationalNote || undefined,
+        description: building.description || undefined,
+    };
 }
 export function AdminDashboard() {
     const searchParams = useSearchParams();
@@ -170,18 +224,6 @@ export function AdminDashboard() {
     const [buildingImportRowCount, setBuildingImportRowCount] = React.useState(0);
     const [buildingImportError, setBuildingImportError] = React.useState(null);
     const [buildingImportValidation, setBuildingImportValidation] = React.useState(null);
-    const [newFaculty, setNewFaculty] = React.useState({
-        universityId: '',
-        name: '',
-        email: '',
-        canPublishCampusAnnouncements: false,
-        title: '',
-        department: '',
-        officeLocation: '',
-        officeHours: '',
-        courses: '',
-        tags: '',
-    });
     const [newFacultySignupEmail, setNewFacultySignupEmail] = React.useState({
         universityId: '',
         email: '',
@@ -200,6 +242,8 @@ export function AdminDashboard() {
         type: '',
         address: '',
         mapQuery: '',
+        latitude: '',
+        longitude: '',
         purpose: '',
         operatingHours: '',
         operationalStatus: 'OPEN',
@@ -385,7 +429,6 @@ export function AdminDashboard() {
     React.useEffect(() => {
         if (!selectedUniversityId)
             return;
-        setNewFaculty((current) => ({ ...current, universityId: selectedUniversityId }));
         setNewFacultySignupEmail((current) => ({
             ...current,
             universityId: selectedUniversityId,
@@ -1158,6 +1201,14 @@ export function AdminDashboard() {
                     <Input value={newBuilding.mapQuery} onChange={(event) => setNewBuilding((c) => ({ ...c, mapQuery: event.target.value }))} placeholder="Search term for maps"/>
                   </div>
                   <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Latitude</label>
+                    <Input type="number" step="any" min={coordinateFieldConfig.latitude.min} max={coordinateFieldConfig.latitude.max} inputMode="decimal" value={newBuilding.latitude} onChange={(event) => setNewBuilding((c) => ({ ...c, latitude: event.target.value }))} placeholder="e.g. 36.6159"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Longitude</label>
+                    <Input type="number" step="any" min={coordinateFieldConfig.longitude.min} max={coordinateFieldConfig.longitude.max} inputMode="decimal" value={newBuilding.longitude} onChange={(event) => setNewBuilding((c) => ({ ...c, longitude: event.target.value }))} placeholder="e.g. -88.3227"/>
+                  </div>
+                  <div className="space-y-1.5">
                     <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Operating Hours</label>
                     <Input value={newBuilding.operatingHours} onChange={(event) => setNewBuilding((c) => ({ ...c, operatingHours: event.target.value }))} placeholder="e.g. Mon–Fri 8am–6pm"/>
                   </div>
@@ -1186,23 +1237,11 @@ export function AdminDashboard() {
                   <Button size="sm" disabled={saving || !newBuilding.name || !newBuilding.type || !newBuilding.address || !newBuilding.mapQuery} onClick={() => void runMutation(async () => {
                     await apiRequest('/api/admin/buildings', {
                         method: 'POST',
-                        body: {
-                            universityId: newBuilding.universityId,
-                            name: newBuilding.name,
-                            code: newBuilding.code || undefined,
-                            type: newBuilding.type,
-                            address: newBuilding.address,
-                            mapQuery: newBuilding.mapQuery,
-                            purpose: newBuilding.purpose || undefined,
-                            operatingHours: newBuilding.operatingHours || undefined,
-                            operationalStatus: newBuilding.operationalStatus,
-                            operationalNote: newBuilding.operationalNote || undefined,
-                            description: newBuilding.description || undefined,
-                        },
+                        body: buildBuildingPayload(newBuilding),
                     });
                     setNewBuilding({
                         universityId: selectedUniversityId,
-                        name: '', code: '', type: '', address: '', mapQuery: '',
+                        name: '', code: '', type: '', address: '', mapQuery: '', latitude: '', longitude: '',
                         purpose: '', operatingHours: '', operationalStatus: 'OPEN',
                         operationalNote: '', description: '',
                     });
@@ -1253,10 +1292,12 @@ export function AdminDashboard() {
                                 { label: 'Type', key: 'type' },
                                 { label: 'Address', key: 'address' },
                                 { label: 'Map Query', key: 'mapQuery' },
+                                { label: 'Latitude', key: 'latitude', type: 'number', min: coordinateFieldConfig.latitude.min, max: coordinateFieldConfig.latitude.max },
+                                { label: 'Longitude', key: 'longitude', type: 'number', min: coordinateFieldConfig.longitude.min, max: coordinateFieldConfig.longitude.max },
                                 { label: 'Operating Hours', key: 'operatingHours' },
                             ].map(({ label, key }) => (<div key={String(key)} className="space-y-1.5">
                                   <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</label>
-                                  <Input value={building[key] ?? ''} onChange={(event) => setBuildings((current) => current.map((item) => (item.id === building.id ? { ...item, [key]: event.target.value } : item)))}/>
+                                  <Input type={key === 'latitude' || key === 'longitude' ? 'number' : undefined} step={key === 'latitude' || key === 'longitude' ? 'any' : undefined} inputMode={key === 'latitude' || key === 'longitude' ? 'decimal' : undefined} min={key === 'latitude' ? coordinateFieldConfig.latitude.min : key === 'longitude' ? coordinateFieldConfig.longitude.min : undefined} max={key === 'latitude' ? coordinateFieldConfig.latitude.max : key === 'longitude' ? coordinateFieldConfig.longitude.max : undefined} value={key === 'latitude' || key === 'longitude' ? formatCoordinateInput(building[key]) : building[key] ?? ''} onChange={(event) => setBuildings((current) => current.map((item) => (item.id === building.id ? { ...item, [key]: event.target.value } : item)))}/>
                                 </div>))}
                               <div className="space-y-1.5">
                                 <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Operational Status</label>
@@ -1284,19 +1325,7 @@ export function AdminDashboard() {
                               <Button size="sm" variant="outline" disabled={saving} onClick={() => void runMutation(async () => {
                                 await apiRequest(`/api/admin/buildings/${building.id}`, {
                                     method: 'PATCH',
-                                    body: {
-                                        universityId: building.universityId,
-                                        name: building.name,
-                                        code: building.code || undefined,
-                                        type: building.type,
-                                        address: building.address,
-                                        mapQuery: building.mapQuery,
-                                        purpose: building.purpose || undefined,
-                                        operatingHours: building.operatingHours || undefined,
-                                        operationalStatus: building.operationalStatus,
-                                        operationalNote: building.operationalNote || undefined,
-                                        description: building.description || undefined,
-                                    },
+                                    body: buildBuildingPayload(building, { clearBlankCoordinates: true }),
                                 });
                             }, 'Building updated')}>
                                 <Pencil className="mr-1.5 h-3.5 w-3.5"/>

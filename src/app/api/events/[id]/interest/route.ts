@@ -17,11 +17,15 @@ export async function POST(
 
     const event = await prisma.event.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, isCancelled: true, isPublished: true },
     })
 
     if (!event) {
       throw new ApiError(404, 'Event not found')
+    }
+
+    if (!event.isPublished || event.isCancelled) {
+      throw new ApiError(409, 'This event is no longer available')
     }
 
     const existing = await prisma.eventInterest.findUnique({

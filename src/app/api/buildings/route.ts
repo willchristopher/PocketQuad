@@ -2,7 +2,57 @@ import { NextRequest } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
 import { getAuthenticatedUser, handleApiError, successResponse } from '@/lib/api/utils'
+import { listCampusBuildingsCompatible } from '@/lib/server/campusBuildings'
 import { getBuildingsCached } from '@/lib/server/universityData'
+
+function normalizeSearchValue(value: string | undefined) {
+  return value?.trim().toLowerCase() ?? ''
+}
+
+function fieldMatchesQuery(value: string | null | undefined, query: string) {
+  if (!value) return false
+  return value.toLowerCase().includes(query)
+}
+
+function listMatchesQuery(values: string[] | null | undefined, query: string) {
+  if (!values || values.length === 0) return false
+  return values.some((value) => fieldMatchesQuery(value, query))
+}
+
+async function getBuildingsForRequest(universityId: string | undefined, query: string | undefined) {
+  try {
+    return await getBuildingsCached(universityId, query)
+  } catch (error) {
+    console.error('Falling back to uncached buildings query', error)
+
+    const records = await listCampusBuildingsCompatible({
+      where: {
+        ...(universityId ? { universityId } : {}),
+      },
+      orderBy: [{ name: 'asc' }],
+    })
+
+    const normalizedQuery = normalizeSearchValue(query)
+    if (!normalizedQuery) {
+      return records
+    }
+
+    return records.filter((record) =>
+      [
+        record.name,
+        record.code,
+        record.type,
+        record.address,
+        record.description,
+        record.purpose,
+        record.mapQuery,
+      ].some((value) => fieldMatchesQuery(value, normalizedQuery)) ||
+      listMatchesQuery(record.categories, normalizedQuery) ||
+      listMatchesQuery(record.services, normalizedQuery) ||
+      listMatchesQuery(record.departments, normalizedQuery),
+    )
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,7 +64,18 @@ export async function GET(request: NextRequest) {
         ? requestedUniversityId
         : profile.universityId ?? undefined
 
-    const buildings = await getBuildingsCached(universityId, query)
+    const buildings = await getBuildingsForRequest(universityId, query)
+    const preferences = await prisma.notificationPreferences.findUnique({
+      where: { userId: profile.id },
+      select: {
+        buildingIds: true,
+      },
+    }).catch((error) => {
+      console.error('Unable to load building notification preferences', error)
+      return null
+    })
+
+    const favoritedBuildingIds = new Set(preferences?.buildingIds ?? [])
     const buildingIds = buildings.map((building) => building.id)
     const now = new Date()
 
@@ -43,6 +104,9 @@ export async function GET(request: NextRequest) {
             },
             orderBy: { createdAt: 'desc' },
             take: 100,
+          }).catch((error) => {
+            console.error('Unable to load building announcements', error)
+            return []
           }),
           prisma.event.findMany({
             where: {
@@ -64,6 +128,9 @@ export async function GET(request: NextRequest) {
             },
             orderBy: { date: 'asc' },
             take: 100,
+          }).catch((error) => {
+            console.error('Unable to load building events', error)
+            return []
           }),
         ])
       : [[], []]
@@ -91,6 +158,7 @@ export async function GET(request: NextRequest) {
     return successResponse(
       buildings.map((building) => ({
         ...building,
+        isFavorited: favoritedBuildingIds.has(building.id),
         announcements: announcementsByBuilding.get(building.id) ?? [],
         upcomingEvents: eventsByBuilding.get(building.id) ?? [],
       })),

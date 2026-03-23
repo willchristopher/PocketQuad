@@ -1,14 +1,13 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CalendarRange, LayoutGrid, LogOut, MessageCircleMore, UserCircle2 } from 'lucide-react';
+import { LayoutGrid, LogOut, MessageCircleMore, UserCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth/context';
 import { useRouter } from 'next/navigation';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
 const mobileNavItems = [
     { icon: LayoutGrid, label: 'Home', href: '/dashboard' },
-    { icon: CalendarRange, label: 'Calendar', href: '/calendar' },
     { icon: MessageCircleMore, label: 'Chat', href: '/chatroom' },
     { icon: UserCircle2, label: 'Profile', href: '/profile' },
 ];

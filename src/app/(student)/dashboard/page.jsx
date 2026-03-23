@@ -3,6 +3,7 @@ import React from 'react';
 import Link from 'next/link';
 import { CalendarClock, Compass, ExternalLink, Flag, Heart, MapPinned, Newspaper, Star, } from 'lucide-react';
 import { BentoGrid, BentoWidget } from '@/components/dashboard/BentoGrid';
+import { NotificationWidget } from '@/components/dashboard/NotificationWidget';
 import { dashboardModulesToPreferences, } from '@/lib/studentData';
 import { getStudentFacingFacultyAvailabilityTone } from '@/lib/faculty';
 import { readFavorites, toggleFavoriteItem } from '@/lib/favorites';
@@ -31,13 +32,27 @@ function formatDue(value) {
         minute: '2-digit',
     }).format(new Date(value));
 }
-function formatNewsTime(value) {
-    return new Intl.DateTimeFormat(undefined, {
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-    }).format(new Date(value));
+function formatBuildingStatusLabel(status) {
+    switch (status) {
+        case 'OPEN':
+            return 'Operating under normal hours';
+        case 'LIMITED':
+            return 'Operating with limited hours';
+        case 'CLOSED':
+            return 'Currently closed';
+        default:
+            return status;
+    }
+}
+function getPinnedBuildingSubtitle(building) {
+    const statusLabel = formatBuildingStatusLabel(building.operationalStatus);
+    if (building.latestAnnouncement?.title) {
+        return `${statusLabel} · ${building.latestAnnouncement.title}`;
+    }
+    if (building.operationalNote) {
+        return `${statusLabel} · ${building.operationalNote}`;
+    }
+    return `${building.type} · ${statusLabel}`;
 }
 const priorityColors = {
     HIGH: 'bg-red-500/10 text-red-600 dark:text-red-400',
@@ -63,7 +78,6 @@ export default function DashboardPage() {
     const [quickLinks, setQuickLinks] = React.useState([]);
     const [clubSnapshot, setClubSnapshot] = React.useState([]);
     const [favoriteFaculty, setFavoriteFaculty] = React.useState([]);
-    const [campusNews, setCampusNews] = React.useState([]);
     const [pinnedBuildings, setPinnedBuildings] = React.useState([]);
     const [pinnedClubs, setPinnedClubs] = React.useState([]);
     const [pinnedResources, setPinnedResources] = React.useState([]);
@@ -90,7 +104,6 @@ export default function DashboardPage() {
                 setQuickLinks(overview.quickLinks);
                 setClubSnapshot(overview.clubSnapshot);
                 setFavoriteFaculty(overview.favoriteFaculty);
-                setCampusNews(overview.campusNews);
                 setPinnedBuildings(overview.pinnedBuildings);
                 setPinnedClubs(overview.pinnedClubs);
             }
@@ -103,7 +116,6 @@ export default function DashboardPage() {
                 setQuickLinks([]);
                 setClubSnapshot([]);
                 setFavoriteFaculty([]);
-                setCampusNews([]);
                 setPinnedBuildings([]);
                 setPinnedClubs([]);
             }
@@ -133,8 +145,8 @@ export default function DashboardPage() {
         ...pinnedBuildings.map((item) => ({
             id: `building-${item.id}`,
             label: item.name,
-            subtitle: `${item.type} · ${item.operationalStatus}`,
-            href: '/campus-map',
+            subtitle: getPinnedBuildingSubtitle(item),
+            href: `/campus-map?buildingId=${item.id}`,
         })),
         ...pinnedResources.map((item) => ({
             id: `resource-${item.id}`,
@@ -197,7 +209,7 @@ export default function DashboardPage() {
           {dashboardPreferences.favorites && (<BentoWidget title="Pinned" icon={Star} span="medium" action={{ label: 'Preferences', href: '/profile' }} className="animate-in-up stagger-3">
               <div className="space-y-1.5">
                 {pinnedItems.length === 0 ? (<p className="rounded-lg border border-dashed border-border/60 p-3 text-center text-xs text-muted-foreground">
-                    No pinned items yet. Pin campus resources below and set building alerts or club interests in your profile.
+                    No pinned items yet. Save buildings from the campus map, pin campus resources below, and manage building alerts in your profile.
                   </p>) : (pinnedItems.map((item) => (<Link key={item.id} href={item.href} className="block rounded-lg border border-border/40 bg-muted/5 px-3 py-2.5 transition-colors hover:bg-muted/30">
                       <p className="text-sm font-semibold text-foreground">{item.label}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">{item.subtitle}</p>
@@ -228,17 +240,8 @@ export default function DashboardPage() {
               </div>
             </BentoWidget>)}
 
-          {dashboardPreferences.news && (<BentoWidget title="Campus News" icon={Newspaper} span="medium" action={{ label: 'Notifications', href: '/notifications' }} className="animate-in-up stagger-5">
-              <div className="space-y-1.5">
-                {campusNews.length === 0 ? (<p className="rounded-lg border border-dashed border-border/60 p-3 text-center text-xs text-muted-foreground">
-                    No campus updates right now.
-                  </p>) : (campusNews.map((item) => (<a key={item.id} href={item.linkUrl ?? '/notifications'} target={item.linkUrl ? '_blank' : undefined} rel={item.linkUrl ? 'noreferrer' : undefined} className="block rounded-lg border border-border/40 bg-muted/5 px-3 py-2.5 transition-colors hover:bg-muted/30">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{item.audienceLabel}</p>
-                      <p className="line-clamp-1 text-sm font-semibold">{item.title}</p>
-                      <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.message}</p>
-                      <p className="mt-1 text-[11px] text-muted-foreground">{formatNewsTime(item.createdAt)}</p>
-                    </a>)))}
-              </div>
+          {dashboardPreferences.news && (<BentoWidget title="Notifications" icon={Newspaper} span="medium" action={{ label: 'Inbox', href: '/notifications' }} className="animate-in-up stagger-5">
+              <NotificationWidget />
             </BentoWidget>)}
 
           {dashboardPreferences.services && (<BentoWidget title="Services" icon={Compass} span="medium" action={{ label: 'All', href: '/services-status' }} className="animate-in-up stagger-6">
@@ -307,7 +310,7 @@ function DashboardLoadingGrid({ dashboardPreferences }) {
 
       {dashboardPreferences.faculty && (<DashboardLoadingWidget title="Favorite Faculty" icon={Heart} className="animate-in-up stagger-4"/>)}
 
-      {dashboardPreferences.news && (<DashboardLoadingWidget title="Campus News" icon={Newspaper} className="animate-in-up stagger-5"/>)}
+      {dashboardPreferences.news && (<DashboardLoadingWidget title="Notifications" icon={Newspaper} className="animate-in-up stagger-5"/>)}
 
       {dashboardPreferences.services && (<DashboardLoadingWidget title="Services" icon={Compass} className="animate-in-up stagger-6"/>)}
 

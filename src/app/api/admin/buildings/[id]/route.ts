@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse } from '@/lib/api/utils'
+import { updateCampusBuildingCompatible } from '@/lib/server/campusBuildings'
 import { invalidateUniversityData, UNIVERSITY_DATA_TAGS } from '@/lib/server/universityData'
 import { campusBuildingUpdateSchema } from '@/lib/validations/admin'
 
@@ -26,15 +27,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
-    const updated = await prisma.campusBuilding.update({
-      where: { id },
-      data: payload,
-      include: {
-        university: {
-          select: { id: true, name: true, slug: true },
-        },
-      },
-    })
+    const updated = await updateCampusBuildingCompatible(id, payload)
     invalidateUniversityData(UNIVERSITY_DATA_TAGS.buildings)
 
     return successResponse(updated)

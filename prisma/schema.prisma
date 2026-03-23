@@ -42,6 +42,7 @@ enum PortalPermission {
 enum NotificationType {
   OFFICE_HOUR
   NEW_EVENT
+  EVENT_UPDATED
   EVENT_CANCELLED
   DEADLINE
   ANNOUNCEMENT
@@ -392,6 +393,8 @@ model CampusBuilding {
   type         String
   address      String
   mapQuery     String     @map("map_query")
+  latitude     Float?
+  longitude    Float?
   purpose      String?
   description  String?
   accessibilityNotes String? @map("accessibility_notes")

@@ -65,6 +65,18 @@ export const createEventSchema = z.object({
   buildingId: z.string().cuid().optional(),
 })
 
+export const updateFacultyEventSchema = z.object({
+  title: z.string().trim().min(1).max(120).optional(),
+  description: z.string().trim().min(1).max(2000).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD format').optional(),
+  time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:MM 24-hour format').optional(),
+  location: z.string().trim().min(1).max(160).optional(),
+  category: z.enum(['ACADEMIC', 'SOCIAL', 'SPORTS', 'ARTS', 'CAREER', 'CLUBS', 'WELLNESS', 'OTHER']).optional(),
+  maxAttendees: z.number().int().min(1).max(10000).nullable().optional(),
+  buildingId: z.string().cuid().nullable().optional(),
+  isCancelled: z.boolean().optional(),
+}).strict()
+
 export const createAnnouncementSchema = z.object({
   title: z.string().trim().min(1).max(120),
   message: z.string().trim().min(1).max(2000),
