@@ -32,14 +32,27 @@ function formatDue(value) {
         minute: '2-digit',
     }).format(new Date(value));
 }
+function formatBuildingStatusLabel(status) {
+    switch (status) {
+        case 'OPEN':
+            return 'Operating under normal hours';
+        case 'LIMITED':
+            return 'Operating with limited hours';
+        case 'CLOSED':
+            return 'Currently closed';
+        default:
+            return status;
+    }
+}
 function getPinnedBuildingSubtitle(building) {
+    const statusLabel = formatBuildingStatusLabel(building.operationalStatus);
     if (building.latestAnnouncement?.title) {
-        return `${building.operationalStatus} · ${building.latestAnnouncement.title}`;
+        return `${statusLabel} · ${building.latestAnnouncement.title}`;
     }
     if (building.operationalNote) {
-        return `${building.operationalStatus} · ${building.operationalNote}`;
+        return `${statusLabel} · ${building.operationalNote}`;
     }
-    return `${building.type} · ${building.operationalStatus}`;
+    return `${building.type} · ${statusLabel}`;
 }
 const priorityColors = {
     HIGH: 'bg-red-500/10 text-red-600 dark:text-red-400',

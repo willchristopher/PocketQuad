@@ -2,7 +2,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BellRing, CalendarClock, CalendarRange, ExternalLink, Flag, LayoutGrid, LogOut, MapPinned, MessageCircleMore, UserCircle2, Users2, } from 'lucide-react';
+import { BellRing, CalendarClock, ExternalLink, Flag, LayoutGrid, LogOut, MapPinned, MessageCircleMore, UserCircle2, Users2, } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth/context';
 
@@ -11,7 +11,6 @@ const sections = [
         title: null,
         items: [
             { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard' },
-            { icon: CalendarRange, label: 'Calendar', href: '/calendar' },
         ],
     },
     {

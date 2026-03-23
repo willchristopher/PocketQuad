@@ -1,11 +1,10 @@
 'use client';
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarRange, CalendarClock, ExternalLink, LayoutGrid, MapPinned, MessageCircleMore, UserCircle2, Users2, BellRing, } from 'lucide-react';
+import { CalendarClock, ExternalLink, LayoutGrid, MapPinned, MessageCircleMore, UserCircle2, Users2, BellRing, } from 'lucide-react';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, } from '@/components/ui/command';
 const navigationItems = [
     { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard' },
-    { icon: CalendarRange, label: 'Calendar', href: '/calendar' },
     { icon: CalendarClock, label: 'Events', href: '/events' },
     { icon: Users2, label: 'Faculty', href: '/faculty-directory' },
     { icon: MessageCircleMore, label: 'Chat', href: '/chatroom' },

@@ -16,7 +16,7 @@ import {
   Star,
 } from 'lucide-react'
 
-import CampusLeafletMap from '@/components/campus/CampusLeafletMap'
+import CampusGoogleMap from '@/components/campus/CampusGoogleMap'
 import { ApiClientError, apiRequest } from '@/lib/api/client'
 import { useAuth } from '@/lib/auth/context'
 import { cn } from '@/lib/utils'
@@ -30,6 +30,19 @@ const statusTone = {
   OPEN: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
   LIMITED: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   CLOSED: 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300',
+}
+
+function formatBuildingStatusLabel(status) {
+  switch (status) {
+    case 'OPEN':
+      return 'Operating under normal hours'
+    case 'LIMITED':
+      return 'Operating with limited hours'
+    case 'CLOSED':
+      return 'Currently closed'
+    default:
+      return status
+  }
 }
 
 function buildDirectionsLink(building) {
@@ -202,7 +215,8 @@ export default function CampusMapPage() {
         </h1>
         <p className="max-w-3xl text-sm text-muted-foreground">
           Search campus buildings and resources, save favorites for your dashboard, open
-          directions in Google Maps, or focus a selected location directly on the live map below.
+          directions in Google Maps, or focus a selected location directly in the integrated map
+          below.
         </p>
       </section>
 
@@ -307,11 +321,11 @@ export default function CampusMapPage() {
                       <Badge
                         variant="outline"
                         className={cn(
-                          'shrink-0 rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em]',
+                          'shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-medium',
                           statusTone[building.operationalStatus],
                         )}
                       >
-                        {building.operationalStatus}
+                        {formatBuildingStatusLabel(building.operationalStatus)}
                       </Badge>
                     </div>
 
@@ -360,11 +374,11 @@ export default function CampusMapPage() {
                   <Badge
                     variant="outline"
                     className={cn(
-                      'rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.18em]',
+                      'rounded-full border px-3 py-1 text-[11px] font-medium',
                       statusTone[selectedBuilding.operationalStatus],
                     )}
                   >
-                    {selectedBuilding.operationalStatus}
+                    {formatBuildingStatusLabel(selectedBuilding.operationalStatus)}
                   </Badge>
                 </div>
 
@@ -518,17 +532,17 @@ export default function CampusMapPage() {
           >
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold">Map preview</p>
+                <p className="text-sm font-semibold">Google Maps preview</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Pins reflect the current search results. Use <span className="font-semibold text-foreground">Show location</span> to focus the selected building.
+                  The map shows the currently selected building only. Use <span className="font-semibold text-foreground">Show location</span> to focus its pin.
                 </p>
               </div>
               <Badge variant="outline" className="rounded-full border-border/70 px-3 py-1 text-[11px] uppercase tracking-[0.18em]">
-                {buildings.length} visible pin{buildings.length === 1 ? '' : 's'}
+                {selectedBuilding ? '1 active pin' : 'No active pin'}
               </Badge>
             </div>
 
-            <CampusLeafletMap
+            <CampusGoogleMap
               buildings={buildings}
               selectedBuildingId={selectedBuilding?.id ?? null}
               focusBuildingId={selectedBuilding?.id ?? null}
