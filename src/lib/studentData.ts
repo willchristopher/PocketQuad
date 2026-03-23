@@ -350,7 +350,7 @@ export const dashboardModuleConfig: Array<{ id: DashboardModuleId; label: string
   { id: 'deadlines', label: 'Deadlines' },
   { id: 'favorites', label: 'Pinned' },
   { id: 'faculty', label: 'Favorite Faculty' },
-  { id: 'news', label: 'Campus News' },
+  { id: 'news', label: 'Notifications' },
   { id: 'services', label: 'Services' },
   { id: 'links', label: 'Quick Links' },
   { id: 'clubs', label: 'Clubs' },

@@ -5,6 +5,8 @@ import {
 } from '@/lib/auth/portalPermissions'
 
 const optionalTrimmed = z.string().trim().optional().transform((value) => value || undefined)
+const latitudeSchema = z.number().min(-90).max(90)
+const longitudeSchema = z.number().min(-180).max(180)
 
 export const universityCreateSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -89,6 +91,8 @@ export const campusBuildingCreateSchema = z.object({
   type: z.string().trim().min(2).max(80),
   address: z.string().trim().min(2).max(240),
   mapQuery: z.string().trim().min(2).max(240),
+  latitude: latitudeSchema.optional(),
+  longitude: longitudeSchema.optional(),
   purpose: z.string().trim().max(500).optional(),
   description: z.string().trim().max(2000).optional(),
   operatingHours: z.string().trim().max(180).optional(),
@@ -106,6 +110,8 @@ export const campusBuildingUpdateSchema = z.object({
   type: z.string().trim().min(2).max(80).optional(),
   address: z.string().trim().min(2).max(240).optional(),
   mapQuery: z.string().trim().min(2).max(240).optional(),
+  latitude: latitudeSchema.optional().nullable(),
+  longitude: longitudeSchema.optional().nullable(),
   purpose: z.string().trim().max(500).optional().nullable(),
   description: z.string().trim().max(2000).optional().nullable(),
   operatingHours: z.string().trim().max(180).optional().nullable(),

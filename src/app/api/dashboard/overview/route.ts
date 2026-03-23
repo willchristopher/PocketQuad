@@ -18,6 +18,7 @@ export async function GET() {
     const { profile } = await getAuthenticatedUser()
 
     const universityId = profile.universityId ?? undefined
+    const now = new Date()
     const preferences = await prisma.notificationPreferences.findUnique({
       where: { userId: profile.id },
       select: {
@@ -133,7 +134,7 @@ export async function GET() {
         prisma.event.findMany({
           where: {
             ...(universityId ? { universityId } : {}),
-            date: { gte: new Date() },
+            date: { gte: now },
             isPublished: true,
             isCancelled: false,
           },
@@ -150,7 +151,7 @@ export async function GET() {
         prisma.deadline.findMany({
           where: {
             userId: profile.id,
-            dueDate: { gte: new Date() },
+            dueDate: { gte: now },
           },
           select: {
             id: true,
@@ -194,10 +195,40 @@ export async function GET() {
                 type: true,
                 address: true,
                 operationalStatus: true,
+                operationalNote: true,
+                announcements: {
+                  where: {
+                    isActive: true,
+                    scope: 'BUILDING',
+                    OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+                  },
+                  select: {
+                    id: true,
+                    title: true,
+                    message: true,
+                    createdAt: true,
+                    expiresAt: true,
+                  },
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                },
               },
             }).then((records) => {
               const byId = new Map(records.map((record) => [record.id, record]))
-              return pinnedBuildingIds.map((id) => byId.get(id)).filter(Boolean)
+              return pinnedBuildingIds.flatMap((id) => {
+                const record = byId.get(id)
+
+                if (!record) {
+                  return []
+                }
+
+                const { announcements, ...building } = record
+
+                return [{
+                  ...building,
+                  latestAnnouncement: announcements[0] ?? null,
+                }]
+              })
             })
           : Promise.resolve([]),
         pinnedClubIds.length > 0

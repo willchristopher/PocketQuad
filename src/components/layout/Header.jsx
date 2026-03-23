@@ -5,8 +5,8 @@ import { Bell, BellRing, CalendarClock, CalendarRange, ExternalLink, Flag, Layou
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
-import { apiRequest } from '@/lib/api/client';
-import { subscribeToNotifications } from '@/lib/supabase/realtime';
+import { NotificationBadge } from '@/components/notifications/NotificationBadge';
+import { useUnreadNotificationCount } from '@/hooks/useNotifications';
 import { useUniversityTheme } from '@/lib/theme';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -67,45 +67,17 @@ function getPageTitle(pathname) {
 export function Header() {
     const pathname = usePathname();
     const router = useRouter();
-    const { profile, signOut } = useAuth();
+    const { signOut } = useAuth();
     const { themeMode, setThemeMode, universityColors, universityName } = useUniversityTheme();
     const [mounted, setMounted] = React.useState(false);
-    const [unreadCount, setUnreadCount] = React.useState(0);
     const [sheetOpen, setSheetOpen] = React.useState(false);
+    const { unreadCount } = useUnreadNotificationCount();
     const handleSignOut = async () => {
         setSheetOpen(false);
         await signOut();
         router.push('/login');
     };
     React.useEffect(() => setMounted(true), []);
-    React.useEffect(() => {
-        if (!profile?.id) {
-            setUnreadCount(0);
-            return;
-        }
-        let active = true;
-        const loadUnreadCount = async () => {
-            try {
-                const result = await apiRequest('/api/notifications?unread=true&countOnly=true');
-                if (active) {
-                    setUnreadCount(result.count);
-                }
-            }
-            catch {
-                if (active) {
-                    setUnreadCount(0);
-                }
-            }
-        };
-        void loadUnreadCount();
-        const realtime = subscribeToNotifications(profile.id, () => {
-            void loadUnreadCount();
-        });
-        return () => {
-            active = false;
-            void realtime.unsubscribe();
-        };
-    }, [profile?.id]);
     return (<header className="sticky top-0 z-30 flex h-14 w-full items-center justify-between gap-4 border-b border-border/50 bg-background/80 px-4 backdrop-blur-xl md:px-6">
       <div className="flex min-w-0 items-center gap-2">
         {/* Mobile hamburger — opens full nav sheet */}
@@ -185,7 +157,9 @@ export function Header() {
 
         <Link href="/notifications" className="relative flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground" aria-label="Notifications">
           <Bell className="h-4 w-4"/>
-          {unreadCount > 0 && (<span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary"/>)}
+          <div className="absolute -right-1.5 -top-1">
+            <NotificationBadge count={unreadCount}/>
+          </div>
         </Link>
       </div>
     </header>);

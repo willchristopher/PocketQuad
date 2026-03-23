@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/lib/auth/context';
 const navigationItems = [
-    { icon: LayoutGrid, label: 'Dashboard', href: '/faculty/dashboard' },
+    { icon: LayoutGrid, label: 'Workspace', href: '/faculty/dashboard' },
     { icon: UserCircle2, label: 'Profile', href: '/faculty/profile' },
 ];
 export function FacultySidebar() {

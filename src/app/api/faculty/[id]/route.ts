@@ -2,7 +2,6 @@ import { prisma } from '@/lib/prisma'
 import {
   getStudentFacingFacultyAvailability,
   parseLegacyFacultyAvailability,
-  summarizeFacultyOfficeHours,
 } from '@/lib/faculty'
 import { isMissingDatabaseFieldError } from '@/lib/server/dbCompatibility'
 import {
@@ -164,7 +163,6 @@ export async function GET(
 
     return successResponse({
       ...facultyRecord,
-      officeHours: summarizeFacultyOfficeHours(facultyRecord.officeHourSlots),
       studentAvailabilityLabel: studentAvailability.label,
       studentAvailabilityState: studentAvailability.state,
       isFavorited: favorites.length > 0,

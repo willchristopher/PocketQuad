@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import Link from 'next/link';
 import { Check, ChevronDown, GraduationCap, LayoutGrid, Mail, Moon, Monitor, Palette, Pencil, Sun } from 'lucide-react';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth/context';
@@ -14,19 +15,24 @@ const defaultPreferences = {
     deadlineReminders: true,
     emailDigest: true,
     pushEnabled: false,
+    buildingAlerts: false,
+    buildingIds: [],
+    clubInterestIds: [],
     theme: 'system',
 };
 const preferenceLabels = [
     { key: 'officeHourChanges', label: 'Office Hour Updates' },
-    { key: 'newEvents', label: 'New Event Announcements' },
+    { key: 'newEvents', label: 'Faculty Event Alerts' },
     { key: 'eventReminders', label: 'Event Reminders' },
     { key: 'deadlineReminders', label: 'Deadline Reminders' },
     { key: 'emailDigest', label: 'Email Digest' },
     { key: 'pushEnabled', label: 'Push Notifications' },
+    { key: 'buildingAlerts', label: 'Building Alerts' },
 ];
 export function ProfileSettings() {
     const { profile, refreshProfile } = useAuth();
     const isFaculty = profile?.role === 'FACULTY';
+    const isStudent = profile?.role === 'STUDENT';
     const [displayName, setDisplayName] = React.useState('');
     const [editingProfile, setEditingProfile] = React.useState(false);
     const [preferences, setPreferences] = React.useState(defaultPreferences);
@@ -262,6 +268,24 @@ export function ProfileSettings() {
                   <span className={cn('h-4 w-4 rounded-full bg-white transition-transform', preferences[item.key] ? 'translate-x-5' : 'translate-x-0')}/>
                 </span>
               </button>))}
+            {isStudent && (<div className="px-5 py-4">
+                <div className="rounded-xl border border-border/60 bg-muted/15 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">Saved buildings</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {(preferences.buildingIds?.length ?? 0)} building{(preferences.buildingIds?.length ?? 0) === 1 ? '' : 's'} saved for your dashboard.
+                      </p>
+                    </div>
+                    <Link href="/campus-map" className="inline-flex items-center rounded-lg border border-border/60 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted/25">
+                      Manage on campus map
+                    </Link>
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Turn on Building Alerts above if you want notifications when a saved building closes, changes status, or gets a new building announcement.
+                  </p>
+                </div>
+              </div>)}
           </div>)}
       </section>
 

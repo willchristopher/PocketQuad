@@ -31,7 +31,7 @@ export interface UserProfile extends User {
 
 export interface Notification {
   id: string;
-  type: 'officeHour' | 'newEvent' | 'eventCancelled' | 'deadline' | 'announcement';
+  type: 'officeHour' | 'newEvent' | 'eventUpdated' | 'eventCancelled' | 'deadline' | 'announcement' | 'system';
   title: string;
   message: string;
   timestamp: Date;

@@ -100,7 +100,10 @@ export default function FacultyDetailPage({ params }) {
       </div>);
     }
     const tone = toneClasses[getStudentFacingFacultyAvailabilityTone(faculty.studentAvailabilityState)];
-    const mapUrl = `https://maps.google.com/?q=${encodeURIComponent(faculty.officeLocation)}`;
+    const hasOfficeLocation = faculty.officeLocation && faculty.officeLocation.trim().toUpperCase() !== 'TBD';
+    const mapUrl = hasOfficeLocation
+        ? `https://maps.google.com/?q=${encodeURIComponent(faculty.officeLocation)}`
+        : null;
     return (<div className="mx-auto max-w-5xl space-y-6">
       <Link href="/faculty-directory" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
         <ArrowLeft className="h-4 w-4"/>
@@ -146,10 +149,13 @@ export default function FacultyDetailPage({ params }) {
                 {faculty.isFavorited ? 'Saved to favorites' : 'Save to favorites'}
               </button>
 
-              <a href={mapUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-xl border border-border/60 px-3.5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted/35">
-                <MapPin className="h-4 w-4"/>
-                Get directions
-              </a>
+              {mapUrl ? (<a href={mapUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-xl border border-border/60 px-3.5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted/35">
+                  <MapPin className="h-4 w-4"/>
+                  Get directions
+                </a>) : (<div className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-border/60 px-3.5 py-2.5 text-sm font-medium text-muted-foreground">
+                  <MapPin className="h-4 w-4"/>
+                  Office location not posted yet
+                </div>)}
             </div>
 
             {actionMessage && (<p className="text-sm text-emerald-700 dark:text-emerald-300">{actionMessage}</p>)}
@@ -199,10 +205,10 @@ export default function FacultyDetailPage({ params }) {
                   Copy email address
                 </button>
 
-                <a href={mapUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-border/60 px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/35">
-                  <Navigation className="h-4 w-4"/>
-                  Open office in Maps
-                </a>
+                {mapUrl ? (<a href={mapUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-border/60 px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/35">
+                    <Navigation className="h-4 w-4"/>
+                    Open office in Maps
+                  </a>) : null}
               </div>
             </div>
           </div>

@@ -248,17 +248,39 @@ export async function POST(request: NextRequest) {
       }))
     }
 
-    const recipients = await prisma.user.findMany({
-      where: {
-        id: {
-          not: profile.id,
-        },
-        universityId: profile.universityId,
-      },
-      select: {
-        id: true,
-      },
-    })
+    const recipients =
+      announcement.scope === 'BUILDING' && announcement.buildingId
+        ? await prisma.user.findMany({
+            where: {
+              id: {
+                not: profile.id,
+              },
+              role: 'STUDENT',
+              universityId: profile.universityId,
+              notificationPreferences: {
+                is: {
+                  buildingAlerts: true,
+                  buildingIds: {
+                    has: announcement.buildingId,
+                  },
+                },
+              },
+            },
+            select: {
+              id: true,
+            },
+          })
+        : await prisma.user.findMany({
+            where: {
+              id: {
+                not: profile.id,
+              },
+              universityId: profile.universityId,
+            },
+            select: {
+              id: true,
+            },
+          })
 
     const audienceLabel = getAnnouncementAudienceLabel(announcement)
 
@@ -271,7 +293,9 @@ export async function POST(request: NextRequest) {
           message: `${audienceLabel}: ${announcement.message}`,
           actionUrl:
             announcement.linkUrl ??
-            (announcement.scope === 'BUILDING' ? '/campus-map' : '/notifications'),
+            (announcement.scope === 'BUILDING' && announcement.buildingId
+              ? `/campus-map?buildingId=${announcement.buildingId}`
+              : '/notifications'),
           actionLabel: announcement.linkUrl ? 'Open link' : 'View details',
         })),
       })
