@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Heart, Mail, MapPin, Phone } from 'lucide-react';
+import { ArrowLeft, Copy, Heart, Mail, MapPin, Navigation, Phone } from 'lucide-react';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
 import { getStudentFacingFacultyAvailabilityTone } from '@/lib/faculty';
 import { cn } from '@/lib/utils';
@@ -24,6 +24,7 @@ export default function FacultyDetailPage({ params }) {
     const [faculty, setFaculty] = React.useState(null);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState(null);
+  const [actionMessage, setActionMessage] = React.useState(null);
     React.useEffect(() => {
         let active = true;
         const loadFaculty = async () => {
@@ -57,6 +58,7 @@ export default function FacultyDetailPage({ params }) {
         if (!faculty)
             return;
         setError(null);
+      setActionMessage(null);
         try {
             const result = await apiRequest(`/api/faculty/${faculty.id}/favorite`, {
                 method: 'POST',
@@ -73,6 +75,19 @@ export default function FacultyDetailPage({ params }) {
             setError(message);
         }
     };
+      const copyEmail = async () => {
+        if (!faculty)
+          return;
+        try {
+          await navigator.clipboard.writeText(faculty.email);
+          setActionMessage('Email copied to clipboard');
+          setError(null);
+        }
+        catch {
+          setError('Unable to copy email right now');
+          setActionMessage(null);
+        }
+      };
     if (loading) {
         return <p className="text-sm text-muted-foreground">Loading faculty profile...</p>;
     }
@@ -136,6 +151,8 @@ export default function FacultyDetailPage({ params }) {
                 Get directions
               </a>
             </div>
+
+            {actionMessage && (<p className="text-sm text-emerald-700 dark:text-emerald-300">{actionMessage}</p>)}
           </div>
 
           <div className="space-y-4">
@@ -162,6 +179,31 @@ export default function FacultyDetailPage({ params }) {
             <div className="rounded-[24px] border border-border/60 bg-muted/10 p-5">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Office hours</p>
               <p className="mt-3 text-sm text-muted-foreground">{faculty.officeHours}</p>
+            </div>
+
+            <div className="rounded-[24px] border border-border/60 bg-muted/10 p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Actions</p>
+              <div className="mt-3 grid gap-2">
+                <a href={`mailto:${faculty.email}`} className="inline-flex items-center gap-2 rounded-xl border border-border/60 px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/35">
+                  <Mail className="h-4 w-4"/>
+                  Email faculty
+                </a>
+
+                {faculty.phone ? (<a href={`tel:${faculty.phone}`} className="inline-flex items-center gap-2 rounded-xl border border-border/60 px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/35">
+                    <Phone className="h-4 w-4"/>
+                    Call office
+                  </a>) : null}
+
+                <button type="button" onClick={() => void copyEmail()} className="inline-flex items-center gap-2 rounded-xl border border-border/60 px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-muted/35">
+                  <Copy className="h-4 w-4"/>
+                  Copy email address
+                </button>
+
+                <a href={mapUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-border/60 px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/35">
+                  <Navigation className="h-4 w-4"/>
+                  Open office in Maps
+                </a>
+              </div>
             </div>
           </div>
         </div>
