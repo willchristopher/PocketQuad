@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth/context';
 import { dashboardModuleConfig, dashboardModuleIds, dashboardModulesToPreferences, } from '@/lib/studentData';
 import { useUniversityTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 const defaultPreferences = {
     officeHourChanges: true,
@@ -182,10 +183,9 @@ export function ProfileSettings() {
             setSavingDashboardPrefs(false);
         }
     };
-    return (<div className="mx-auto max-w-3xl space-y-6">
-      <section className="relative overflow-hidden rounded-2xl border border-border/60 bg-card p-6 md:p-7 animate-in-up">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-primary/10 blur-3xl"/>
-        <div className="relative">
+    return (<div className="mx-auto max-w-4xl space-y-7">
+      <section className="hero-panel rounded-[2rem] p-6 md:p-7 animate-in-soft">
+        <div>
           <h1 className="font-display text-2xl font-extrabold tracking-tight md:text-3xl">
             Profile and Preferences
           </h1>
@@ -193,16 +193,16 @@ export function ProfileSettings() {
             Manage your account name and notification settings for your {isFaculty ? 'faculty' : 'student'} account.
           </p>
 
-          <div className="mt-5 rounded-xl border border-border/50 bg-muted/20 p-4">
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Account Email</p>
+          <div className="subtle-panel mt-5 rounded-[1.3rem] p-4">
+            <p className="mb-2 poster-label">Account Email</p>
             <p className="inline-flex items-center gap-2 text-sm font-medium">
               <Mail className="h-4 w-4 text-muted-foreground"/>
               {profile?.email ?? 'Loading...'}
             </p>
           </div>
 
-          <div className="mt-3 rounded-xl border border-border/50 bg-muted/20 p-4">
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">University</p>
+          <div className="subtle-panel mt-3 rounded-[1.3rem] p-4">
+            <p className="mb-2 poster-label">University</p>
             <p className="inline-flex items-center gap-2 text-sm font-medium">
               <GraduationCap className="h-4 w-4 text-muted-foreground"/>
               {profile?.university?.name ?? 'Not linked to a university'}
@@ -221,8 +221,8 @@ export function ProfileSettings() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-border/60 bg-card animate-in-up stagger-1">
-        <button type="button" onClick={() => toggleSection('details')} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/20">
+      <section className="panel-card overflow-hidden rounded-[1.8rem] animate-in-up stagger-1">
+        <button type="button" onClick={() => toggleSection('details')} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/60">
           <div>
             <h2 className="text-base font-bold">Profile Details</h2>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -234,17 +234,17 @@ export function ProfileSettings() {
 
         {openSections.details && (<div className="border-t border-border/60 p-4">
             <div className="mb-4 flex justify-end">
-              {!editingProfile ? (<button onClick={() => setEditingProfile(true)} className="inline-flex items-center gap-1.5 rounded-xl border border-border/60 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted/35">
+              {!editingProfile ? (<button onClick={() => setEditingProfile(true)} className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition-colors hover:bg-muted">
                   <Pencil className="h-3.5 w-3.5"/>
                   Edit
-                </button>) : (<button onClick={handleProfileSave} disabled={savingProfile} className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-70">
+                </button>) : (<Button onClick={handleProfileSave} disabled={savingProfile} size="sm" className="rounded-full px-4 py-2 text-xs uppercase tracking-[0.12em]">
                   <Check className="h-3.5 w-3.5"/>
                   {savingProfile ? 'Saving...' : 'Save'}
-                </button>)}
+                </Button>)}
             </div>
 
             <div className="max-w-md">
-              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
+              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Name
               </label>
               <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} disabled={!editingProfile || savingProfile} variant="soft"/>
@@ -252,8 +252,8 @@ export function ProfileSettings() {
           </div>)}
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-border/60 bg-card animate-in-up stagger-2">
-        <button type="button" onClick={() => toggleSection('notifications')} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/20">
+      <section className="panel-card overflow-hidden rounded-[1.8rem] animate-in-up stagger-2">
+        <button type="button" onClick={() => toggleSection('notifications')} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/60">
           <div>
             <h2 className="text-base font-bold">Notification Preferences</h2>
             <p className="mt-1 text-xs text-muted-foreground">These settings are saved to your account.</p>
@@ -262,14 +262,14 @@ export function ProfileSettings() {
         </button>
 
         {openSections.notifications && (<div className="divide-y divide-border/40 border-t border-border/60">
-            {preferenceLabels.map((item, index) => (<button key={item.key} onClick={() => void handlePreferenceToggle(item.key)} className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-muted/20 animate-in-up" style={{ animationDelay: `${0.03 * (index + 1)}s` }} disabled={savingPrefs}>
+            {preferenceLabels.map((item, index) => (<button key={item.key} onClick={() => void handlePreferenceToggle(item.key)} className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-muted/50 animate-in-up" style={{ animationDelay: `${0.03 * (index + 1)}s` }} disabled={savingPrefs}>
                 <span className="text-sm font-medium">{item.label}</span>
                 <span className={cn('inline-flex h-6 w-11 items-center rounded-full p-1 transition-colors', preferences[item.key] ? 'bg-primary' : 'bg-muted')}>
                   <span className={cn('h-4 w-4 rounded-full bg-white transition-transform', preferences[item.key] ? 'translate-x-5' : 'translate-x-0')}/>
                 </span>
               </button>))}
             {isStudent && (<div className="px-5 py-4">
-                <div className="rounded-xl border border-border/60 bg-muted/15 p-4">
+                <div className="subtle-panel rounded-[1.3rem] p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold">Saved buildings</p>
@@ -277,7 +277,7 @@ export function ProfileSettings() {
                         {(preferences.buildingIds?.length ?? 0)} building{(preferences.buildingIds?.length ?? 0) === 1 ? '' : 's'} saved for your dashboard.
                       </p>
                     </div>
-                    <Link href="/campus-map" className="inline-flex items-center rounded-lg border border-border/60 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted/25">
+                    <Link href="/campus-map" className="inline-flex items-center rounded-full border border-border/60 bg-card px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition-colors hover:bg-muted">
                       Manage on campus map
                     </Link>
                   </div>
@@ -289,8 +289,8 @@ export function ProfileSettings() {
           </div>)}
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-border/60 bg-card animate-in-up stagger-3">
-        <button type="button" onClick={() => toggleSection('dashboard')} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/20">
+      <section className="panel-card overflow-hidden rounded-[1.8rem] animate-in-up stagger-3">
+        <button type="button" onClick={() => toggleSection('dashboard')} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/60">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <LayoutGrid className="h-4 w-4 text-primary"/>
@@ -308,7 +308,7 @@ export function ProfileSettings() {
               <p className="text-xs text-muted-foreground">
                 Turn dashboard sections on or off. Your home dashboard will reflect these changes the next time it renders.
               </p>
-              <button type="button" onClick={() => void handleDashboardReset()} disabled={savingDashboardPrefs} className="shrink-0 rounded-xl border border-border/60 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted/35 disabled:opacity-60">
+              <button type="button" onClick={() => void handleDashboardReset()} disabled={savingDashboardPrefs} className="shrink-0 rounded-full border border-border/60 bg-card px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition-colors hover:bg-muted disabled:opacity-60">
                 Reset
               </button>
             </div>
@@ -316,9 +316,9 @@ export function ProfileSettings() {
             <div className="grid gap-2 sm:grid-cols-2">
               {dashboardModuleConfig.map((module) => {
                 const enabled = dashboardPreferences[module.id];
-                return (<button key={module.id} type="button" onClick={() => void handleDashboardModuleToggle(module.id)} disabled={savingDashboardPrefs} className={cn('rounded-xl border px-3 py-3 text-left transition-colors disabled:opacity-60', enabled
-                        ? 'border-primary/40 bg-primary/10 text-foreground'
-                        : 'border-border/60 bg-muted/10 text-muted-foreground hover:bg-muted/25')}>
+                return (<button key={module.id} type="button" onClick={() => void handleDashboardModuleToggle(module.id)} disabled={savingDashboardPrefs} className={cn('rounded-[1.25rem] border px-4 py-3.5 text-left transition-colors disabled:opacity-60', enabled
+                        ? 'border-primary/35 bg-secondary text-foreground'
+                        : 'border-border/60 bg-card text-muted-foreground hover:bg-muted')}>
                     <p className="text-sm font-semibold">{module.label}</p>
                     <p className="mt-1 text-[11px]">{enabled ? 'Visible on dashboard' : 'Hidden from dashboard'}</p>
                   </button>);
@@ -361,8 +361,8 @@ function ThemeSelector({ open, onToggle, }) {
             icon: <Palette className="h-5 w-5"/>,
         });
     }
-    return (<section className="overflow-hidden rounded-2xl border border-border/60 bg-card animate-in-up stagger-4">
-      <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/20">
+    return (<section className="panel-card overflow-hidden rounded-[1.8rem] animate-in-up stagger-4">
+      <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/60">
         <div>
           <h2 className="text-base font-bold">Appearance</h2>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -374,10 +374,10 @@ function ThemeSelector({ open, onToggle, }) {
 
       {open && (<>
           <div className="grid grid-cols-2 gap-3 border-t border-border/60 p-4">
-            {themeOptions.map((option) => (<button key={option.id} onClick={() => setThemeMode(option.id)} className={cn('flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all hover:bg-muted/20', themeMode === option.id
-                    ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                    : 'border-border/60')}>
-                <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg transition-colors', themeMode === option.id ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>
+            {themeOptions.map((option) => (<button key={option.id} onClick={() => setThemeMode(option.id)} className={cn('flex flex-col items-center gap-2 rounded-[1.25rem] border p-4 text-center transition-all hover:bg-card/55', themeMode === option.id
+                    ? 'border-primary/35 bg-secondary ring-1 ring-primary/20'
+                    : 'border-border/60 bg-card')}>
+                <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg transition-colors', themeMode === option.id ? 'bg-card text-primary' : 'bg-muted text-muted-foreground')}>
                   {option.icon}
                 </div>
                 <div>

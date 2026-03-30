@@ -1,4 +1,4 @@
-// components/layout/SkipLink.tsx
+// components/layout/SkipLink.jsx
 export function SkipLink() {
     return (<a href="#main-content" className="
         sr-only focus:not-sr-only 

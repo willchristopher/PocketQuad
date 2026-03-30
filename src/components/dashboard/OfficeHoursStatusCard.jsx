@@ -1,12 +1,10 @@
 'use client';
 import React from 'react';
-import { Clock, Users2, Play, Pause, MapPin } from 'lucide-react';
+import { Clock, Play, Pause, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 export function OfficeHoursStatusCard() {
     const isActive = true;
-    const queueCount = 3;
-    const maxQueue = 8;
-    return (<div className={cn("rounded-2xl border overflow-hidden transition-all", isActive ? "border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 to-card" : "border-border/60 bg-card")}>
+    return (<div className={cn("rounded-2xl border overflow-hidden transition-all", isActive ? "border-emerald-500/30 bg-card" : "border-border/60 bg-card")}>
       <div className="p-4 md:p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
@@ -27,18 +25,8 @@ export function OfficeHoursStatusCard() {
               <span className="flex items-center gap-1"><MapPin className="w-3 h-3"/>SH 312</span>
             </div>
 
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${(queueCount / maxQueue) * 100}%` }}/>
-              </div>
-              <span className="text-xs font-bold">{queueCount}/{maxQueue}</span>
-            </div>
-
             <div className="flex gap-2">
-              <button className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-semibold hover:bg-emerald-600 transition-colors">
-                <Users2 className="w-3.5 h-3.5"/> View Queue
-              </button>
-              <button className="px-3 py-2.5 rounded-xl border border-border/60 text-xs font-semibold hover:bg-muted transition-colors">
+              <button className="w-full px-3 py-2.5 rounded-xl border border-border/60 text-xs font-semibold hover:bg-muted transition-colors">
                 <Pause className="w-3.5 h-3.5"/>
               </button>
             </div>

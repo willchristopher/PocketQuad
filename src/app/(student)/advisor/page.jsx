@@ -79,14 +79,7 @@ export default function AdvisorPage() {
           <div className="rounded-xl bg-primary/10 p-2 text-primary">
             <Bot className="h-5 w-5"/>
           </div>
-          <div>
-            <h1 className="font-display text-2xl font-extrabold tracking-tight md:text-3xl">AI Advisor</h1>
-            <p className="text-sm text-muted-foreground">
-              Natural-language support for campus resources, faculty availability, events, and study planning without personal calendar or class schedule access.
-            </p>
-          </div>
         </div>
-
         <div className="relative mt-4 flex flex-wrap gap-2">
           {starterPrompts.map((prompt, index) => (<button key={prompt} onClick={() => void send(prompt)} className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/15 px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:bg-muted/35 animate-in-up" style={{ animationDelay: `${0.03 * (index + 1)}s` }}>
               <Sparkles className="h-3.5 w-3.5"/>

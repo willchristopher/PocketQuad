@@ -66,6 +66,8 @@ const toneClasses = {
   slate: 'border-border/70 bg-muted/30 text-muted-foreground',
 };
 
+const moduleIconClassName = 'bg-primary/10 text-primary';
+
 const defaultOfficeHourForm = {
   dayOfWeek: 1,
   startTime: '10:00',
@@ -79,6 +81,7 @@ const defaultAnnouncementForm = {
   title: '',
   message: '',
   linkUrl: '',
+  expiresAt: '',
   scope: 'CAMPUS',
   targetId: '',
 };
@@ -188,15 +191,16 @@ function getEventSuccessMessage(label, notifiedCount) {
 
 function WorkspaceCard({ title, description, icon: Icon, iconClassName, children, headerAction }) {
   return (
-    <section className="rounded-[26px] border border-border/60 bg-card p-5 md:p-6">
+    <section className="panel-card rounded-[1.95rem] p-5 md:p-6">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
-          <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl', iconClassName)}>
+          <div className={cn('flex h-12 w-12 items-center justify-center rounded-[1.15rem] border border-border/60 bg-secondary text-primary', iconClassName)}>
             <Icon className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="font-display text-xl font-bold tracking-tight">{title}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+            <p className="poster-label">Workspace module</p>
+            <h2 className="mt-2 font-display text-[1.55rem] font-semibold tracking-tight">{title}</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
           </div>
         </div>
         {headerAction}
@@ -678,6 +682,7 @@ export function FacultyDashboard() {
           title: announcementForm.title,
           message: announcementForm.message,
           linkUrl: announcementForm.linkUrl.trim() || undefined,
+          expiresAt: announcementForm.expiresAt || undefined,
           scope: announcementForm.scope,
           buildingId: announcementForm.scope === 'BUILDING' ? announcementForm.targetId : undefined,
           serviceId: announcementForm.scope === 'SERVICE' ? announcementForm.targetId : undefined,
@@ -689,6 +694,7 @@ export function FacultyDashboard() {
         title: '',
         message: '',
         linkUrl: '',
+        expiresAt: '',
       }));
       setAnnouncementSuccess('Announcement published.');
       await loadAnnouncements();
@@ -700,24 +706,18 @@ export function FacultyDashboard() {
   };
 
   return (
-    <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[32px] border border-border/60 bg-card px-6 py-6 md:px-8 md:py-8 animate-in-up">
-        <div className="pointer-events-none absolute -left-16 top-0 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
-        <div className="pointer-events-none absolute right-0 top-6 h-40 w-40 rounded-full bg-cyan-500/10 blur-3xl" />
-
-        <div className="relative space-y-6">
+    <div className="space-y-7">
+      <section className="hero-panel rounded-[2.2rem] px-6 py-6 md:px-8 md:py-8 animate-in-soft">
+        <div className="space-y-6">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div className="space-y-3">
-              <Badge variant="outline" className="rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.18em]">
-                Faculty Workspace
+              <Badge variant="outline" className="rounded-full px-3 py-1 text-[11px] tracking-[0.18em]">
+                Workspace
               </Badge>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <h1 className="font-display text-3xl font-extrabold tracking-tight md:text-4xl">
                   {workspaceLoading ? 'Loading your workspace...' : `Manage ${workspace?.name ?? 'your faculty workspace'}`}
                 </h1>
-                <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                  Keep contact details current, publish clean office hours, and manage student-facing events from one calm dashboard.
-                </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary" className="rounded-full px-3 py-1.5 text-xs">
@@ -736,20 +736,20 @@ export function FacultyDashboard() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3 xl:w-[520px]">
-              <div className="rounded-2xl border border-border/60 bg-muted/10 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Availability</p>
+              <div className="kpi-tile">
+                <p className="poster-label">Availability</p>
                 <p className="mt-2 text-sm font-semibold">
                   {statusLoading ? 'Loading...' : formatFacultyAvailability(statusState.status, statusState.note)}
                 </p>
               </div>
-              <div className="rounded-2xl border border-border/60 bg-muted/10 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Office hours</p>
-                <p className="mt-2 text-lg font-semibold">{officeHours.length}</p>
+              <div className="kpi-tile">
+                <p className="poster-label">Office hours</p>
+                <p className="mt-2 font-display text-3xl font-semibold">{officeHours.length}</p>
                 <p className="text-sm text-muted-foreground">{activeSlots} live slot{activeSlots === 1 ? '' : 's'}</p>
               </div>
-              <div className="rounded-2xl border border-border/60 bg-muted/10 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Events</p>
-                <p className="mt-2 text-lg font-semibold">{upcomingEventsCount}</p>
+              <div className="kpi-tile">
+                <p className="poster-label">Events</p>
+                <p className="mt-2 font-display text-3xl font-semibold">{upcomingEventsCount}</p>
                 <p className="text-sm text-muted-foreground">Active student-facing event{upcomingEventsCount === 1 ? '' : 's'}</p>
               </div>
             </div>
@@ -760,21 +760,21 @@ export function FacultyDashboard() {
       </section>
 
       <Tabs defaultValue="contact" className="space-y-6">
-        <TabsList className="grid h-auto grid-cols-2 rounded-[24px] border border-border/60 bg-card p-1 md:grid-cols-4">
-          <TabsTrigger value="contact" className="rounded-2xl px-4 py-3">Contact</TabsTrigger>
-          <TabsTrigger value="office-hours" className="rounded-2xl px-4 py-3">Office Hours</TabsTrigger>
-          <TabsTrigger value="events" className="rounded-2xl px-4 py-3">Events</TabsTrigger>
-          <TabsTrigger value="announcements" className="rounded-2xl px-4 py-3">Announcements</TabsTrigger>
+        <TabsList className="grid h-auto grid-cols-2 gap-1.5 rounded-[1.8rem] border border-border/60 bg-card p-1.5 shadow-sm md:grid-cols-4">
+          <TabsTrigger value="contact" className="rounded-[1.05rem] px-4 py-3">Contact</TabsTrigger>
+          <TabsTrigger value="office-hours" className="rounded-[1.05rem] px-4 py-3">Office Hours</TabsTrigger>
+          <TabsTrigger value="events" className="rounded-[1.05rem] px-4 py-3">Events</TabsTrigger>
+          <TabsTrigger value="announcements" className="rounded-[1.05rem] px-4 py-3">Announcements</TabsTrigger>
         </TabsList>
 
         <TabsContent value="contact" className="mt-0">
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_360px]">
             <form onSubmit={onSaveProfile} className="space-y-6">
               <WorkspaceCard
-                title="Student-facing details"
-                description="These details power the faculty directory card and the student profile view."
+                title="Contact details"
+                description="Shown in the directory and on your faculty page."
                 icon={UserRound}
-                iconClassName="bg-primary/10 text-primary"
+                iconClassName={moduleIconClassName}
               >
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="space-y-2 text-sm font-medium">
@@ -805,10 +805,10 @@ export function FacultyDashboard() {
               </WorkspaceCard>
 
               <WorkspaceCard
-                title="Routing tags"
-                description="Tags help students and the AI assistant route office-hour and advising requests to you quickly."
+                title="Student context"
+                description="Tags help students and the assistant route requests to you."
                 icon={CheckCircle2}
-                iconClassName="bg-cyan-500/10 text-cyan-700 dark:text-cyan-300"
+                iconClassName={moduleIconClassName}
               >
                 <div className="space-y-4">
                   <div className="flex flex-col gap-2 sm:flex-row">
@@ -869,9 +869,9 @@ export function FacultyDashboard() {
             <aside className="space-y-6">
               <WorkspaceCard
                 title="Student preview"
-                description="A quick read on how your profile currently scans from the student side."
+                description="What students currently see."
                 icon={UserRoundCheck}
-                iconClassName="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                iconClassName={moduleIconClassName}
               >
                 <div className="space-y-4">
                   <div className="space-y-1">
@@ -920,9 +920,9 @@ export function FacultyDashboard() {
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
             <WorkspaceCard
               title="Availability status"
-              description="Set whether students should expect normal access, slower replies, or no office-hours coverage."
+              description="Set current response expectations for students."
               icon={ShieldCheck}
-              iconClassName="bg-primary/10 text-primary"
+              iconClassName={moduleIconClassName}
             >
               <form onSubmit={onSubmitStatus} className="space-y-4">
                 <div className="grid gap-3 md:grid-cols-3">
@@ -976,9 +976,9 @@ export function FacultyDashboard() {
 
             <WorkspaceCard
               title="Office-hour editor"
-              description="Add or adjust the weekly slots students can see and join."
+              description="Publish weekly student-visible office-hour slots."
               icon={PencilLine}
-              iconClassName="bg-cyan-500/10 text-cyan-700 dark:text-cyan-300"
+              iconClassName={moduleIconClassName}
             >
               <form onSubmit={onSubmitOfficeHour} className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -1024,11 +1024,6 @@ export function FacultyDashboard() {
                   <Input value={officeHourForm.location} onChange={(event) => setOfficeHourForm((current) => ({ ...current, location: event.target.value }))} placeholder="Engineering Hall 314 or Zoom room" required />
                 </label>
 
-                <label className="space-y-2 text-sm font-medium">
-                  <span>Max queue</span>
-                  <Input type="number" min={1} value={officeHourForm.maxQueue} onChange={(event) => setOfficeHourForm((current) => ({ ...current, maxQueue: Number(event.target.value) }))} required />
-                </label>
-
                 <div className="flex flex-wrap items-center gap-2">
                   <Button type="submit" className="rounded-xl" disabled={savingOfficeHour}>
                     {savingOfficeHour ? (
@@ -1056,9 +1051,9 @@ export function FacultyDashboard() {
 
           <WorkspaceCard
             title="Published office hours"
-            description="Toggle slots live when you begin meeting with students and keep the list concise."
+            description="Review live and scheduled office-hour slots."
             icon={Clock3}
-            iconClassName="bg-amber-500/10 text-amber-700 dark:text-amber-300"
+            iconClassName={moduleIconClassName}
           >
             <div className="space-y-4">
               <FeedbackMessage tone="error">{officeHoursError}</FeedbackMessage>
@@ -1096,10 +1091,6 @@ export function FacultyDashboard() {
                               <Clock3 className="h-4 w-4" />
                               {formatTo12Hour(slot.startTime)} - {formatTo12Hour(slot.endTime)}
                             </span>
-                            <span className="inline-flex items-center gap-1.5">
-                              <ShieldCheck className="h-4 w-4" />
-                              Max queue {slot.maxQueue}
-                            </span>
                           </div>
                         </div>
 
@@ -1128,9 +1119,9 @@ export function FacultyDashboard() {
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_380px]">
             <WorkspaceCard
               title="Managed events"
-              description="Create, edit, or cancel faculty events. Favoriting students are alerted when key event details change."
+              description="Create, edit, or cancel student-visible faculty events."
               icon={CalendarDays}
-              iconClassName="bg-primary/10 text-primary"
+              iconClassName={moduleIconClassName}
             >
               <div className="space-y-4">
                 <FeedbackMessage tone="error">{eventsError}</FeedbackMessage>
@@ -1191,9 +1182,9 @@ export function FacultyDashboard() {
 
             <WorkspaceCard
               title={editingEventId ? 'Edit event' : 'Publish an event'}
-              description="Use building linkage when the event belongs to a managed location. Students who favorite you will be notified on publish and update."
+              description="Publish workshops, advising sessions, and other faculty events."
               icon={BellRing}
-              iconClassName="bg-cyan-500/10 text-cyan-700 dark:text-cyan-300"
+              iconClassName={moduleIconClassName}
             >
               <form onSubmit={onSubmitEvent} className="space-y-4">
                 <label className="space-y-2 text-sm font-medium">
@@ -1288,9 +1279,9 @@ export function FacultyDashboard() {
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
             <WorkspaceCard
               title="Announcement composer"
-              description="Publish whole-campus updates if you have permission, or target buildings and services you manage."
+              description="Send campus, building, or service updates to students."
               icon={Megaphone}
-              iconClassName="bg-rose-500/10 text-rose-700 dark:text-rose-300"
+              iconClassName={moduleIconClassName}
             >
               <div className="space-y-4">
                 <FeedbackMessage tone="error">{announcementError}</FeedbackMessage>
@@ -1355,6 +1346,11 @@ export function FacultyDashboard() {
                         <Input type="url" value={announcementForm.linkUrl} onChange={(event) => setAnnouncementForm((current) => ({ ...current, linkUrl: event.target.value }))} placeholder="https://..." />
                       </label>
 
+                      <label className="space-y-2 text-sm font-medium">
+                        <span>Ends at (optional)</span>
+                        <Input type="datetime-local" value={announcementForm.expiresAt} onChange={(event) => setAnnouncementForm((current) => ({ ...current, expiresAt: event.target.value }))} />
+                      </label>
+
                       <Button type="submit" className="rounded-xl" disabled={announcementSaving}>
                         {announcementSaving ? (
                           <>
@@ -1375,9 +1371,9 @@ export function FacultyDashboard() {
 
             <WorkspaceCard
               title="Recent updates"
-              description="Recent items you published and the channels currently available to you."
+              description="Announcements that are still visible to students."
               icon={BellRing}
-              iconClassName="bg-amber-500/10 text-amber-700 dark:text-amber-300"
+              iconClassName={moduleIconClassName}
             >
               <div className="space-y-4">
                 <div className="rounded-2xl border border-border/60 bg-muted/10 p-4">
@@ -1402,6 +1398,11 @@ export function FacultyDashboard() {
                         </div>
                         <p className="mt-2 text-sm font-semibold">{item.title}</p>
                         <p className="mt-1 text-sm text-muted-foreground">{item.message}</p>
+                        {item.expiresAt ? (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Ends {formatAnnouncementTime(item.expiresAt)}
+                          </p>
+                        ) : null}
                         {item.linkUrl ? (
                           <a href={item.linkUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary transition-colors hover:text-primary/80">
                             Open link

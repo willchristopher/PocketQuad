@@ -1,18 +1,5 @@
-import { Nunito } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
-const nunitoDisplay = Nunito({
-    subsets: ["latin"],
-    variable: "--font-display",
-});
-const nunitoBody = Nunito({
-    subsets: ["latin"],
-    variable: "--font-body",
-});
-const nunitoMono = Nunito({
-    subsets: ["latin"],
-    variable: "--font-mono",
-});
 export const metadata = {
     title: "PocketQuad | Campus Hub",
     description: "Intelligent university campus hub application.",
@@ -23,8 +10,8 @@ export const metadata = {
 };
 export const viewport = {
     themeColor: [
-        { media: "(prefers-color-scheme: light)", color: "#FAFAFA" },
-        { media: "(prefers-color-scheme: dark)", color: "#0F172A" },
+        { media: "(prefers-color-scheme: light)", color: "#f7f5ee" },
+        { media: "(prefers-color-scheme: dark)", color: "#0c1140" },
     ],
     width: "device-width",
     initialScale: 1,
@@ -32,7 +19,7 @@ export const viewport = {
 };
 export default function RootLayout({ children, }) {
     return (<html lang="en" suppressHydrationWarning>
-      <body className={`${nunitoDisplay.variable} ${nunitoBody.variable} ${nunitoMono.variable} font-body antialiased bg-background text-foreground`}>
+      <body className="font-body antialiased bg-background text-foreground">
         <Providers>
            {children}
         </Providers>

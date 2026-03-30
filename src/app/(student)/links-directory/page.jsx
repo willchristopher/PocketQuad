@@ -42,13 +42,6 @@ export default function LinksDirectoryPage() {
         void loadLinks();
     }, [loadLinks]);
     return (<div className="space-y-6">
-      <div className="space-y-1 animate-in-up">
-        <h1 className="font-display text-2xl font-extrabold tracking-tight md:text-3xl">Links Directory</h1>
-        <p className="text-sm text-muted-foreground">
-          Categorized shortcuts to external university portals from one place.
-        </p>
-      </div>
-
       <section className="rounded-2xl border border-border/60 bg-card/90 p-4 md:p-5 animate-in-up stagger-1">
         <div className="grid gap-3 md:grid-cols-2">
           <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 transition-colors focus-within:border-primary/40 focus-within:bg-muted/35">

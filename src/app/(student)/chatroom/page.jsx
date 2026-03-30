@@ -142,18 +142,12 @@ export default function ChatroomPage() {
     return (<div className="overflow-hidden rounded-2xl border border-border/60 bg-card animate-in-up">
       <section className="flex min-h-[70vh] flex-col">
         <div className="border-b border-border/60 bg-muted/5 px-4 py-3">
-          <h1 className="font-display text-lg font-extrabold tracking-tight">
-            {room?.name ?? 'Campus Chat'}
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            One shared campus room for respectful, informational, and lighthearted conversation.
-          </p>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Chat room is monitored.
-          </p>
-          {room && (<p className="mt-1 text-[11px] text-muted-foreground">
-              {room.memberCount} member{room.memberCount === 1 ? '' : 's'}
-            </p>)}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+            <p>Chat room is monitored.</p>
+            {room && (<p>
+                {room.memberCount} member{room.memberCount === 1 ? '' : 's'}
+              </p>)}
+          </div>
         </div>
 
         {error && (<div className="px-4 pt-3">

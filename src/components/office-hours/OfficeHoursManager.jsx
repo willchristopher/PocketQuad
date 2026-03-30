@@ -2,7 +2,6 @@
 import React from 'react';
 import { Clock, Users2, MapPin, Plus, Play, Pause, Video } from 'lucide-react';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
-import { subscribeToOfficeHourQueue } from '@/lib/supabase/realtime';
 import { cn } from '@/lib/utils';
 const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const modeIcons = {
@@ -23,12 +22,9 @@ function formatTo12Hour(time24) {
 }
 export function OfficeHoursManager() {
     const [slots, setSlots] = React.useState([]);
-    const [queue, setQueue] = React.useState([]);
     const [selectedSlot, setSelectedSlot] = React.useState(null);
     const [loadingSlots, setLoadingSlots] = React.useState(true);
-    const [loadingQueue, setLoadingQueue] = React.useState(false);
     const [error, setError] = React.useState(null);
-    const activeSlot = slots.find((slot) => slot.id === selectedSlot);
     const loadSlots = React.useCallback(async () => {
         setLoadingSlots(true);
         setError(null);
@@ -48,38 +44,9 @@ export function OfficeHoursManager() {
             setLoadingSlots(false);
         }
     }, []);
-    const loadQueue = React.useCallback(async (slotId) => {
-        setLoadingQueue(true);
-        setError(null);
-        try {
-            const data = await apiRequest(`/api/office-hours/${slotId}/queue`);
-            setQueue(data);
-        }
-        catch (err) {
-            const message = err instanceof ApiClientError ? err.message : 'Unable to load queue';
-            setError(message);
-            setQueue([]);
-        }
-        finally {
-            setLoadingQueue(false);
-        }
-    }, []);
     React.useEffect(() => {
         void loadSlots();
     }, [loadSlots]);
-    React.useEffect(() => {
-        if (!selectedSlot) {
-            setQueue([]);
-            return;
-        }
-        void loadQueue(selectedSlot);
-        const realtime = subscribeToOfficeHourQueue(selectedSlot, () => {
-            void loadQueue(selectedSlot);
-        });
-        return () => {
-            void realtime.unsubscribe();
-        };
-    }, [loadQueue, selectedSlot]);
     const toggleActive = async (slotId) => {
         setError(null);
         try {
@@ -96,22 +63,6 @@ export function OfficeHoursManager() {
             setError(message);
         }
     };
-    const advanceQueueEntry = async (entry) => {
-        const nextStatus = entry.status === 'WAITING' ? 'IN_PROGRESS' : 'COMPLETED';
-        try {
-            await apiRequest(`/api/office-hours/queue/${entry.id}`, {
-                method: 'PATCH',
-                body: { status: nextStatus },
-            });
-            if (selectedSlot) {
-                await loadQueue(selectedSlot);
-            }
-        }
-        catch (err) {
-            const message = err instanceof ApiClientError ? err.message : 'Unable to update queue status';
-            setError(message);
-        }
-    };
     return (<div className="space-y-6">
       {error && (<p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-700 dark:text-red-300">
           {error}
@@ -122,10 +73,6 @@ export function OfficeHoursManager() {
 
         {!loadingSlots && slots.map((slot) => {
             const ModeIcon = modeIcons[slot.mode];
-            const activeQueueCount = selectedSlot === slot.id
-                ? queue.filter((entry) => entry.status === 'WAITING' || entry.status === 'IN_PROGRESS').length
-                : 0;
-            const fillPercent = Math.min(100, Math.round((activeQueueCount / slot.maxQueue) * 100));
             return (<div key={slot.id} onClick={() => setSelectedSlot(slot.id)} className={cn('rounded-2xl border bg-card p-5 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5', selectedSlot === slot.id ? 'border-primary shadow-lg shadow-primary/10' : 'border-border/60')}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -145,13 +92,6 @@ export function OfficeHoursManager() {
               <h3 className="font-display font-bold text-sm">{weekdayNames[slot.dayOfWeek]}</h3>
               <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><Clock className="w-3 h-3"/>{formatTo12Hour(slot.startTime)} - {formatTo12Hour(slot.endTime)}</p>
               <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5"><MapPin className="w-3 h-3"/>{slot.location}</p>
-
-              {slot.isActive && (<div className="mt-3 flex items-center gap-2">
-                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${fillPercent}%` }}/>
-                  </div>
-                  <span className="text-[10px] font-bold text-muted-foreground">{activeQueueCount}/{slot.maxQueue}</span>
-                </div>)}
             </div>);
         })}
 
@@ -160,40 +100,5 @@ export function OfficeHoursManager() {
             <span className="text-sm font-semibold">Create slot via API (UI form pending)</span>
           </div>)}
       </div>
-
-      {activeSlot?.isActive && (<div className="rounded-2xl border border-border/60 bg-card overflow-hidden">
-          <div className="p-5 border-b border-border/60 flex items-center justify-between">
-            <div>
-              <h3 className="font-display font-bold text-base">Student Queue</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {weekdayNames[activeSlot.dayOfWeek]} · {formatTo12Hour(activeSlot.startTime)} - {formatTo12Hour(activeSlot.endTime)}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"/>
-              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">LIVE</span>
-            </div>
-          </div>
-
-          <div className="divide-y divide-border/40">
-            {loadingQueue && <p className="p-4 text-sm text-muted-foreground">Loading queue...</p>}
-
-            {!loadingQueue && queue
-                .filter((entry) => entry.status === 'WAITING' || entry.status === 'IN_PROGRESS')
-                .map((student, index) => (<div key={student.id} className="p-4 flex items-center gap-3 hover:bg-muted/20 transition-colors">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{index + 1}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">{student.student.displayName}</p>
-                    <p className="text-xs text-muted-foreground">{student.topic}</p>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground font-medium">{student.status}</span>
-                  <button onClick={() => void advanceQueueEntry(student)} className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors">
-                    {student.status === 'WAITING' ? 'Start' : 'Complete'}
-                  </button>
-                </div>))}
-          </div>
-
-          {!loadingQueue && queue.filter((entry) => entry.status === 'WAITING' || entry.status === 'IN_PROGRESS').length === 0 && (<div className="p-8 text-center text-muted-foreground text-sm">No students in queue</div>)}
-        </div>)}
     </div>);
 }

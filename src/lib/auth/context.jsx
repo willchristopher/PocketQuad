@@ -2,10 +2,8 @@
 import React from 'react';
 import { apiRequest } from '@/lib/api/client';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { hasSupabasePublicEnv } from '@/lib/supabase/config';
 const AuthContext = React.createContext(undefined);
-function hasSupabaseClientEnv() {
-    return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-}
 export function AuthProvider({ children }) {
     const [user, setUser] = React.useState(null);
     const [profile, setProfile] = React.useState(null);
@@ -45,7 +43,7 @@ export function AuthProvider({ children }) {
             await fetchSession({ showLoader: true });
         };
         void bootstrap();
-        if (!hasSupabaseClientEnv()) {
+        if (!hasSupabasePublicEnv()) {
             return () => {
                 mountedRef.current = false;
             };

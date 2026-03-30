@@ -23,7 +23,7 @@ export function QuickActionsCard() {
       <div className="grid grid-cols-3 gap-2">
         {actions.map(action => (<Link key={action.label} href={action.href} className="flex flex-col items-center gap-1.5 p-3 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer text-center">
             <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center", action.color)}>
-              <action.icon className="w-4.5 h-4.5"/>
+              <action.icon className="h-[18px] w-[18px]"/>
             </div>
             <span className="text-[10px] font-semibold text-muted-foreground leading-tight">{action.label}</span>
           </Link>))}

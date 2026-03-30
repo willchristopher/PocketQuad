@@ -8,13 +8,15 @@ import { AuthenticatedLayoutGate } from '@/components/auth/AuthenticatedLayoutGa
 const CommandPalette = dynamic(() => import('@/components/layout/CommandPalette').then((module) => module.CommandPalette), { ssr: false });
 const AIChatWidget = dynamic(() => import('@/components/ai/AIChatWidget').then((module) => module.AIChatWidget), { ssr: false });
 function LayoutShell({ children }) {
-    return (<div className="relative min-h-screen bg-background">
+    return (<div className="relative min-h-screen">
       <SkipLink />
       <Sidebar />
       <div className="flex min-h-screen flex-col">
         <Header />
-        <main className="mx-auto w-full max-w-[1400px] flex-1 p-4 pb-24 md:p-6 md:pb-32 lg:p-8 lg:pb-36" id="main-content">
-          {children}
+        <main className="flex-1 px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:pb-32 lg:pt-8 xl:px-10" id="main-content">
+          <div className="mx-auto w-full max-w-[1500px]">
+            {children}
+          </div>
         </main>
       </div>
       <MobileNav />

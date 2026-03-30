@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { CheckCheck } from 'lucide-react'
+import { CheckCheck, X } from 'lucide-react'
 
 import { NotificationBadge } from '@/components/notifications/NotificationBadge'
 import { useNotificationInbox } from '@/hooks/useNotifications'
@@ -19,14 +19,16 @@ export function NotificationWidget() {
     loading,
     error,
     updatingId,
+    clearingId,
     markingAll,
     markRead,
+    clearNotification,
     markAllRead,
   } = useNotificationInbox({ limit: 4 })
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-muted/10 px-3 py-2.5">
+      <div className="subtle-panel flex items-center justify-between gap-3 rounded-[1.3rem] px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold">Unread updates</span>
           <NotificationBadge count={unreadCount} />
@@ -37,7 +39,7 @@ export function NotificationWidget() {
             type="button"
             onClick={() => void markAllRead()}
             disabled={markingAll}
-            className="inline-flex items-center gap-1 rounded-lg text-xs font-semibold text-primary transition-colors hover:text-primary/80 disabled:opacity-60"
+            className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary transition-colors hover:border-primary/25 hover:bg-muted disabled:opacity-60"
           >
             <CheckCheck className="h-3.5 w-3.5" />
             {markingAll ? 'Updating...' : 'Mark all read'}
@@ -46,7 +48,7 @@ export function NotificationWidget() {
       </div>
 
       {error ? (
-        <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-700 dark:text-red-300">
+        <p className="rounded-[1.2rem] border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs font-medium text-red-700 dark:text-red-300">
           {error}
         </p>
       ) : null}
@@ -54,7 +56,7 @@ export function NotificationWidget() {
       {loading ? (
         <p className="py-4 text-center text-xs text-muted-foreground">Loading notifications...</p>
       ) : notifications.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border/60 px-3 py-6 text-center text-xs text-muted-foreground">
+        <p className="rounded-[1.3rem] border border-dashed border-border/60 bg-background px-4 py-7 text-center text-xs text-muted-foreground">
           You&apos;re caught up. New faculty changes and campus announcements will land here.
         </p>
       ) : (
@@ -63,18 +65,22 @@ export function NotificationWidget() {
             const meta = getNotificationMeta(item.type)
             const Icon = meta.icon
             const external = isExternalNotificationUrl(item.actionUrl)
+            const isUpdating = updatingId === item.id
+            const isClearing = clearingId === item.id
+            const isPending = isUpdating || isClearing
 
             const cardClassName = cn(
-              'block rounded-xl border px-3 py-3 transition-colors hover:bg-muted/25',
+              'rounded-[1.25rem] border px-4 py-3.5 transition-all duration-200',
               item.read
-                ? 'border-border/50 bg-muted/5'
-                : 'border-primary/20 bg-primary/[0.04]',
+                ? 'border-border/50 bg-card'
+                : 'border-primary/20 bg-secondary/45 shadow-surface',
+              isPending && 'opacity-70',
             )
 
             const content = (
               <>
                 <div className="flex items-start gap-3">
-                  <div className={cn('mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', meta.iconClassName)}>
+                  <div className={cn('mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem]', meta.iconClassName)}>
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -96,61 +102,102 @@ export function NotificationWidget() {
               </>
             )
 
+            const actionClassName = 'block rounded-[1rem] text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-muted'
+
             if (item.actionUrl) {
               if (external) {
                 return (
-                  <a
-                    key={item.id}
-                    href={item.actionUrl}
-                    target="_blank"
-                    rel="noreferrer"
+                  <div key={item.id} className={cardClassName}>
+                    <div className="flex items-start gap-3">
+                      <a
+                        href={item.actionUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          if (!item.read) {
+                            void markRead(item.id)
+                          }
+                        }}
+                        className={cn(actionClassName, 'min-w-0 flex-1')}
+                      >
+                        {content}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => void clearNotification(item.id)}
+                        disabled={isClearing}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground disabled:opacity-60"
+                        aria-label={`Clear ${item.title}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        {isClearing ? 'Clearing...' : 'Clear'}
+                      </button>
+                    </div>
+                  </div>
+                )
+              }
+
+              return (
+                <div key={item.id} className={cardClassName}>
+                  <div className="flex items-start gap-3">
+                    <Link
+                      href={item.actionUrl}
+                      onClick={() => {
+                        if (!item.read) {
+                          void markRead(item.id)
+                        }
+                      }}
+                      className={cn(actionClassName, 'min-w-0 flex-1')}
+                    >
+                      {content}
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => void clearNotification(item.id)}
+                      disabled={isClearing}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground disabled:opacity-60"
+                      aria-label={`Clear ${item.title}`}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      {isClearing ? 'Clearing...' : 'Clear'}
+                    </button>
+                  </div>
+                </div>
+              )
+            }
+
+            return (
+              <div key={item.id} className={cardClassName}>
+                <div className="flex items-start gap-3">
+                  <button
+                    type="button"
                     onClick={() => {
                       if (!item.read) {
                         void markRead(item.id)
                       }
                     }}
-                    className={cn(cardClassName, updatingId === item.id && 'opacity-70')}
+                    className={cn(actionClassName, 'min-w-0 flex-1')}
                   >
                     {content}
-                  </a>
-                )
-              }
-
-              return (
-                <Link
-                  key={item.id}
-                  href={item.actionUrl}
-                  onClick={() => {
-                    if (!item.read) {
-                      void markRead(item.id)
-                    }
-                  }}
-                  className={cn(cardClassName, updatingId === item.id && 'opacity-70')}
-                >
-                  {content}
-                </Link>
-              )
-            }
-
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  if (!item.read) {
-                    void markRead(item.id)
-                  }
-                }}
-                className={cn(cardClassName, 'w-full text-left', updatingId === item.id && 'opacity-70')}
-              >
-                {content}
-              </button>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void clearNotification(item.id)}
+                    disabled={isClearing}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground disabled:opacity-60"
+                    aria-label={`Clear ${item.title}`}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    {isClearing ? 'Clearing...' : 'Clear'}
+                  </button>
+                </div>
+              </div>
             )
           })}
         </div>
       )}
 
-      <Link href="/notifications" className="inline-flex items-center gap-1 text-xs font-semibold text-primary transition-colors hover:text-primary/80">
+      <Link href="/notifications" className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-primary transition-colors hover:text-primary/80">
         Open full inbox
       </Link>
     </div>

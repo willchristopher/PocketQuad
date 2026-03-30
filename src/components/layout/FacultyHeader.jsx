@@ -1,55 +1,88 @@
 'use client';
-import { Menu, Moon, Sun } from "lucide-react";
-import { usePathname } from "next/navigation";
-import { useTheme } from "next-themes";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { FacultySidebar } from "./FacultySidebar";
+
+import React from 'react';
+import { Menu } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+
+import {
+  getCurrentDateLabel,
+  getNextThemeMode,
+  getThemeModeLabel,
+  renderThemeModeIcon,
+} from '@/components/layout/layoutUtils';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { FacultySidebar } from './FacultySidebar';
+import { useUniversityTheme } from '@/lib/theme';
 
 function getFacultyPageMeta(pathname) {
-    if (pathname === '/faculty/profile') {
-        return {
-            title: 'Faculty Profile',
-            description: 'Student-facing profile details and secondary building tools.',
-        };
-    }
+  if (pathname === '/faculty/profile') {
     return {
-        title: 'Faculty Workspace',
-        description: 'Contact info, office hours, events, and announcements in one place.',
+      title: 'Buildings',
     };
+  }
+
+  return {
+    title: 'Dashboard',
+  };
 }
 
 export function FacultyHeader() {
-    const pathname = usePathname();
-    const { theme, setTheme } = useTheme();
-    const page = getFacultyPageMeta(pathname);
-    return (<header className="sticky top-0 z-20 flex h-14 w-full items-center gap-4 border-b border-border/50 bg-background/80 backdrop-blur-xl px-4 lg:px-6">
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="shrink-0 md:hidden rounded-lg h-8 w-8">
-            <Menu className="h-4 w-4"/>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="flex flex-col p-0 w-[260px]">
-          <FacultySidebar />
-        </SheetContent>
-      </Sheet>
+  const pathname = usePathname();
+  const { themeMode, setThemeMode, universityColors, universityName } = useUniversityTheme();
+  const [mounted, setMounted] = React.useState(false);
+  const page = getFacultyPageMeta(pathname);
+  const dateLabel = React.useMemo(() => getCurrentDateLabel(), []);
 
-      <div className="min-w-0 flex-1">
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">PocketQuad Faculty</p>
+  React.useEffect(() => setMounted(true), []);
+
+  const cycleTheme = () => {
+    setThemeMode(getNextThemeMode(themeMode, universityColors));
+  };
+
+  const themeLabel = getThemeModeLabel({ mounted, themeMode, universityName });
+
+  return (
+    <header className="shell-header sticky top-0 z-30 px-4 py-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-[1500px] items-start gap-4">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <Sheet>
+            <SheetTrigger asChild>
+              <button
+                className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border/70 bg-card/70 text-muted-foreground transition-all hover:border-primary/25 hover:bg-card hover:text-foreground lg:hidden"
+                aria-label="Open faculty navigation"
+              >
+                <Menu className="h-[18px] w-[18px]" />
+              </button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[320px] border-r border-border/70 bg-background p-0">
+              <FacultySidebar mobile />
+            </SheetContent>
+          </Sheet>
+
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold tracking-tight text-foreground">{page.title}</p>
-            <p className="hidden truncate text-xs text-muted-foreground md:block">{page.description}</p>
+            <p className="poster-label">{universityName ?? 'PocketQuad campus brief'}</p>
+            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2 md:gap-3">
+              <h1 className="truncate font-display text-[1.9rem] text-foreground sm:text-[2.15rem]">
+                {page.title}
+              </h1>
+              <span className="hidden rounded-full border border-border/70 bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground md:inline-flex">
+                {dateLabel}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="flex items-center gap-1.5 ml-auto">
-        <Button variant="ghost" size="icon" className="rounded-lg h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-          <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0"/>
-          <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100"/>
-        </Button>
+        <button
+          type="button"
+          onClick={cycleTheme}
+          className="flex h-11 items-center gap-2 rounded-full border border-border/70 bg-card/70 px-3 text-sm font-medium text-muted-foreground transition-all hover:border-primary/25 hover:bg-card hover:text-foreground"
+          aria-label={`Theme: ${themeLabel}`}
+          title={themeLabel}
+        >
+          {renderThemeModeIcon({ mounted, themeMode, className: 'h-[18px] w-[18px]' })}
+          <span className="hidden md:inline">{themeLabel}</span>
+        </button>
       </div>
-    </header>);
+    </header>
+  );
 }
