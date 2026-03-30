@@ -1,18 +1,8 @@
 'use client';
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarClock, ExternalLink, LayoutGrid, MapPinned, MessageCircleMore, UserCircle2, Users2, BellRing, } from 'lucide-react';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, } from '@/components/ui/command';
-const navigationItems = [
-    { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard' },
-    { icon: CalendarClock, label: 'Events', href: '/events' },
-    { icon: Users2, label: 'Faculty', href: '/faculty-directory' },
-    { icon: MessageCircleMore, label: 'Chat', href: '/chatroom' },
-    { icon: MapPinned, label: 'Map & Services', href: '/campus-map' },
-    { icon: ExternalLink, label: 'Resources', href: '/links-directory' },
-    { icon: BellRing, label: 'Notifications', href: '/notifications' },
-    { icon: UserCircle2, label: 'Profile', href: '/profile' },
-];
+import { studentCommandNavigationItems } from '@/components/layout/studentNavigation';
 export function CommandPalette() {
     const [open, setOpen] = React.useState(false);
     const router = useRouter();
@@ -35,7 +25,7 @@ export function CommandPalette() {
       <CommandList>
         <CommandEmpty>No matching page found.</CommandEmpty>
         <CommandGroup heading="Navigate">
-          {navigationItems.map((item) => {
+          {studentCommandNavigationItems.map((item) => {
             const Icon = item.icon;
             return (<CommandItem key={item.href} onSelect={() => navigate(item.href)}>
                 <Icon className="mr-2 h-4 w-4"/>

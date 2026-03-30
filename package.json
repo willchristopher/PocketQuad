@@ -12,7 +12,7 @@
     "lint": "eslint"
   },
   "prisma": {
-    "seed": "npx tsx prisma/seed.ts"
+    "seed": "node prisma/seed.js"
   },
   "dependencies": {
     "@ai-sdk/groq": "^2.0.0",
@@ -68,17 +68,10 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^3.0.0",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
     "autoprefixer": "^10.4.24",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "postcss": "^8.5.6",
-    "tailwindcss": "3.4",
-    "tsx": "^4.20.5",
-    "typescript": "^5"
+    "tailwindcss": "3.4"
   }
 }

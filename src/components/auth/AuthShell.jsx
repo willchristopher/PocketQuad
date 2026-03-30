@@ -19,12 +19,12 @@ export function AppBrand({ href = '/login', align = 'center', }) {
     </Link>);
 }
 export function AuthShell({ children, className, }) {
-    return (<div className="relative min-h-screen overflow-hidden bg-background">
+    return (<div className="dark relative min-h-screen overflow-hidden bg-background text-foreground">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-[-12rem] top-[-8rem] h-[26rem] w-[26rem] rounded-full bg-primary/10 blur-3xl"/>
-        <div className="absolute bottom-[-10rem] right-[-10rem] h-[24rem] w-[24rem] rounded-full bg-primary/10 blur-3xl"/>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.72),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(77,124,255,0.08),transparent_28%)]"/>
-        <div className="absolute inset-0 opacity-[0.045] [background-image:radial-gradient(circle,_#0f172a_1px,_transparent_1px)] [background-size:28px_28px]"/>
+        <div className="absolute left-[-12rem] top-[-8rem] h-[26rem] w-[26rem] rounded-full bg-primary/12 blur-3xl"/>
+        <div className="absolute bottom-[-10rem] right-[-10rem] h-[24rem] w-[24rem] rounded-full bg-secondary/18 blur-3xl"/>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(244,200,79,0.08),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(17,27,87,0.22),transparent_28%)]"/>
+        <div className="absolute inset-0 opacity-[0.055] [background-image:radial-gradient(circle,_rgba(255,255,255,0.7)_1px,_transparent_1px)] [background-size:28px_28px]"/>
       </div>
 
       <main className={cn('relative mx-auto flex min-h-screen w-full max-w-2xl items-center px-4 py-10 sm:px-6', className)}>
@@ -52,16 +52,16 @@ export function AuthCard({ badge, title, description, children, footer, classNam
       </div>
     </section>);
 }
-export function AuthField({ label, error, hint, children, className, }) {
+export function AuthField({ label, error, hint, children, className, labelClassName, errorClassName, }) {
     return (<div className={cn('space-y-2', className)}>
       <div className="flex items-center justify-between gap-3">
-        <label className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+        <label className={cn('text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground', labelClassName)}>
           {label}
         </label>
         {hint}
       </div>
       {children}
-      {error ? <p className="text-xs font-medium text-red-600 dark:text-red-400">{error}</p> : null}
+      {error ? <p className={cn('text-xs font-medium text-red-600 dark:text-red-400', errorClassName)}>{error}</p> : null}
     </div>);
 }
 const fieldShellVariants = cva('group flex min-h-14 items-center gap-3 rounded-2xl border border-border/70 bg-background/90 px-4 shadow-sm transition-[border-color,box-shadow,background-color] duration-200 backdrop-blur-sm hover:border-primary/15 focus-within:border-primary/30 focus-within:bg-card focus-within:shadow-[var(--shadow-accent)] focus-within:ring-2 focus-within:ring-primary/10', {

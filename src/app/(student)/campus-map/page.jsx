@@ -45,6 +45,19 @@ function formatBuildingStatusLabel(status) {
   }
 }
 
+function formatBuildingStatusPillLabel(status) {
+  switch (status) {
+    case 'OPEN':
+      return 'Normal hours'
+    case 'LIMITED':
+      return 'Limited'
+    case 'CLOSED':
+      return 'Closed'
+    default:
+      return status
+  }
+}
+
 function buildDirectionsLink(building) {
   const coordinateTarget =
     Number.isFinite(building.latitude) && Number.isFinite(building.longitude)
@@ -205,19 +218,10 @@ export default function CampusMapPage() {
 
   return (
     <div className="space-y-6">
-      <section className="space-y-2 animate-in-up">
-        <div className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/80">
-          <Building2 className="h-3.5 w-3.5" />
-          Campus Map
-        </div>
+      <section className="animate-in-up">
         <h1 className="font-display text-2xl font-extrabold tracking-tight md:text-3xl">
-          Find buildings fast, then save the ones you rely on.
+          Campus map
         </h1>
-        <p className="max-w-3xl text-sm text-muted-foreground">
-          Search campus buildings and resources, save favorites for your dashboard, open
-          directions in Google Maps, or focus a selected location directly in the integrated map
-          below.
-        </p>
       </section>
 
       {error ? (
@@ -231,10 +235,7 @@ export default function CampusMapPage() {
           <article className="rounded-[28px] border border-border/60 bg-card p-5 shadow-sm animate-in-up stagger-1">
             <div className="space-y-4">
               <div>
-                <p className="text-sm font-semibold">Search for a building</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Search by building name, code, department, service, or address.
-                </p>
+                <p className="text-sm font-semibold">Search</p>
               </div>
 
               <div className="relative">
@@ -252,14 +253,9 @@ export default function CampusMapPage() {
               </div>
 
               <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-muted/20 px-4 py-3">
-                <div>
-                  <p className="text-sm font-semibold">
-                    {getSearchResultLabel(buildings.length, debouncedSearchQuery)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Select a result to open its building details card.
-                  </p>
-                </div>
+                <p className="text-sm font-semibold">
+                  {getSearchResultLabel(buildings.length, debouncedSearchQuery)}
+                </p>
                 <Badge variant="outline" className="rounded-full border-border/70 px-3 py-1 text-[11px] uppercase tracking-[0.18em]">
                   {selectedBuilding ? 'Ready' : 'Search'}
                 </Badge>
@@ -270,9 +266,6 @@ export default function CampusMapPage() {
           <article className="rounded-[28px] border border-border/60 bg-card p-3 shadow-sm animate-in-up stagger-2">
             <div className="mb-2 flex items-center justify-between gap-2 px-2 py-1">
               <p className="text-sm font-semibold">Results</p>
-              {!loading && buildings.length > 0 ? (
-                <p className="text-xs text-muted-foreground">Sorted alphabetically</p>
-              ) : null}
             </div>
 
             <div className="max-h-[540px] space-y-2 overflow-y-auto pr-1 custom-scrollbar">
@@ -290,9 +283,6 @@ export default function CampusMapPage() {
               {!loading && buildings.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border/60 bg-muted/10 px-4 py-10 text-center">
                   <p className="text-sm font-semibold">No buildings matched that search.</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Try a building name, department, or resource keyword.
-                  </p>
                 </div>
               ) : null}
 
@@ -305,47 +295,51 @@ export default function CampusMapPage() {
                     type="button"
                     onClick={() => setSelectedBuildingId(building.id)}
                     className={cn(
-                      'w-full rounded-2xl border p-4 text-left transition-all',
+                      'w-full rounded-[26px] border p-4 text-left transition-all',
                       isSelected
-                        ? 'border-primary/40 bg-primary/5 shadow-sm'
+                        ? 'border-primary/40 bg-primary/6 shadow-sm shadow-primary/5'
                         : 'border-border/60 bg-card hover:border-primary/20 hover:bg-muted/20',
                     )}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold">{building.name}</p>
-                        <p className="mt-1 text-xs uppercase tracking-[0.16em] text-primary/75">
-                          {building.type}
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <p className="text-base font-semibold leading-tight text-foreground">
+                          {building.name}
                         </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/75">
+                            {building.type}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'w-fit rounded-full px-2.5 py-1 text-[10px] font-semibold normal-case tracking-[0.02em]',
+                              statusTone[building.operationalStatus],
+                            )}
+                          >
+                            {formatBuildingStatusPillLabel(building.operationalStatus)}
+                          </Badge>
+                        </div>
                       </div>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          'shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-medium',
-                          statusTone[building.operationalStatus],
-                        )}
-                      >
-                        {formatBuildingStatusLabel(building.operationalStatus)}
-                      </Badge>
-                    </div>
 
-                    {building.isFavorited ? (
-                      <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-[11px] font-semibold text-primary">
-                        <Star className="h-3.5 w-3.5 fill-current" />
-                        Saved to dashboard
-                      </div>
-                    ) : null}
+                      {building.isFavorited ? (
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                          <Star className="h-3.5 w-3.5 fill-current" />
+                          Saved to dashboard
+                        </div>
+                      ) : null}
 
-                    <p className="mt-3 flex items-start gap-2 text-sm text-muted-foreground">
-                      <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
-                      <span>{building.address}</span>
-                    </p>
-
-                    {building.description ? (
-                      <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
-                        {building.description}
+                      <p className="flex items-start gap-2 text-sm leading-6 text-muted-foreground">
+                        <MapPin className="mt-1 h-4 w-4 shrink-0" />
+                        <span>{building.address}</span>
                       </p>
-                    ) : null}
+
+                      {building.description ? (
+                        <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">
+                          {building.description}
+                        </p>
+                      ) : null}
+                    </div>
                   </button>
                 )
               })}
@@ -463,12 +457,6 @@ export default function CampusMapPage() {
                   </Button>
                 </div>
 
-                <p className="text-sm text-muted-foreground">
-                  {selectedBuilding.isFavorited
-                    ? 'Saved buildings stay visible in your dashboard. Turn on Building Alerts in profile settings if you want notifications when this building changes.'
-                    : 'Save this building to keep its live status on your dashboard and get building notifications when alerts are enabled in profile settings.'}
-                </p>
-
                 {selectedBuilding.announcements.length > 0 ? (
                   <div className="space-y-2">
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">
@@ -518,10 +506,6 @@ export default function CampusMapPage() {
               <div className="flex min-h-[240px] flex-col items-center justify-center rounded-[24px] border border-dashed border-border/60 bg-muted/10 px-6 text-center">
                 <Building2 className="h-10 w-10 text-primary/80" />
                 <p className="mt-4 text-base font-semibold">Choose a building to see details.</p>
-                <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                  Use the search results to select a campus location, then show its pin on the map
-                  or open Google Maps directions.
-                </p>
               </div>
             )}
           </article>
@@ -531,12 +515,7 @@ export default function CampusMapPage() {
             className="rounded-[28px] border border-border/60 bg-card p-4 shadow-sm animate-in-up stagger-3"
           >
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold">Google Maps preview</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  The map shows the currently selected building only. Use <span className="font-semibold text-foreground">Show location</span> to focus its pin.
-                </p>
-              </div>
+              <p className="text-sm font-semibold">Google Maps preview</p>
               <Badge variant="outline" className="rounded-full border-border/70 px-3 py-1 text-[11px] uppercase tracking-[0.18em]">
                 {selectedBuilding ? '1 active pin' : 'No active pin'}
               </Badge>
@@ -553,7 +532,6 @@ export default function CampusMapPage() {
       </section>
 
       <section className="rounded-2xl border border-border/60 bg-card p-4 text-sm text-muted-foreground animate-in-up stagger-3">
-        Need service operating hours too? Visit{' '}
         <Link href="/services-status" className="font-semibold text-primary hover:text-primary/80">
           Services Status
         </Link>

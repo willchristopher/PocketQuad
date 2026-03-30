@@ -1,49 +1,57 @@
 'use client';
+
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, LogOut, MessageCircleMore, UserCircle2 } from 'lucide-react';
+
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/lib/auth/context';
-import { useRouter } from 'next/navigation';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
-const mobileNavItems = [
-    { icon: LayoutGrid, label: 'Home', href: '/dashboard' },
-    { icon: MessageCircleMore, label: 'Chat', href: '/chatroom' },
-    { icon: UserCircle2, label: 'Profile', href: '/profile' },
-];
+import { isStudentPathActive, studentMobileNavigationItems } from '@/components/layout/studentNavigation';
+
 export function MobileNav() {
-    const pathname = usePathname();
-    const router = useRouter();
-    const { signOut } = useAuth();
-    const minimized = useScrollDirection();
-    const handleLogout = async () => {
-        await signOut();
-        router.push('/login');
-    };
-    return (<div className="fixed bottom-0 left-0 right-0 z-50 px-3 md:hidden">
-      <div className={cn('bg-gradient-to-t from-background to-transparent pointer-events-none transition-all duration-300', minimized ? 'h-1' : 'h-4')}/>
-      <nav className={cn('glass-card mx-auto flex max-w-lg items-center justify-evenly rounded-2xl transition-all duration-300', minimized ? 'mb-2 px-2 py-0.5' : 'mb-3 px-2 py-1')} style={{
-            paddingBottom: minimized
-                ? 'max(2px, env(safe-area-inset-bottom))'
-                : 'max(4px, env(safe-area-inset-bottom))',
-        }}>
-        {mobileNavItems.map((item) => {
-            const isActive = pathname?.startsWith(item.href) || (item.href === '/dashboard' && pathname === '/');
-            const Icon = item.icon;
-            return (<Link key={item.href} href={item.href} className={cn('relative flex flex-col items-center justify-center rounded-xl font-medium transition-all duration-300', minimized ? 'min-w-[40px] px-1.5 py-1' : 'min-w-[52px] px-2 py-1.5', isActive ? 'text-primary' : 'text-muted-foreground')}>
-              {isActive && <span className="absolute inset-0 rounded-xl bg-primary/8"/>}
-              <Icon className={cn('relative z-10 transition-all duration-300', minimized ? 'h-4 w-4' : 'h-5 w-5')}/>
-              <span className={cn('relative z-10 text-[10px] transition-all duration-300 overflow-hidden leading-tight', minimized ? 'max-h-0 opacity-0 mt-0' : 'max-h-4 opacity-100 mt-0.5')}>
+  const pathname = usePathname();
+  const minimized = useScrollDirection();
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-50 px-3 pb-3 lg:hidden">
+      <div className={cn('pointer-events-none transition-all duration-300', minimized ? 'h-2' : 'h-6')} />
+      <nav
+        className={cn(
+          'glass-card mx-auto flex max-w-xl items-center justify-between rounded-[1.7rem] border border-border/70 px-2 transition-all duration-300',
+          minimized ? 'py-1.5' : 'py-2.5',
+        )}
+        style={{
+          paddingBottom: minimized
+            ? 'max(0.375rem, env(safe-area-inset-bottom))'
+            : 'max(0.625rem, env(safe-area-inset-bottom))',
+        }}
+      >
+        {studentMobileNavigationItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = isStudentPathActive(pathname, item.href);
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'relative flex min-w-[64px] flex-1 flex-col items-center justify-center rounded-[1.2rem] px-2 py-2 text-center transition-all duration-300',
+                isActive ? 'text-primary' : 'text-muted-foreground',
+              )}
+            >
+              {isActive ? <span className="absolute inset-0 rounded-[1.2rem] bg-primary/10" /> : null}
+              <Icon className={cn('relative z-10 transition-all duration-300', minimized ? 'h-[18px] w-[18px]' : 'h-5 w-5')} />
+              <span
+                className={cn(
+                  'relative z-10 mt-1 overflow-hidden text-[10px] font-semibold uppercase tracking-[0.14em] transition-all duration-300',
+                  minimized ? 'max-h-0 opacity-0' : 'max-h-4 opacity-100',
+                )}
+              >
                 {item.label}
               </span>
-            </Link>);
+            </Link>
+          );
         })}
-        <button onClick={() => { void handleLogout(); }} className={cn('relative flex flex-col items-center justify-center rounded-xl font-medium text-muted-foreground transition-all duration-300 hover:text-red-500', minimized ? 'min-w-[40px] px-1.5 py-1' : 'min-w-[52px] px-2 py-1.5')}>
-          <LogOut className={cn('relative z-10 transition-all duration-300', minimized ? 'h-4 w-4' : 'h-5 w-5')}/>
-          <span className={cn('relative z-10 text-[10px] transition-all duration-300 overflow-hidden leading-tight', minimized ? 'max-h-0 opacity-0 mt-0' : 'max-h-4 opacity-100 mt-0.5')}>
-            Log Out
-          </span>
-        </button>
       </nav>
-    </div>);
+    </div>
+  );
 }

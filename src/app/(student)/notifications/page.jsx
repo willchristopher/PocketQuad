@@ -1,13 +1,13 @@
 'use client';
 import React from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, CheckCheck } from 'lucide-react';
+import { ArrowUpRight, CheckCheck, X } from 'lucide-react';
 import { useNotificationInbox } from '@/hooks/useNotifications';
 import { formatNotificationTimestamp, getNotificationMeta, notificationFilters, isExternalNotificationUrl, getNotificationFilter, } from '@/lib/notifications';
 import { cn } from '@/lib/utils';
 export default function NotificationsPage() {
     const [activeFilter, setActiveFilter] = React.useState('All');
-    const { notifications, unreadCount, loading, error, updatingId, markingAll, markRead, markAllRead, } = useNotificationInbox({ limit: 100 });
+    const { notifications, unreadCount, loading, error, updatingId, clearingId, markingAll, markRead, clearNotification, markAllRead, } = useNotificationInbox({ limit: 100 });
     const filtered = notifications.filter((item) => {
         if (activeFilter === 'All')
             return true;
@@ -16,21 +16,12 @@ export default function NotificationsPage() {
         return getNotificationFilter(item.type) === activeFilter;
     });
     return (<div className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between animate-in-up">
-        <div>
-          <h1 className="font-display text-2xl font-extrabold tracking-tight md:text-3xl">Notifications</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {unreadCount > 0
-            ? `${unreadCount} unread campus update${unreadCount === 1 ? '' : 's'}`
-            : 'All campus updates are read.'}
-          </p>
-        </div>
-
-        {unreadCount > 0 && (<button onClick={() => void markAllRead()} disabled={markingAll} className="inline-flex items-center gap-1.5 rounded-xl border border-border/60 bg-card px-3.5 py-2 text-sm font-semibold transition-all duration-200 hover:bg-muted/35 disabled:opacity-70">
+      {unreadCount > 0 && (<div className="flex justify-end animate-in-up">
+          <button onClick={() => void markAllRead()} disabled={markingAll} className="inline-flex items-center gap-1.5 rounded-xl border border-border/60 bg-card px-3.5 py-2 text-sm font-semibold transition-all duration-200 hover:bg-muted/35 disabled:opacity-70">
             <CheckCheck className="h-4 w-4"/>
             {markingAll ? 'Updating...' : 'Mark all read'}
-          </button>)}
-      </div>
+          </button>
+        </div>)}
 
       {error && (<p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-700 dark:text-red-300">
           {error}
@@ -51,6 +42,9 @@ export default function NotificationsPage() {
             const meta = getNotificationMeta(item.type);
             const Icon = meta.icon;
             const external = isExternalNotificationUrl(item.actionUrl);
+            const isUpdating = updatingId === item.id;
+            const isClearing = clearingId === item.id;
+            const isPending = isUpdating || isClearing;
             const body = (<div className="flex items-start gap-3">
                 <div className={cn('mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', meta.iconClassName)}>
                   <Icon className="h-4 w-4"/>
@@ -75,35 +69,60 @@ export default function NotificationsPage() {
                     </span>)}
                 </div>
               </div>);
-            const className = cn('block w-full rounded-2xl border p-4 text-left transition-all duration-200 hover-lift animate-in-up', item.read
+            const className = cn('w-full rounded-2xl border p-4 transition-all duration-200 animate-in-up', item.read
                 ? 'border-border/60 bg-card hover:bg-muted/25'
-                : 'border-primary/25 bg-primary/[0.04] hover:bg-primary/[0.07]', updatingId === item.id && 'opacity-70');
+                : 'border-primary/25 bg-primary/[0.04] hover:bg-primary/[0.07]', isPending && 'opacity-70');
+            const actionClassName = 'block min-w-0 flex-1 rounded-xl text-left transition-all duration-200 hover-lift';
             const style = { animationDelay: `${0.035 * (index + 1)}s` };
             if (item.actionUrl) {
                 if (external) {
-                    return (<a key={item.id} href={item.actionUrl} target="_blank" rel="noreferrer" onClick={() => {
+                    return (<div key={item.id} className={className} style={style}>
+                    <div className="flex items-start gap-3">
+                      <a href={item.actionUrl} target="_blank" rel="noreferrer" onClick={() => {
                             if (!item.read) {
                                 void markRead(item.id);
                             }
-                        }} className={className} style={style}>
-                    {body}
-                  </a>);
+                        }} className={actionClassName}>
+                        {body}
+                      </a>
+                      <button type="button" onClick={() => void clearNotification(item.id)} disabled={isClearing} className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground disabled:opacity-60" aria-label={`Clear ${item.title}`}>
+                        <X className="h-3.5 w-3.5"/>
+                        {isClearing ? 'Clearing...' : 'Clear'}
+                      </button>
+                    </div>
+                  </div>);
                 }
-                return (<Link key={item.id} href={item.actionUrl} onClick={() => {
+                return (<div key={item.id} className={className} style={style}>
+                  <div className="flex items-start gap-3">
+                    <Link href={item.actionUrl} onClick={() => {
                         if (!item.read) {
                             void markRead(item.id);
                         }
-                    }} className={className} style={style}>
-                  {body}
-                </Link>);
+                    }} className={actionClassName}>
+                      {body}
+                    </Link>
+                    <button type="button" onClick={() => void clearNotification(item.id)} disabled={isClearing} className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground disabled:opacity-60" aria-label={`Clear ${item.title}`}>
+                      <X className="h-3.5 w-3.5"/>
+                      {isClearing ? 'Clearing...' : 'Clear'}
+                    </button>
+                  </div>
+                </div>);
             }
-            return (<button key={item.id} type="button" onClick={() => {
+            return (<div key={item.id} className={className} style={style}>
+                <div className="flex items-start gap-3">
+                  <button type="button" onClick={() => {
                     if (!item.read) {
                         void markRead(item.id);
                     }
-                }} className={className} style={style}>
-                {body}
-              </button>);
+                }} className={actionClassName}>
+                    {body}
+                  </button>
+                  <button type="button" onClick={() => void clearNotification(item.id)} disabled={isClearing} className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground disabled:opacity-60" aria-label={`Clear ${item.title}`}>
+                    <X className="h-3.5 w-3.5"/>
+                    {isClearing ? 'Clearing...' : 'Clear'}
+                  </button>
+                </div>
+              </div>);
         })}
       </section>
 

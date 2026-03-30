@@ -14,7 +14,7 @@ const toneClasses = {
 };
 function FacultyCard({ entry, pending, onToggleFavorite }) {
     const tone = toneClasses[getStudentFacingFacultyAvailabilityTone(entry.studentAvailabilityState)];
-    return (<article className="rounded-[24px] border border-border/60 bg-card p-5 transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
+    return (<article className="rounded-[24px] border border-border/60 bg-card p-5 transition-all hover:border-primary/30 hover:shadow-surface">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <Link href={`/faculty-directory/${entry.id}`} className="min-w-0 flex-1 space-y-1">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{entry.department}</p>
@@ -148,25 +148,14 @@ export default function FacultyDirectoryPage() {
         }
     }, [allEntries, entries, pendingFacultyId, updateFavoriteState]);
     return (<div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[28px] border border-border/60 bg-card px-6 py-6 md:px-7 md:py-7">
-        <div className="pointer-events-none absolute -left-10 top-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl"/>
-        <div className="pointer-events-none absolute right-0 top-8 h-32 w-32 rounded-full bg-cyan-500/10 blur-3xl"/>
-        <div className="relative max-w-2xl space-y-1.5">
-          <h1 className="font-display text-3xl font-extrabold tracking-tight">Faculty, all in one place.</h1>
-          <p className="text-sm leading-6 text-muted-foreground">
-            Search by name, department, office, or support area, then save the people you want quick access to.
-          </p>
-        </div>
-      </section>
-
-      <section className="rounded-[24px] border border-border/60 bg-card/90 p-4 md:p-5">
+      <section className="rounded-[24px] border border-border/60 bg-card p-4 md:p-5">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
-          <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-muted/20 px-3 transition-colors focus-within:border-primary/40 focus-within:bg-muted/35">
+          <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-background px-3 transition-colors focus-within:border-primary/40 focus-within:bg-muted/50">
             <Search className="h-4 w-4 text-muted-foreground"/>
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by faculty name, role, tag, or office" className="h-11 w-full bg-transparent text-sm outline-none"/>
           </div>
 
-          <select value={department} onChange={(event) => setDepartment(event.target.value)} className="h-11 rounded-2xl border border-border/60 bg-muted/20 px-3 text-sm transition-colors hover:bg-muted/35">
+          <select value={department} onChange={(event) => setDepartment(event.target.value)} className="h-11 rounded-2xl border border-border/60 bg-background px-3 text-sm transition-colors hover:bg-muted/50">
             {departments.map((item) => (<option key={item} value={item}>
                 {item}
               </option>))}
@@ -202,7 +191,7 @@ export default function FacultyDirectoryPage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Your saved faculty</p>
                 <h2 className="mt-1 font-display text-2xl font-bold tracking-tight">{favoriteEntries.length}</h2>
               </div>
-              <div className="rounded-full border border-border/60 bg-muted/20 px-3 py-1 text-xs font-semibold text-muted-foreground">
+              <div className="rounded-full border border-border/60 bg-background px-3 py-1 text-xs font-semibold text-muted-foreground">
                 {totalFavorites} total
               </div>
             </div>
@@ -212,14 +201,14 @@ export default function FacultyDirectoryPage() {
             </p>
 
             <div className="mt-5 space-y-3">
-              {loading ? (<p className="text-sm text-muted-foreground">Loading favorites...</p>) : favoriteEntries.length === 0 ? (<div className="rounded-2xl border border-dashed border-border/60 bg-muted/10 px-4 py-8 text-center">
+              {loading ? (<p className="text-sm text-muted-foreground">Loading favorites...</p>) : favoriteEntries.length === 0 ? (<div className="rounded-2xl border border-dashed border-border/60 bg-background px-4 py-8 text-center">
                   <p className="text-sm font-semibold">No saved faculty yet</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Tap Save on any faculty card to pin them here.
                   </p>
                 </div>) : (favoriteEntries.map((entry) => {
             const tone = toneClasses[getStudentFacingFacultyAvailabilityTone(entry.studentAvailabilityState)];
-            return (<article key={entry.id} className="rounded-[20px] border border-border/60 bg-muted/10 p-4">
+            return (<article key={entry.id} className="rounded-[20px] border border-border/60 bg-background p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 space-y-1">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{entry.department}</p>

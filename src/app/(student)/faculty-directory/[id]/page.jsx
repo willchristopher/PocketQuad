@@ -114,10 +114,8 @@ export default function FacultyDetailPage({ params }) {
           {error}
         </p>)}
 
-      <section className="relative overflow-hidden rounded-[28px] border border-border/60 bg-card p-6 md:p-8">
-        <div className="pointer-events-none absolute -left-12 top-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl"/>
-        <div className="pointer-events-none absolute right-0 top-10 h-36 w-36 rounded-full bg-cyan-500/10 blur-3xl"/>
-        <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_320px]">
+      <section className="rounded-[28px] border border-border/60 bg-card p-6 md:p-8">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_320px]">
           <div className="space-y-5">
             <div className="space-y-2">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">{faculty.department}</p>
@@ -162,7 +160,7 @@ export default function FacultyDetailPage({ params }) {
           </div>
 
           <div className="space-y-4">
-            <div className="rounded-[24px] border border-border/60 bg-muted/15 p-5">
+            <div className="rounded-[24px] border border-border/60 bg-muted/45 p-5">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Contact</p>
               <div className="mt-4 space-y-3 text-sm">
                 <p className="flex items-start gap-2">
@@ -182,12 +180,12 @@ export default function FacultyDetailPage({ params }) {
               </div>
             </div>
 
-            <div className="rounded-[24px] border border-border/60 bg-muted/10 p-5">
+            <div className="rounded-[24px] border border-border/60 bg-muted/45 p-5">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Office hours</p>
               <p className="mt-3 text-sm text-muted-foreground">{faculty.officeHours}</p>
             </div>
 
-            <div className="rounded-[24px] border border-border/60 bg-muted/10 p-5">
+            <div className="rounded-[24px] border border-border/60 bg-muted/45 p-5">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Actions</p>
               <div className="mt-3 grid gap-2">
                 <a href={`mailto:${faculty.email}`} className="inline-flex items-center gap-2 rounded-xl border border-border/60 px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/35">
@@ -226,7 +224,7 @@ export default function FacultyDetailPage({ params }) {
         {faculty.officeHourSlots.length === 0 ? (<p className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
             No detailed office-hour slots posted yet.
           </p>) : (<div className="grid gap-3 md:grid-cols-2">
-            {faculty.officeHourSlots.map((slot) => (<div key={slot.id} className="rounded-2xl border border-border/60 bg-muted/10 p-4">
+            {faculty.officeHourSlots.map((slot) => (<div key={slot.id} className="rounded-2xl border border-border/60 bg-background p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold">
                     {weekdays[slot.dayOfWeek]} · {formatTo12Hour(slot.startTime)} - {formatTo12Hour(slot.endTime)}

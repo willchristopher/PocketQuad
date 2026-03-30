@@ -11,19 +11,6 @@ const SELECTED_MARKER_ICON = 'https://maps.google.com/mapfiles/ms/icons/orange-d
 
 let googleMapsPromise
 
-function parseCoordinateQuery(input) {
-  const match = input?.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/)
-  if (!match) return null
-
-  const lat = Number(match[1])
-  const lng = Number(match[2])
-
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null
-
-  return { lat, lng }
-}
-
 function resolveStoredCoordinates(building) {
   if (Number.isFinite(building.latitude) && Number.isFinite(building.longitude)) {
     return {
@@ -32,7 +19,7 @@ function resolveStoredCoordinates(building) {
     }
   }
 
-  return parseCoordinateQuery(building.mapQuery)
+  return null
 }
 
 function escapeHtml(value) {
@@ -46,7 +33,7 @@ function escapeHtml(value) {
 
 function buildInfoWindowContent(marker) {
   return `
-    <div style="min-width: 180px; font-family: Nunito, system-ui, sans-serif;">
+    <div style="min-width: 180px; font-family: var(--font-body);">
       <div style="font-weight: 700; font-size: 14px; color: #0f172a;">${escapeHtml(marker.name)}</div>
       <div style="margin-top: 4px; font-size: 12px; color: #475569;">${escapeHtml(marker.type)}</div>
       <div style="margin-top: 6px; font-size: 12px; color: #64748b;">${escapeHtml(marker.address)}</div>
@@ -102,28 +89,6 @@ function loadGoogleMapsApi(apiKey) {
   return googleMapsPromise
 }
 
-function geocodeQuery(geocoder, query) {
-  return new Promise((resolve, reject) => {
-    geocoder.geocode({ address: query }, (results, status) => {
-      if (status !== 'OK') {
-        reject(new Error(`Geocoding failed with status ${status}`))
-        return
-      }
-
-      const location = results?.[0]?.geometry?.location
-      if (!location) {
-        resolve(null)
-        return
-      }
-
-      resolve({
-        lat: location.lat(),
-        lng: location.lng(),
-      })
-    })
-  })
-}
-
 export default function CampusGoogleMap({
   buildings,
   selectedBuildingId,
@@ -134,17 +99,13 @@ export default function CampusGoogleMap({
   const mapElementRef = React.useRef(null)
   const mapRef = React.useRef(null)
   const mapsRef = React.useRef(null)
-  const geocoderRef = React.useRef(null)
   const infoWindowRef = React.useRef(null)
   const markersRef = React.useRef(new Map())
-  const attemptedGeocodeIdsRef = React.useRef(new Set())
   const handledFocusRequestRef = React.useRef(null)
-  const [coordinatesById, setCoordinatesById] = React.useState({})
   const [mapStatus, setMapStatus] = React.useState(
     apiKey ? 'Loading Google Maps…' : 'Add a Google Maps API key to enable the map.',
   )
   const [mapReady, setMapReady] = React.useState(false)
-  const priorityBuildingId = focusBuildingId ?? selectedBuildingId ?? null
   const visibleBuildings = React.useMemo(() => {
     if (!selectedBuildingId) return []
     return buildings.filter((building) => building.id === selectedBuildingId)
@@ -164,7 +125,6 @@ export default function CampusGoogleMap({
         if (!isActive || !mapElementRef.current) return
 
         mapsRef.current = maps
-        geocoderRef.current = new maps.Geocoder()
 
         if (!mapRef.current) {
           mapRef.current = new maps.Map(mapElementRef.current, {
@@ -196,62 +156,11 @@ export default function CampusGoogleMap({
     }
   }, [apiKey])
 
-  React.useEffect(() => {
-    if (!mapReady || !geocoderRef.current) return
-
-    let isActive = true
-    const unresolvedBuildings = visibleBuildings
-      .filter((building) => {
-        if (coordinatesById[building.id]) return false
-        if (attemptedGeocodeIdsRef.current.has(building.id)) return false
-        return !resolveStoredCoordinates(building)
-      })
-      .sort((left, right) => {
-        const leftPriority = left.id === priorityBuildingId ? -1 : 0
-        const rightPriority = right.id === priorityBuildingId ? -1 : 0
-        return leftPriority - rightPriority
-      })
-
-    if (unresolvedBuildings.length === 0) {
-      return undefined
-    }
-
-    const run = async () => {
-      const updates = {}
-
-      for (const building of unresolvedBuildings) {
-        const query = building.mapQuery || building.address || building.name
-        if (!query) continue
-
-        attemptedGeocodeIdsRef.current.add(building.id)
-
-        try {
-          const geocoded = await geocodeQuery(geocoderRef.current, query)
-          if (geocoded) {
-            updates[building.id] = geocoded
-          }
-        } catch (error) {
-          console.error(`Unable to geocode "${query}"`, error)
-        }
-      }
-
-      if (isActive && Object.keys(updates).length > 0) {
-        setCoordinatesById((previous) => ({ ...previous, ...updates }))
-      }
-    }
-
-    void run()
-
-    return () => {
-      isActive = false
-    }
-  }, [coordinatesById, mapReady, priorityBuildingId, visibleBuildings])
-
   const markers = React.useMemo(
     () =>
       visibleBuildings
         .map((building) => {
-          const coords = resolveStoredCoordinates(building) ?? coordinatesById[building.id]
+          const coords = resolveStoredCoordinates(building)
           if (!coords) return null
 
           return {
@@ -263,7 +172,7 @@ export default function CampusGoogleMap({
           }
         })
         .filter(Boolean),
-    [coordinatesById, visibleBuildings],
+    [visibleBuildings],
   )
 
   React.useEffect(() => {
@@ -317,7 +226,7 @@ export default function CampusGoogleMap({
       setMapStatus(
         apiKey
           ? selectedBuildingId
-            ? 'The selected building does not have a mappable location yet.'
+            ? 'The selected building does not have an exact map pin yet.'
             : 'Select a building to show its pin on the map.'
           : 'Add a Google Maps API key to enable the map.',
       )

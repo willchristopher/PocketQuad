@@ -103,13 +103,6 @@ export default function EventsPage() {
         }
     };
     return (<div className="space-y-6">
-      <div className="space-y-1 animate-in-up">
-        <h1 className="font-display text-2xl font-extrabold tracking-tight md:text-3xl">Campus Event Discovery</h1>
-        <p className="text-sm text-muted-foreground">
-          Browse, search, and filter campus events by category, date, and location.
-        </p>
-      </div>
-
       <section className="rounded-2xl border border-border/60 bg-card/90 p-4 md:p-5 animate-in-up stagger-1">
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 transition-colors focus-within:border-primary/40 focus-within:bg-muted/35">

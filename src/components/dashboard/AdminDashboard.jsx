@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth/context';
 import { getAllowedAdminTabs, hasPortalPermission, } from '@/lib/auth/portalPermissions';
-import { BUILDING_IMPORT_REQUIRED_HEADERS, validateBuildingImportHeaders } from '@/lib/buildingImport';
+import { BUILDING_IMPORT_OPTIONAL_HEADERS, BUILDING_IMPORT_REQUIRED_HEADERS, validateBuildingImportHeaders } from '@/lib/buildingImport';
 import { parseCsvText } from '@/lib/csv';
 import { cn } from '@/lib/utils';
 const tabItems = [
@@ -598,6 +598,7 @@ export function AdminDashboard() {
       {university.name}
     </option>));
     const requiredBuildingHeaders = BUILDING_IMPORT_REQUIRED_HEADERS.join(', ');
+    const optionalBuildingHeaders = BUILDING_IMPORT_OPTIONAL_HEADERS.join(', ');
     return (<div className="space-y-4 animate-in-up">
       {selectedUniversity ? (<Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
 
@@ -1364,7 +1365,8 @@ export function AdminDashboard() {
                 <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                   <p className="font-semibold text-foreground">Required columns (exact names):</p>
                   <p className="mt-1 font-mono">{requiredBuildingHeaders}</p>
-                  <p className="mt-2">All future building CSV uploads must use the same column names.</p>
+                  <p className="mt-2 font-semibold text-foreground">Optional columns:</p>
+                  <p className="mt-1 font-mono">{optionalBuildingHeaders}</p>
                 </div>
 
                 {buildingImportFileName && (<p className="text-xs text-muted-foreground">

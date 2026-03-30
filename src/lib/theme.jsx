@@ -51,6 +51,13 @@ function adjustHexLightness(hex, amount) {
     b = Math.min(255, Math.max(0, b + amount));
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
+function mixHex(startHex, endHex, weight) {
+    const ratio = Math.min(1, Math.max(0, weight));
+    const start = [1, 3, 5].map((offset) => parseInt(startHex.slice(offset, offset + 2), 16));
+    const end = [1, 3, 5].map((offset) => parseInt(endHex.slice(offset, offset + 2), 16));
+    const mixed = start.map((channel, index) => Math.round(channel + (end[index] - channel) * ratio));
+    return `#${mixed.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+}
 function hexToRGB(hex) {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
@@ -61,23 +68,56 @@ function applyUniversityColors(colors) {
     const root = document.documentElement;
     const mainHSL = hexToHSL(colors.mainColor);
     const accentHSL = hexToHSL(colors.accentColor);
+    const mainIsLight = getLuminance(colors.mainColor) > 0.5;
     const accentIsLight = getLuminance(colors.accentColor) > 0.5;
     const mainRgb = hexToRGB(colors.mainColor);
     const accentRgb = hexToRGB(colors.accentColor);
-    // Use accent color (e.g. gold) as the primary so toggles, tabs, badges, etc. show it
-    root.style.setProperty('--primary', accentHSL);
-    root.style.setProperty('--primary-foreground', accentIsLight ? '222 47% 11%' : '0 0% 100%');
+    const canvasHex = mixHex('#fbfaf4', colors.accentColor, 0.03);
+    const surfaceHex = '#ffffff';
+    const mutedHex = mixHex('#f2eee4', colors.mainColor, 0.04);
+    const accentSurfaceHex = mixHex('#fff6da', colors.accentColor, 0.18);
+    const borderHex = mixHex('#d8d1c2', colors.mainColor, 0.1);
+    const foregroundHex = mixHex('#1c2342', colors.mainColor, 0.24);
+    const secondaryForegroundHex = mixHex('#31395d', colors.mainColor, 0.12);
+    const mutedForegroundHex = mixHex('#4b556d', colors.mainColor, 0.08);
+    const mainTintHex = '#ffffff';
+    const lighterMain = adjustHexLightness(colors.mainColor, 36);
+    const surfaceRgb = hexToRGB(surfaceHex);
+    const borderRgb = hexToRGB(borderHex);
+    const mainTintRgb = hexToRGB(mainTintHex);
+    root.style.setProperty('--background', hexToHSL(canvasHex));
+    root.style.setProperty('--foreground', hexToHSL(foregroundHex));
+    root.style.setProperty('--card', hexToHSL(surfaceHex));
+    root.style.setProperty('--card-foreground', hexToHSL(foregroundHex));
+    root.style.setProperty('--popover', hexToHSL(surfaceHex));
+    root.style.setProperty('--popover-foreground', hexToHSL(foregroundHex));
+    root.style.setProperty('--primary', mainHSL);
+    root.style.setProperty('--primary-foreground', mainIsLight ? '222 47% 11%' : '0 0% 100%');
+    root.style.setProperty('--secondary', hexToHSL(accentSurfaceHex));
+    root.style.setProperty('--secondary-foreground', hexToHSL(secondaryForegroundHex));
+    root.style.setProperty('--muted', hexToHSL(mutedHex));
+    root.style.setProperty('--muted-foreground', hexToHSL(mutedForegroundHex));
+    root.style.setProperty('--accent', hexToHSL(accentSurfaceHex));
+    root.style.setProperty('--accent-foreground', hexToHSL(foregroundHex));
+    root.style.setProperty('--border', hexToHSL(borderHex));
+    root.style.setProperty('--input', hexToHSL(borderHex));
     root.style.setProperty('--ring', accentHSL);
     root.style.setProperty('--brand-primary', colors.mainColor);
+    root.style.setProperty('--brand-primary-rgb', mainRgb);
     root.style.setProperty('--brand-secondary', colors.accentColor);
-    // Build brand gradients that keep the school's main color present.
-    const lighterMain = adjustHexLightness(colors.mainColor, 32);
-    root.style.setProperty('--gradient-primary', `linear-gradient(135deg, ${colors.mainColor} 0%, ${colors.accentColor} 100%)`);
-    root.style.setProperty('--gradient-cool', `linear-gradient(135deg, ${colors.mainColor} 0%, ${colors.accentColor} 100%)`);
-    root.style.setProperty('--gradient-surface', `linear-gradient(180deg, rgba(${mainRgb}, 0.08) 0%, rgba(${accentRgb}, 0.03) 100%)`);
-    root.style.setProperty('--shadow-accent', `0 10px 24px rgba(${accentRgb}, 0.24)`);
-    root.style.setProperty('--shadow-accent-lg', `0 18px 36px rgba(${accentRgb}, 0.32)`);
-    // Keep uni-specific custom properties for components that need the raw values
+    root.style.setProperty('--brand-secondary-rgb', accentRgb);
+    root.style.setProperty('--gradient-primary', `linear-gradient(180deg, ${colors.mainColor} 0%, ${colors.mainColor} 100%)`);
+    root.style.setProperty('--gradient-cool', `linear-gradient(180deg, ${colors.mainColor} 0%, ${colors.mainColor} 100%)`);
+    root.style.setProperty('--gradient-surface', `linear-gradient(180deg, rgba(${surfaceRgb}, 1) 0%, rgba(${surfaceRgb}, 1) 100%)`);
+    root.style.setProperty('--glass-bg', `rgba(${surfaceRgb}, 1)`);
+    root.style.setProperty('--glass-border', `rgba(${borderRgb}, 0.24)`);
+    root.style.setProperty('--panel-bg', `rgba(${surfaceRgb}, 1)`);
+    root.style.setProperty('--panel-border', `rgba(${borderRgb}, 0.26)`);
+    root.style.setProperty('--surface-overlay', `rgba(${mainTintRgb}, 0)`);
+    root.style.setProperty('--shadow-surface', `0 8px 24px rgba(${mainRgb}, 0.08)`);
+    root.style.setProperty('--shadow-surface-lg', `0 18px 36px rgba(${mainRgb}, 0.12)`);
+    root.style.setProperty('--shadow-accent', `0 8px 18px rgba(${mainRgb}, 0.1)`);
+    root.style.setProperty('--shadow-accent-lg', `0 12px 24px rgba(${mainRgb}, 0.14)`);
     root.style.setProperty('--uni-accent', accentHSL);
     root.style.setProperty('--uni-accent-fg', accentIsLight ? '222 47% 11%' : '0 0% 100%');
     root.style.setProperty('--uni-main', mainHSL);
@@ -89,14 +129,37 @@ function applyUniversityColors(colors) {
 function removeUniversityColors() {
     const root = document.documentElement;
     const props = [
+        '--background',
+        '--foreground',
+        '--card',
+        '--card-foreground',
+        '--popover',
+        '--popover-foreground',
         '--primary',
         '--primary-foreground',
+        '--secondary',
+        '--secondary-foreground',
+        '--muted',
+        '--muted-foreground',
+        '--accent',
+        '--accent-foreground',
+        '--border',
+        '--input',
         '--ring',
         '--brand-primary',
+        '--brand-primary-rgb',
         '--brand-secondary',
+        '--brand-secondary-rgb',
         '--gradient-primary',
         '--gradient-cool',
         '--gradient-surface',
+        '--glass-bg',
+        '--glass-border',
+        '--panel-bg',
+        '--panel-border',
+        '--surface-overlay',
+        '--shadow-surface',
+        '--shadow-surface-lg',
         '--shadow-accent',
         '--shadow-accent-lg',
         '--uni-accent',
@@ -176,7 +239,7 @@ export function UniversityThemeProvider({ children }) {
     // Apply the theme whenever mode or colors change
     React.useEffect(() => {
         if (themeMode === 'university' && universityColors) {
-            setNextTheme('system');
+            setNextTheme('light');
             applyUniversityColors(universityColors);
         }
         else {
