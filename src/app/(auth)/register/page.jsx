@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
+import { ArrowRight, Eye, EyeSlash, Lock, EnvelopeSimple, User } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -373,7 +373,7 @@ export default function RegisterPage() {
         title={title}
         description={description}
         headerSlot={
-          <div className="relative grid grid-cols-2 rounded-full border border-white/10 bg-background/70 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+          <div className="relative grid grid-cols-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-1">
             {[
               { id: 'STUDENT', label: 'Student' },
               { id: 'FACULTY', label: 'Faculty' },
@@ -385,17 +385,17 @@ export default function RegisterPage() {
                   key={option.id}
                   type="button"
                   onClick={() => handleRoleChange(option.id)}
-                  className="relative min-h-[44px] overflow-hidden rounded-full px-4 py-3 text-sm font-semibold text-muted-foreground transition-colors"
+                  className="relative min-h-[40px] overflow-hidden rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors"
                   disabled={!canSwitchRoles}
                 >
                   {active ? (
                     <motion.span
                       layoutId="auth-role-pill"
-                      className="absolute inset-0 rounded-full bg-[linear-gradient(135deg,rgba(244,200,79,0.24)_0%,rgba(17,27,87,0.55)_100%)]"
-                      transition={{ duration: 0.35, ease: transitionEase }}
+                      className="absolute inset-0 rounded-lg bg-white/[0.06]"
+                      transition={{ duration: 0.3, ease: transitionEase }}
                     />
                   ) : null}
-                  <span className={active ? 'relative z-10 text-foreground' : 'relative z-10 text-muted-foreground'}>
+                  <span className={active ? 'relative z-10 text-white' : 'relative z-10 text-white/30'}>
                     {option.label}
                   </span>
                 </button>
@@ -406,7 +406,7 @@ export default function RegisterPage() {
         footer={
           <p>
             Already have an account?{' '}
-            <Link href="/login" className="font-semibold text-primary transition-colors hover:text-primary/80">
+            <Link href="/login" className="font-medium text-[#ECAC00] transition-colors hover:underline">
               Sign in
             </Link>
           </p>
@@ -418,9 +418,9 @@ export default function RegisterPage() {
               <span>{progressMeta.trackLabel}</span>
               <span>{progressMeta.stepLabel}</span>
             </div>
-            <div className="h-[3px] rounded-full bg-white/10">
+            <div className="h-px rounded-full bg-white/[0.08]">
               <motion.div
-                className="h-full rounded-full bg-[linear-gradient(135deg,#f4c84f_0%,#d3a72f_100%)]"
+                className="h-full rounded-full bg-[#ECAC00]"
                 initial={false}
                 animate={{ width: `${progressMeta.progress}%` }}
                 transition={{ duration: 0.38, ease: transitionEase }}
@@ -500,7 +500,7 @@ export default function RegisterPage() {
 
               <AuthField label="University Email" error={fieldErrors.email?.[0]} errorClassName="text-red-700">
                 <AuthFieldShell
-                  icon={<Mail className="h-4 w-4" />}
+                  icon={<EnvelopeSimple className="h-4 w-4" />}
                   invalid={!!fieldErrors.email?.[0]}
                   className={getDarkFieldShellClassName(!!fieldErrors.email?.[0])}
                 >
@@ -612,7 +612,7 @@ export default function RegisterPage() {
                             disabled={submitting}
                             aria-label={showPassword ? 'Hide password' : 'Show password'}
                           >
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            {showPassword ? <EyeSlash className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </button>
                         }
                       >
@@ -647,16 +647,14 @@ export default function RegisterPage() {
               </AuthMessage>
             ) : null}
 
-            <Button
+            <button
               type="submit"
-              variant="gradient"
-              size="xl"
-              className="w-full gap-2 !bg-[linear-gradient(135deg,#f4c84f_0%,#d3a72f_100%)] !text-[#0e163f] !shadow-[0_18px_40px_rgba(244,200,79,0.18)]"
               disabled={submitting || resendingCode}
+              className="group flex w-full items-center justify-center gap-2.5 rounded-xl bg-[#ECAC00] px-6 py-3.5 text-[14px] font-semibold text-[#002144] shadow-[0_2px_8px_rgba(0,0,0,0.12)] transition-all duration-200 hover:shadow-[0_4px_16px_rgba(0,0,0,0.18)] active:translate-y-px disabled:cursor-not-allowed"
             >
               {submitLabel}
-              {submitting ? null : <ArrowRight className="h-4 w-4" />}
-            </Button>
+              {submitting ? null : <ArrowRight className="h-4 w-4" weight="bold" />}
+            </button>
           </form>
         </div>
       </AuthInteractionPanel>

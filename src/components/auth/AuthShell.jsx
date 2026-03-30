@@ -21,10 +21,7 @@ export function AppBrand({ href = '/login', align = 'center', }) {
 export function AuthShell({ children, className, }) {
     return (<div className="dark relative min-h-screen overflow-hidden bg-background text-foreground">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-[-12rem] top-[-8rem] h-[26rem] w-[26rem] rounded-full bg-primary/12 blur-3xl"/>
-        <div className="absolute bottom-[-10rem] right-[-10rem] h-[24rem] w-[24rem] rounded-full bg-secondary/18 blur-3xl"/>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(244,200,79,0.08),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(17,27,87,0.22),transparent_28%)]"/>
-        <div className="absolute inset-0 opacity-[0.055] [background-image:radial-gradient(circle,_rgba(255,255,255,0.7)_1px,_transparent_1px)] [background-size:28px_28px]"/>
+        <div className="absolute inset-0 bg-[#002144]"/>
       </div>
 
       <main className={cn('relative mx-auto flex min-h-screen w-full max-w-2xl items-center px-4 py-10 sm:px-6', className)}>
@@ -34,7 +31,7 @@ export function AuthShell({ children, className, }) {
 }
 export function AuthCard({ badge, title, description, children, footer, className, }) {
     return (<section className={cn('surface-card-lg relative overflow-hidden rounded-[2rem] border border-border/70 bg-card/90 p-6 backdrop-blur-xl sm:p-8', className)}>
-      <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/35 to-transparent"/>
+      <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-white/[0.06]"/>
       <div className="relative">
         <div className="space-y-4">
           {badge ? <Badge variant="section">{badge}</Badge> : null}

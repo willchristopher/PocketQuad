@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Suspense } from 'react';
-import { ArrowRight, Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { ArrowRight, Eye, EyeSlash, Lock, EnvelopeSimple } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -83,30 +83,30 @@ function LoginForm() {
 
   return (
     <AuthExperienceLayout
-      heroLead="Sign in once. Keep the day in reach."
-      heroDescription="Classes, office hours, campus updates, and student services stay connected from the moment you get in."
+      heroLead="Classes, office hours, campus updates — connected from the moment you get in."
+      heroDescription="PocketQuad organizes campus life for Murray State students and faculty into one daily workspace."
     >
       <AuthInteractionPanel
         eyebrow="Welcome back"
         title="Sign in"
-        description="Use your university email and password to return to your campus workspace."
+        description="Enter your university email and password."
         footer={
           <p>
-            New here or faculty first time?{' '}
-            <Link href="/register" className="font-semibold text-primary transition-colors hover:text-primary/80">
-              Create or activate access
+            New here?{' '}
+            <Link href="/register" className="font-medium text-[#ECAC00] transition-colors hover:underline">
+              Create an account
             </Link>
           </p>
         }
       >
-        <form className="space-y-5" onSubmit={onSubmit}>
-          <AuthField label="University Email">
-            <AuthFieldShell icon={<Mail className="h-4 w-4" />} className={authPanelFieldShellClassName}>
+        <form className="space-y-6" onSubmit={onSubmit}>
+          <AuthField label="Email" labelClassName="!text-white/30">
+            <AuthFieldShell icon={<EnvelopeSimple className="h-4 w-4" weight="light" />} className={authPanelFieldShellClassName}>
               <input
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@university.edu"
+                placeholder="you@murraystate.edu"
                 className={authPanelInputClassName}
                 required
                 autoComplete="email"
@@ -117,27 +117,28 @@ function LoginForm() {
 
           <AuthField
             label="Password"
+            labelClassName="!text-white/30"
             hint={
               <Link
                 href="/forgot-password"
-                className="text-xs font-medium text-primary transition-colors hover:text-primary/80"
+                className="text-[11px] font-medium text-white/25 transition-colors hover:text-white/50"
               >
-                Forgot password?
+                Forgot?
               </Link>
             }
           >
             <AuthFieldShell
-              icon={<Lock className="h-4 w-4" />}
+              icon={<Lock className="h-4 w-4" weight="light" />}
               className={authPanelFieldShellClassName}
               trailing={
                 <button
                 type="button"
                 onClick={() => setShowPassword((value) => !value)}
-                className="text-muted-foreground transition-colors hover:text-foreground"
+                className="text-white/20 transition-colors hover:text-white/50"
                 disabled={submitting}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? <EyeSlash className="h-4 w-4" weight="light" /> : <Eye className="h-4 w-4" weight="light" />}
                 </button>
               }
             >
@@ -160,27 +161,27 @@ function LoginForm() {
             </AuthMessage>
           ) : null}
 
-          <label className="inline-flex cursor-pointer items-center gap-3 text-sm text-muted-foreground">
-            <input
-              type="checkbox"
-              checked={rememberMe}
-              onChange={(event) => setRememberMe(event.target.checked)}
-              disabled={submitting}
-              className="h-4 w-4 rounded border-border/70 bg-background text-primary focus:ring-primary/20"
-            />
-            <span>Remember me on this device</span>
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="inline-flex cursor-pointer items-center gap-2.5 text-[13px] text-white/25">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(event) => setRememberMe(event.target.checked)}
+                disabled={submitting}
+                className="h-3.5 w-3.5 rounded border-white/10 bg-white/[0.04] text-[#ECAC00] focus:ring-white/10"
+              />
+              <span>Remember me</span>
+            </label>
+          </div>
 
-          <Button
+          <button
             type="submit"
-            variant="gradient"
-            size="xl"
-            className="w-full gap-2 !bg-[linear-gradient(135deg,#f4c84f_0%,#d3a72f_100%)] !text-[#0e163f] !shadow-[0_18px_40px_rgba(244,200,79,0.18)]"
             disabled={submitting}
+            className="group flex w-full items-center justify-center gap-2.5 rounded-xl bg-[#ECAC00] px-6 py-3.5 text-[14px] font-semibold text-[#002144] shadow-[0_2px_8px_rgba(0,0,0,0.12)] transition-all duration-200 hover:shadow-[0_4px_16px_rgba(0,0,0,0.18)] active:translate-y-px disabled:cursor-not-allowed"
           >
-            {submitting ? 'Signing in...' : 'Sign in'}
-            {submitting ? null : <ArrowRight className="h-4 w-4" />}
-          </Button>
+            {submitting ? 'Signing in\u2026' : 'Sign in'}
+            {submitting ? null : <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" weight="bold" />}
+          </button>
         </form>
       </AuthInteractionPanel>
     </AuthExperienceLayout>

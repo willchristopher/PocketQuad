@@ -1,5 +1,5 @@
 import { cva } from 'class-variance-authority';
-import { Search } from 'lucide-react';
+import { MagnifyingGlass } from '@phosphor-icons/react';
 import { AppBrand } from '@/components/auth/AuthShell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,11 +7,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 export function OnboardingShell({ children, footer, currentStep, totalSteps, }) {
     return (<div className="relative min-h-screen overflow-hidden bg-background">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-[-10rem] top-[-7rem] h-[24rem] w-[24rem] rounded-full bg-primary/10 blur-3xl"/>
-        <div className="absolute bottom-[-11rem] right-[-10rem] h-[22rem] w-[22rem] rounded-full bg-primary/10 blur-3xl"/>
-        <div className="absolute inset-0 opacity-[0.045] [background-image:radial-gradient(circle,_#0f172a_1px,_transparent_1px)] [background-size:30px_30px]"/>
-      </div>
+      <div className="pointer-events-none absolute inset-0 bg-background" />
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center px-4 py-8 sm:px-6">
         <AppBrand />
@@ -31,7 +27,7 @@ export function StepProgress({ currentStep, totalSteps, className, }) {
       </div>
       <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${totalSteps}, minmax(0, 1fr))` }}>
         {Array.from({ length: totalSteps }).map((_, index) => (<div key={index} className={cn('h-2 rounded-full transition-all duration-300', index <= currentStep
-                ? 'bg-[image:var(--gradient-primary)] shadow-accent'
+                ? 'bg-primary shadow-accent'
                 : 'bg-muted')}/>))}
       </div>
     </div>);
@@ -45,7 +41,7 @@ export function StepHeader({ badge, icon, title, description, }) {
     return (<div className="mb-5 space-y-4">
       {badge ? <Badge variant="section">{badge}</Badge> : null}
       <div className="flex items-start gap-4">
-        {icon ? (<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[image:var(--gradient-primary)] text-primary-foreground shadow-accent">
+        {icon ? (<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-accent">
             {icon}
           </div>) : null}
         <div className="space-y-1.5">
@@ -57,7 +53,7 @@ export function StepHeader({ badge, icon, title, description, }) {
 }
 export function SearchField({ value, onChange, placeholder, className, }) {
     return (<div className={cn('relative', className)}>
-      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"/>
+      <MagnifyingGlass className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"/>
       <Input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} variant="soft" inputSize="lg" className="pl-11"/>
     </div>);
 }
@@ -95,7 +91,7 @@ export function ChoiceTile({ selected, title, description, icon, detail, onClick
     return (<button type="button" onClick={onClick} className={cn('relative flex h-full flex-col items-start gap-4 rounded-2xl border p-5 text-left transition-all duration-200', selected
             ? 'border-primary/25 bg-primary/[0.06] shadow-accent'
             : 'border-border/70 bg-card/75 hover:-translate-y-0.5 hover:border-primary/15 hover:bg-card hover:shadow-surface', className)}>
-      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[image:var(--gradient-primary)] text-primary-foreground shadow-accent">
+      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-accent">
         {icon}
       </div>
       <div>

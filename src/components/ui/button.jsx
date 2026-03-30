@@ -5,12 +5,12 @@ import { cn } from "@/lib/utils";
 const buttonVariants = cva("inline-flex items-center justify-center whitespace-nowrap rounded-[1.15rem] text-sm font-semibold ring-offset-background transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.99]", {
     variants: {
         variant: {
-            default: "bg-primary text-primary-foreground shadow-surface hover:-translate-y-0.5 hover:bg-primary/92 hover:shadow-surface-lg",
-            gradient: "bg-primary text-primary-foreground shadow-surface hover:-translate-y-0.5 hover:bg-primary/92 hover:shadow-surface-lg",
-            destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-            outline: "border border-input/80 bg-card text-foreground hover:-translate-y-0.5 hover:border-primary/30 hover:bg-muted hover:shadow-surface",
-            secondary: "bg-secondary text-secondary-foreground hover:-translate-y-0.5 hover:bg-secondary/90 hover:shadow-surface",
-            surface: "border border-border/70 bg-card text-foreground shadow-surface hover:-translate-y-0.5 hover:border-primary/20 hover:bg-muted hover:shadow-surface-lg",
+            default: "bg-primary text-primary-foreground shadow-surface hover:-translate-y-0.5 hover:shadow-surface-lg",
+            gradient: "bg-primary text-primary-foreground shadow-surface hover:-translate-y-0.5 hover:shadow-surface-lg",
+            destructive: "bg-destructive text-destructive-foreground hover:shadow-surface-lg",
+            outline: "border border-input/80 bg-card text-foreground hover:-translate-y-0.5 hover:bg-muted hover:shadow-surface",
+            secondary: "bg-secondary text-secondary-foreground hover:-translate-y-0.5 hover:shadow-surface",
+            surface: "border border-border/70 bg-card text-foreground shadow-surface hover:-translate-y-0.5 hover:bg-muted hover:shadow-surface-lg",
             ghost: "hover:bg-muted hover:text-foreground",
             link: "text-primary underline-offset-4 hover:underline",
         },
