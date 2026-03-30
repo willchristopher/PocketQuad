@@ -25,6 +25,7 @@ enum PortalPermission {
   ADMIN_PORTAL_ACCESS
   ADMIN_TAB_OVERVIEW
   ADMIN_TAB_UNIVERSITIES
+  ADMIN_TAB_STUDENT_PAGES
   ADMIN_TAB_FACULTY
   ADMIN_TAB_BUILDINGS
   ADMIN_TAB_BUILDING_IMPORT
@@ -372,6 +373,7 @@ model University {
   domain           String?
   themeMainColor   String?              @map("theme_main_color")
   themeAccentColor String?              @map("theme_accent_color")
+  disabledStudentPages String[]         @default([]) @map("disabled_student_pages")
   createdAt        DateTime             @default(now()) @map("created_at")
   updatedAt        DateTime             @updatedAt @map("updated_at")
   users            User[]

@@ -9,6 +9,7 @@ export const UNIVERSITY_DATA_TAGS = {
     faculty: 'university-faculty',
     resourceLinks: 'university-resource-links',
     services: 'university-services',
+    studentPages: 'university-student-pages',
     theme: 'university-theme',
 };
 export const ALL_UNIVERSITY_DATA_TAGS = Object.values(UNIVERSITY_DATA_TAGS);

@@ -26,7 +26,7 @@ import {
   formatFacultySlotLabel,
   getStudentFacingFacultyAvailabilityTone,
 } from '@/lib/faculty';
-import { cn } from '@/lib/utils';
+import { cn, formatDateTimeLocalInput, toAbsoluteDateTime } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -430,6 +430,11 @@ export function FacultyDashboard() {
   const totalAnnouncementAccess = (announcementPermissions?.canPublishCampus ? 1 : 0)
     + (announcementPermissions?.canPublishBuildings ? 1 : 0)
     + (announcementPermissions?.canPublishServices ? 1 : 0);
+  const announcementExpirationMin = React.useMemo(() => {
+    const now = new Date();
+    now.setSeconds(0, 0);
+    return formatDateTimeLocalInput(now);
+  }, []);
   const availabilityTone = toneClasses[getStudentFacingFacultyAvailabilityTone(workspace?.studentAvailabilityState ?? 'TBD')];
 
   const resetOfficeHourForm = () => {
@@ -682,7 +687,7 @@ export function FacultyDashboard() {
           title: announcementForm.title,
           message: announcementForm.message,
           linkUrl: announcementForm.linkUrl.trim() || undefined,
-          expiresAt: announcementForm.expiresAt || undefined,
+          expiresAt: toAbsoluteDateTime(announcementForm.expiresAt),
           scope: announcementForm.scope,
           buildingId: announcementForm.scope === 'BUILDING' ? announcementForm.targetId : undefined,
           serviceId: announcementForm.scope === 'SERVICE' ? announcementForm.targetId : undefined,
@@ -1348,7 +1353,7 @@ export function FacultyDashboard() {
 
                       <label className="space-y-2 text-sm font-medium">
                         <span>Ends at (optional)</span>
-                        <Input type="datetime-local" value={announcementForm.expiresAt} onChange={(event) => setAnnouncementForm((current) => ({ ...current, expiresAt: event.target.value }))} />
+                        <Input type="datetime-local" min={announcementExpirationMin} step={60} value={announcementForm.expiresAt} onChange={(event) => setAnnouncementForm((current) => ({ ...current, expiresAt: event.target.value }))} />
                       </label>
 
                       <Button type="submit" className="rounded-xl" disabled={announcementSaving}>

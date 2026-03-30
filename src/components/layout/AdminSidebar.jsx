@@ -2,7 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Building2, CalendarDays, ExternalLink, Landmark, LayoutDashboard, LogOut, ShieldCheck, ShieldUser, School, UserCog, Users, Wrench, } from 'lucide-react';
+import { Building2, CalendarDays, ExternalLink, Landmark, LayoutDashboard, LayoutGrid, LogOut, ShieldCheck, ShieldUser, School, UserCog, Users, Wrench, } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth/context';
@@ -10,6 +10,7 @@ import { getAllowedAdminTabs } from '@/lib/auth/portalPermissions';
 import { cn } from '@/lib/utils';
 const adminLinks = [
     { icon: LayoutDashboard, label: 'Overview', tab: 'overview' },
+    { icon: LayoutGrid, label: 'Student Pages', tab: 'student-pages' },
     { icon: UserCog, label: 'Faculty', tab: 'faculty' },
     { icon: Building2, label: 'Buildings', tab: 'buildings' },
     { icon: ExternalLink, label: 'Resource Links', tab: 'links' },

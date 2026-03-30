@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import { ADMIN_ACCESS_LEVELS, PORTAL_PERMISSIONS, } from '@/lib/auth/portalPermissions';
+import { studentPageVisibilityOptions } from '@/lib/studentPageVisibility';
 const optionalTrimmed = z.string().trim().optional().transform((value) => value || undefined);
 const latitudeSchema = z.number().min(-90).max(90);
 const longitudeSchema = z.number().min(-180).max(180);
+const studentPageVisibilityKeySchema = z.enum(studentPageVisibilityOptions.map((option) => option.key));
 export const universityCreateSchema = z.object({
     name: z.string().trim().min(2).max(120),
     slug: z
@@ -26,6 +28,7 @@ export const universityUpdateSchema = z.object({
     domain: optionalTrimmed,
     themeMainColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a hex color like #2563EB').optional().nullable(),
     themeAccentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a hex color like #10B981').optional().nullable(),
+    disabledStudentPages: z.array(studentPageVisibilityKeySchema).max(studentPageVisibilityOptions.length).optional(),
 });
 export const adminFacultyCreateSchema = z.object({
     universityId: z.string().cuid(),

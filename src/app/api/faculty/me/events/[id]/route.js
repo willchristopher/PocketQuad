@@ -93,3 +93,37 @@ export async function PATCH(request, context) {
         return handleApiError(error);
     }
 }
+export async function DELETE(_request, context) {
+    try {
+        const { profile } = await getAuthenticatedUser({
+            includeManagedBuildings: true,
+        });
+        if (profile.role !== 'FACULTY' && profile.role !== 'ADMIN') {
+            throw new ApiError(403, 'Faculty access required');
+        }
+        const { id } = await resolveParams(context);
+        const existing = await prisma.event.findFirst({
+            where: {
+                id,
+                organizerId: profile.id,
+            },
+            select: {
+                id: true,
+            },
+        });
+        if (!existing) {
+            throw new ApiError(404, 'Event not found');
+        }
+        await prisma.event.delete({
+            where: {
+                id,
+            },
+        });
+        return successResponse({
+            deleted: true,
+        });
+    }
+    catch (error) {
+        return handleApiError(error);
+    }
+}

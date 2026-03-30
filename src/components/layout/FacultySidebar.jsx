@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Building2, LayoutGrid, LogOut, School } from 'lucide-react';
+import { Building2, LayoutGrid, LogOut, PanelLeftClose, PanelLeftOpen, School } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/lib/auth/context';
+import { useSidebarCollapsed } from '@/components/layout/SidebarContext';
 import { useUniversityTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +20,7 @@ function FacultySidebarContent() {
   const router = useRouter();
   const { profile, signOut } = useAuth();
   const { universityName } = useUniversityTheme();
+  const { sidebarCollapsed, toggleSidebar } = useSidebarCollapsed();
 
   const displayName = profile?.displayName ?? 'Faculty Member';
   const initials = displayName
@@ -35,24 +37,41 @@ function FacultySidebarContent() {
   };
 
   return (
-    <div className="sidebar-shell flex h-full w-full flex-col rounded-none p-4 lg:rounded-[2rem]">
-      <Link
-        href="/faculty/dashboard"
-        className="rounded-[1.6rem] border border-white/10 bg-white/[0.05] px-4 py-4 transition-colors hover:bg-white/[0.08]"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-white/10 bg-white/[0.08] text-[#fff9eb]">
-            <School className="h-5 w-5" />
+    <div className={cn('sidebar-shell flex h-full w-full flex-col rounded-none p-4 transition-[padding] duration-200 lg:rounded-[2rem]', sidebarCollapsed && 'items-center px-3')}>
+      <div className={cn('flex items-start gap-3', sidebarCollapsed ? 'w-full flex-col items-center' : 'justify-between')}>
+        <Link
+          href="/faculty/dashboard"
+          className={cn('rounded-[1.6rem] border border-border/60 bg-card px-4 py-4 transition-colors hover:bg-muted/40', sidebarCollapsed && 'flex h-14 w-14 items-center justify-center p-0')}
+          title="PocketQuad faculty tools"
+        >
+          <div className={cn('flex items-center gap-3', sidebarCollapsed && 'justify-center')}>
+            <div className="flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-border/60 bg-background text-foreground">
+              <School className="h-5 w-5" />
+            </div>
+            {!sidebarCollapsed ? (
+              <div className="min-w-0">
+                <p className="font-display text-3xl leading-none text-foreground">PocketQuad</p>
+                <p className="mt-1 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Faculty tools</p>
+              </div>
+            ) : null}
           </div>
-          <div className="min-w-0">
-            <p className="font-display text-3xl leading-none text-[#fff9eb]">PocketQuad</p>
-            <p className="mt-1 text-[11px] uppercase tracking-[0.22em] text-[#fff9eb]/74">Faculty tools</p>
-          </div>
-        </div>
-        <p className="mt-4 text-xs uppercase tracking-[0.18em] text-[#fff9eb]/70">{universityName ?? 'Campus tools'}</p>
-      </Link>
+          {!sidebarCollapsed ? (
+            <p className="mt-4 text-xs uppercase tracking-[0.18em] text-muted-foreground">{universityName ?? 'Campus tools'}</p>
+          ) : null}
+        </Link>
 
-      <div className="mt-6 flex-1 space-y-1.5 overflow-y-auto pr-1 custom-scrollbar">
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-[1.15rem] border border-border/60 bg-card text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground lg:inline-flex"
+          aria-label={sidebarCollapsed ? 'Expand faculty navigation' : 'Collapse faculty navigation'}
+          title={sidebarCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+        >
+          {sidebarCollapsed ? <PanelLeftOpen className="h-[18px] w-[18px]" /> : <PanelLeftClose className="h-[18px] w-[18px]" />}
+        </button>
+      </div>
+
+      <div className={cn('mt-6 flex-1 space-y-1.5 overflow-y-auto pr-1 custom-scrollbar', sidebarCollapsed && 'w-full pr-0')}>
         {navigationItems.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
 
@@ -62,42 +81,46 @@ function FacultySidebarContent() {
               href={item.href}
               className={cn('sidebar-link', isActive && 'sidebar-link-active')}
               aria-current={isActive ? 'page' : undefined}
+              title={item.label}
             >
               <span
                 className={cn(
-                  'flex h-10 w-10 items-center justify-center rounded-[1rem] border border-white/10 bg-white/[0.08]',
-                  isActive && 'border-white/14 bg-white/[0.12]',
+                  'flex h-10 w-10 items-center justify-center rounded-[1rem] border border-border/60 bg-background',
+                  isActive && 'border-primary/20 bg-card',
                 )}
               >
                 <item.icon className="h-[18px] w-[18px]" />
               </span>
-              <span>{item.label}</span>
+              {!sidebarCollapsed ? <span>{item.label}</span> : null}
             </Link>
           );
         })}
       </div>
 
-      <div className="mt-4 rounded-[1.6rem] border border-white/10 bg-white/[0.05] p-4">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-11 w-11 rounded-[1rem] border border-white/10">
+      <div className={cn('mt-4 rounded-[1.6rem] border border-border/60 bg-card p-4', sidebarCollapsed && 'w-full p-3')}>
+        <div className={cn('flex items-center gap-3', sidebarCollapsed && 'justify-center')}>
+          <Avatar className="h-11 w-11 rounded-[1rem] border border-border/60">
             <AvatarImage src={profile?.avatar ?? undefined} alt={displayName} />
-            <AvatarFallback className="rounded-[1rem] bg-white/[0.08] text-sm text-[#fff9eb]">
+            <AvatarFallback className="rounded-[1rem] bg-background text-sm text-foreground">
               {initials || 'FM'}
             </AvatarFallback>
           </Avatar>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-[#fff9eb]">{displayName}</p>
-            <p className="truncate text-xs text-[#fff9eb]/72">{profile?.email ?? 'faculty@pocketquad.edu'}</p>
-          </div>
+          {!sidebarCollapsed ? (
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
+              <p className="truncate text-xs text-muted-foreground">{profile?.email ?? 'faculty@pocketquad.edu'}</p>
+            </div>
+          ) : null}
         </div>
 
         <button
           type="button"
           onClick={() => void handleLogout()}
-          className="sidebar-link sidebar-link-secondary mt-4 w-full py-2.5 text-left hover:bg-red-500/10 hover:text-[#fff9eb]"
+          className={cn('sidebar-link sidebar-link-secondary mt-4 w-full py-2.5 text-left hover:bg-red-500/10 hover:text-red-200', sidebarCollapsed && 'justify-center px-0')}
+          title="Log out"
         >
           <LogOut className="h-[18px] w-[18px]" />
-          <span>Log out</span>
+          {!sidebarCollapsed ? <span>Log out</span> : null}
         </button>
       </div>
     </div>
@@ -105,12 +128,14 @@ function FacultySidebarContent() {
 }
 
 export function FacultySidebar({ mobile = false }) {
+  const { sidebarCollapsed } = useSidebarCollapsed();
+
   if (mobile) {
     return <FacultySidebarContent />;
   }
 
   return (
-    <aside className="fixed inset-y-4 left-4 z-40 hidden w-[288px] lg:flex">
+    <aside className={cn('fixed inset-y-4 left-4 z-40 hidden transition-[width] duration-200 lg:flex', sidebarCollapsed ? 'w-[112px]' : 'w-[288px]')}>
       <FacultySidebarContent />
     </aside>
   );

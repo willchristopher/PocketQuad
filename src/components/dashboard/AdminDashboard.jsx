@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertCircle, Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronUp, Clock, ExternalLink, GraduationCap, KeyRound, Landmark, Loader2, Pencil, Plus, School, ShieldUser, Tag, Trash2, Upload, Users, Wrench, X, } from 'lucide-react';
+import { AlertCircle, Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronUp, Clock, ExternalLink, GraduationCap, KeyRound, Landmark, LayoutGrid, Loader2, Pencil, Plus, School, ShieldUser, Tag, Trash2, Upload, Users, Wrench, X, } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,10 +17,12 @@ import { useAuth } from '@/lib/auth/context';
 import { getAllowedAdminTabs, hasPortalPermission, } from '@/lib/auth/portalPermissions';
 import { BUILDING_IMPORT_OPTIONAL_HEADERS, BUILDING_IMPORT_REQUIRED_HEADERS, validateBuildingImportHeaders } from '@/lib/buildingImport';
 import { parseCsvText } from '@/lib/csv';
+import { sanitizeDisabledStudentPages, studentPageVisibilityOptions } from '@/lib/studentPageVisibility';
 import { cn } from '@/lib/utils';
 const tabItems = [
     { value: 'overview', label: 'Overview', icon: Landmark },
     { value: 'universities', label: 'Universities', icon: School },
+    { value: 'student-pages', label: 'Student Pages', icon: LayoutGrid },
     { value: 'faculty', label: 'Faculty', icon: Users },
     { value: 'buildings', label: 'Buildings', icon: Building2 },
     { value: 'building-import', label: 'Building Import', icon: Upload },
@@ -73,6 +75,7 @@ const accessLevelOptions = [
 const portalPermissionOptions = [
     'ADMIN_TAB_OVERVIEW',
     'ADMIN_TAB_UNIVERSITIES',
+    'ADMIN_TAB_STUDENT_PAGES',
     'ADMIN_TAB_FACULTY',
     'ADMIN_TAB_BUILDINGS',
     'ADMIN_TAB_BUILDING_IMPORT',
@@ -90,6 +93,7 @@ const portalPermissionLabels = {
     ADMIN_PORTAL_ACCESS: 'Portal Access',
     ADMIN_TAB_OVERVIEW: 'Tab: Overview',
     ADMIN_TAB_UNIVERSITIES: 'Tab: Universities',
+    ADMIN_TAB_STUDENT_PAGES: 'Tab: Student Pages',
     ADMIN_TAB_FACULTY: 'Tab: Faculty',
     ADMIN_TAB_BUILDINGS: 'Tab: Buildings',
     ADMIN_TAB_BUILDING_IMPORT: 'Tab: Building Import',
@@ -297,6 +301,7 @@ export function AdminDashboard() {
         password: '',
     });
     const canManageUniversities = !profile || hasPortalPermission(profile, 'ADMIN_TAB_UNIVERSITIES');
+    const canManageStudentPages = !profile || hasPortalPermission(profile, 'ADMIN_TAB_STUDENT_PAGES');
     const canManageFaculty = !profile || hasPortalPermission(profile, 'ADMIN_TAB_FACULTY');
     const canManageBuildings = !profile || hasPortalPermission(profile, 'ADMIN_TAB_BUILDINGS');
     const canManageLinks = !profile || hasPortalPermission(profile, 'ADMIN_TAB_LINKS');
@@ -316,6 +321,7 @@ export function AdminDashboard() {
                 domain: profile.university.domain ?? null,
                 themeMainColor: null,
                 themeAccentColor: null,
+                disabledStudentPages: profile.university.disabledStudentPages ?? [],
             },
         ];
     }, [profile]);
@@ -589,7 +595,24 @@ export function AdminDashboard() {
             };
         }));
     };
+    const toggleDisabledStudentPage = React.useCallback((universityId, pageKey) => {
+        setUniversities((current) => current.map((university) => {
+            if (university.id !== universityId) {
+                return university;
+            }
+            const currentDisabled = sanitizeDisabledStudentPages(university.disabledStudentPages);
+            const nextDisabled = currentDisabled.includes(pageKey)
+                ? currentDisabled.filter((item) => item !== pageKey)
+                : [...currentDisabled, pageKey];
+            return {
+                ...university,
+                disabledStudentPages: nextDisabled,
+            };
+        }));
+    }, []);
     const selectedUniversity = universities.find((university) => university.id === selectedUniversityId) ?? null;
+    const selectedUniversityDisabledStudentPages = sanitizeDisabledStudentPages(selectedUniversity?.disabledStudentPages);
+    const visibleStudentPageCount = studentPageVisibilityOptions.length - selectedUniversityDisabledStudentPages.length;
     const scopedUniversities = selectedUniversity ? [selectedUniversity] : [];
     const universityOptions = universities.map((university) => (<option key={university.id} value={university.id}>
       {university.name}
@@ -652,13 +675,14 @@ export function AdminDashboard() {
             <CardContent>
               <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
                 {[
-                { icon: GraduationCap, title: 'Invite Faculty', desc: 'Add faculty and configure access', tab: 'faculty' },
-                { icon: Building2, title: 'Manage Buildings', desc: 'Add buildings and update their status', tab: 'buildings' },
-                { icon: Landmark, title: 'Manage Clubs', desc: 'Update club info and leadership', tab: 'clubs' },
-                { icon: CalendarDays, title: 'Publish Events', desc: 'Create and manage campus events', tab: 'events' },
-                { icon: Wrench, title: 'Update Services', desc: 'Change service status and hours', tab: 'services' },
-                { icon: ShieldUser, title: 'IT Accounts', desc: 'Provision portal access and permissions', tab: 'it-accounts' },
-            ].map((action) => (<button key={action.title} className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-left hover:bg-muted/40 transition-colors" onClick={() => handleTabChange(action.tab)}>
+                { icon: GraduationCap, title: 'Invite Faculty', desc: 'Add faculty and configure access', tab: 'faculty', visible: canManageFaculty },
+                { icon: LayoutGrid, title: 'Student Pages', desc: 'Hide or show student-facing pages', tab: 'student-pages', visible: canManageStudentPages },
+                { icon: Building2, title: 'Manage Buildings', desc: 'Add buildings and update their status', tab: 'buildings', visible: canManageBuildings },
+                { icon: Landmark, title: 'Manage Clubs', desc: 'Update club info and leadership', tab: 'clubs', visible: canManageClubs },
+                { icon: CalendarDays, title: 'Publish Events', desc: 'Create and manage campus events', tab: 'events', visible: canManageEvents },
+                { icon: Wrench, title: 'Update Services', desc: 'Change service status and hours', tab: 'services', visible: canManageServices },
+                { icon: ShieldUser, title: 'IT Accounts', desc: 'Provision portal access and permissions', tab: 'it-accounts', visible: canManageAccounts },
+            ].filter((action) => action.visible).map((action) => (<button key={action.title} className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-left hover:bg-muted/40 transition-colors" onClick={() => handleTabChange(action.tab)}>
                     <action.icon className="mt-0.5 h-4 w-4 text-primary shrink-0"/>
                     <div>
                       <p className="text-sm font-semibold">{action.title}</p>
@@ -737,6 +761,65 @@ export function AdminDashboard() {
                     </TableRow>))}
                 </TableBody>
               </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="student-pages" className="mt-0 space-y-4">
+          <Card className="rounded-2xl border-border/60">
+            <CardHeader>
+              <CardTitle>Student Page Visibility</CardTitle>
+              <CardDescription>
+                Control which student-facing pages are visible for {selectedUniversity.name}. Hidden pages are removed from navigation and direct visits redirect students away.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline">{visibleStudentPageCount} visible</Badge>
+                <Badge variant="secondary">{selectedUniversityDisabledStudentPages.length} hidden</Badge>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                {studentPageVisibilityOptions.map((page) => {
+                const isVisible = !selectedUniversityDisabledStudentPages.includes(page.key);
+                return (<button key={page.key} type="button" onClick={() => toggleDisabledStudentPage(selectedUniversity.id, page.key)} className={cn('rounded-2xl border px-4 py-4 text-left transition-colors', isVisible
+                    ? 'border-emerald-500/25 bg-emerald-500/5 hover:bg-emerald-500/10'
+                    : 'border-border/60 bg-card hover:bg-muted/40')}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold">{page.label}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{page.description}</p>
+                          <p className="mt-2 text-[11px] font-mono text-muted-foreground">{page.href}</p>
+                        </div>
+                        <Badge variant={isVisible ? 'success' : 'secondary'} className="shrink-0 text-[10px]">
+                          {isVisible ? 'Visible' : 'Hidden'}
+                        </Badge>
+                      </div>
+                    </button>);
+            })}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" disabled={saving || !canManageStudentPages || visibleStudentPageCount === 0} onClick={() => void runMutation(async () => {
+                await apiRequest(`/api/admin/universities/${selectedUniversity.id}/student-pages`, {
+                    method: 'PATCH',
+                    body: {
+                        disabledStudentPages: selectedUniversityDisabledStudentPages,
+                    },
+                });
+            }, 'Student page visibility updated')}>
+                  Save Visibility Settings
+                </Button>
+                <Button size="sm" variant="ghost" disabled={saving || !canManageStudentPages || selectedUniversityDisabledStudentPages.length === 0} onClick={() => setUniversities((current) => current.map((university) => university.id === selectedUniversity.id
+                ? { ...university, disabledStudentPages: [] }
+                : university))}>
+                  Show All Pages
+                </Button>
+              </div>
+
+              {visibleStudentPageCount === 0 && (<p className="text-xs text-amber-700 dark:text-amber-300">
+                  At least one student page should remain visible before saving.
+                </p>)}
             </CardContent>
           </Card>
         </TabsContent>

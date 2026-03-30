@@ -120,6 +120,7 @@ export async function getAuthenticatedUser(options = {}) {
                             id: true,
                             name: true,
                             domain: true,
+                            disabledStudentPages: true,
                         },
                     },
                 }

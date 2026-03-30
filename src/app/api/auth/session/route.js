@@ -21,7 +21,7 @@ export async function GET() {
             },
             include: {
                 notificationPreferences: true,
-                university: { select: { id: true, name: true, domain: true } },
+                university: { select: { id: true, name: true, domain: true, disabledStudentPages: true } },
                 managedClubs: {
                     select: {
                         clubId: true,

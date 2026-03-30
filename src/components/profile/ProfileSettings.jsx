@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Check, ChevronDown, GraduationCap, LayoutGrid, Mail, Moon, Monitor, Palette, Pencil, Sun } from 'lucide-react';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth/context';
+import { useStudentPageVisibility } from '@/hooks/useStudentPageVisibility';
 import { dashboardModuleConfig, dashboardModuleIds, dashboardModulesToPreferences, } from '@/lib/studentData';
 import { useUniversityTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
@@ -32,6 +33,7 @@ const preferenceLabels = [
 ];
 export function ProfileSettings() {
     const { profile, refreshProfile } = useAuth();
+    const { isPageVisible } = useStudentPageVisibility();
     const isFaculty = profile?.role === 'FACULTY';
     const isStudent = profile?.role === 'STUDENT';
     const [displayName, setDisplayName] = React.useState('');
@@ -277,9 +279,9 @@ export function ProfileSettings() {
                         {(preferences.buildingIds?.length ?? 0)} building{(preferences.buildingIds?.length ?? 0) === 1 ? '' : 's'} saved for your dashboard.
                       </p>
                     </div>
-                    <Link href="/campus-map" className="inline-flex items-center rounded-full border border-border/60 bg-card px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition-colors hover:bg-muted">
-                      Manage on campus map
-                    </Link>
+                    {isPageVisible('campus-map') ? (<Link href="/campus-map" className="inline-flex items-center rounded-full border border-border/60 bg-card px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition-colors hover:bg-muted">
+                        Manage on campus map
+                      </Link>) : null}
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground">
                     Turn on Building Alerts above if you want notifications when a saved building closes, changes status, or gets a new building announcement.

@@ -1,15 +1,26 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { useStudentPageVisibility } from '@/hooks/useStudentPageVisibility';
 import { cn } from '@/lib/utils';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
-import { isStudentPathActive, studentMobileNavigationItems } from '@/components/layout/studentNavigation';
+import { getStudentMobileNavigationItems, isStudentPathActive } from '@/components/layout/studentNavigation';
 
 export function MobileNav() {
   const pathname = usePathname();
   const minimized = useScrollDirection();
+  const { disabledStudentPages } = useStudentPageVisibility();
+  const studentMobileNavigationItems = React.useMemo(
+    () => getStudentMobileNavigationItems(disabledStudentPages),
+    [disabledStudentPages],
+  );
+
+  if (studentMobileNavigationItems.length === 0) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 px-3 pb-3 lg:hidden">

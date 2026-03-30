@@ -12,8 +12,11 @@ import {
   Clock3,
   MapPin,
   Megaphone,
+  Pencil,
   Plus,
   Save,
+  Trash2,
+  X,
 } from 'lucide-react';
 
 import { ApiClientError, apiRequest } from '@/lib/api/client';
@@ -21,7 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
+import { cn, formatDateTimeLocalInput, toAbsoluteDateTime } from '@/lib/utils';
 
 const emptyBuildingDraft = {
   operatingHours: '',
@@ -78,6 +81,66 @@ function toEventDraft(building) {
   };
 }
 
+function toTimeInputValue(value) {
+  if (!value) {
+    return '12:00';
+  }
+
+  if (/^\d{2}:\d{2}$/.test(value)) {
+    return value;
+  }
+
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+
+  if (!match) {
+    return '12:00';
+  }
+
+  let hours = Number(match[1]) % 12;
+
+  if (match[3].toUpperCase() === 'PM') {
+    hours += 12;
+  }
+
+  return `${String(hours).padStart(2, '0')}:${match[2]}`;
+}
+
+function formatDateInputValue(value) {
+  if (!value) {
+    return '';
+  }
+
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+function toAnnouncementEditDraft(announcement) {
+  if (!announcement) {
+    return emptyAnnouncementDraft;
+  }
+
+  return {
+    title: announcement.title ?? '',
+    message: announcement.message ?? '',
+    expiresAt: formatDateTimeLocalInput(announcement.expiresAt),
+  };
+}
+
+function toEventEditDraft(event) {
+  if (!event) {
+    return toEventDraft(null);
+  }
+
+  return {
+    title: event.title ?? '',
+    description: event.description ?? '',
+    date: formatDateInputValue(event.date),
+    time: toTimeInputValue(event.time),
+    location: event.location ?? '',
+    category: event.category ?? 'OTHER',
+    maxAttendees: event.maxAttendees ? String(event.maxAttendees) : '',
+  };
+}
+
 function formatTimestamp(value) {
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
@@ -118,6 +181,11 @@ export function FacultyProfileSettings() {
   const [buildingDraft, setBuildingDraft] = React.useState(emptyBuildingDraft);
   const [announcementDraft, setAnnouncementDraft] = React.useState(emptyAnnouncementDraft);
   const [eventDraft, setEventDraft] = React.useState(toEventDraft(null));
+  const announcementExpirationMin = React.useMemo(() => {
+    const now = new Date();
+    now.setSeconds(0, 0);
+    return formatDateTimeLocalInput(now);
+  }, []);
   const [buildingError, setBuildingError] = React.useState(null);
   const [buildingSuccess, setBuildingSuccess] = React.useState(null);
   const [savingBuildingId, setSavingBuildingId] = React.useState(null);
@@ -125,6 +193,12 @@ export function FacultyProfileSettings() {
   const [releasingBuildingId, setReleasingBuildingId] = React.useState(null);
   const [publishingBuildingId, setPublishingBuildingId] = React.useState(null);
   const [creatingEventBuildingId, setCreatingEventBuildingId] = React.useState(null);
+  const [editingAnnouncementId, setEditingAnnouncementId] = React.useState(null);
+  const [savingAnnouncementId, setSavingAnnouncementId] = React.useState(null);
+  const [deletingAnnouncementId, setDeletingAnnouncementId] = React.useState(null);
+  const [editingEventId, setEditingEventId] = React.useState(null);
+  const [savingEventId, setSavingEventId] = React.useState(null);
+  const [deletingEventId, setDeletingEventId] = React.useState(null);
   const [openSections, setOpenSections] = React.useState({
     availableBuildings: false,
     managedBuildings: true,
@@ -183,6 +257,8 @@ export function FacultyProfileSettings() {
     setBuildingDraft(toBuildingDraft(selectedBuilding));
     setAnnouncementDraft(emptyAnnouncementDraft);
     setEventDraft(toEventDraft(selectedBuilding));
+    setEditingAnnouncementId(null);
+    setEditingEventId(null);
   }, [selectedBuilding]);
 
   const toggleSection = React.useCallback((section) => {
@@ -283,33 +359,53 @@ export function FacultyProfileSettings() {
       return;
     }
 
-    setPublishingBuildingId(selectedBuilding.id);
     setBuildingError(null);
     setBuildingSuccess(null);
 
     try {
-      const result = await apiRequest('/api/announcements', {
-        method: 'POST',
-        body: {
-          title: announcementDraft.title,
-          message: announcementDraft.message,
-          scope: 'BUILDING',
-          buildingId: selectedBuilding.id,
-          expiresAt: announcementDraft.expiresAt || undefined,
-        },
-      });
+      const isEditing = !!editingAnnouncementId;
 
+      if (isEditing) {
+        setSavingAnnouncementId(editingAnnouncementId);
+        await apiRequest(`/api/announcements/${editingAnnouncementId}`, {
+          method: 'PATCH',
+          body: {
+            title: announcementDraft.title,
+            message: announcementDraft.message,
+            expiresAt: toAbsoluteDateTime(announcementDraft.expiresAt) ?? null,
+          },
+        });
+      } else {
+        setPublishingBuildingId(selectedBuilding.id);
+        const result = await apiRequest('/api/announcements', {
+          method: 'POST',
+          body: {
+            title: announcementDraft.title,
+            message: announcementDraft.message,
+            scope: 'BUILDING',
+            buildingId: selectedBuilding.id,
+            expiresAt: toAbsoluteDateTime(announcementDraft.expiresAt),
+          },
+        });
+
+        setBuildingSuccess(
+          result.notifiedCount > 0
+            ? `Building alert published to ${result.notifiedCount} student${result.notifiedCount === 1 ? '' : 's'}`
+            : 'Building alert published',
+        );
+      }
+
+      setEditingAnnouncementId(null);
       setAnnouncementDraft(emptyAnnouncementDraft);
       await loadBuildingManagement();
-      setBuildingSuccess(
-        result.notifiedCount > 0
-          ? `Building alert published to ${result.notifiedCount} student${result.notifiedCount === 1 ? '' : 's'}`
-          : 'Building alert published',
-      );
+      if (isEditing) {
+        setBuildingSuccess('Building alert updated');
+      }
     } catch (err) {
-      setBuildingError(getErrorMessage(err, 'Unable to publish building alert'));
+      setBuildingError(getErrorMessage(err, editingAnnouncementId ? 'Unable to update building alert' : 'Unable to publish building alert'));
     } finally {
       setPublishingBuildingId(null);
+      setSavingAnnouncementId(null);
     }
   };
 
@@ -325,27 +421,113 @@ export function FacultyProfileSettings() {
     setBuildingSuccess(null);
 
     try {
-      await apiRequest('/api/faculty/me/events', {
-        method: 'POST',
-        body: {
-          title: eventDraft.title,
-          description: eventDraft.description,
-          date: eventDraft.date,
-          time: eventDraft.time,
-          location: eventDraft.location,
-          category: eventDraft.category,
-          maxAttendees: eventDraft.maxAttendees ? Number(eventDraft.maxAttendees) : undefined,
-          buildingId: selectedBuilding.id,
-        },
-      });
+      const isEditing = !!editingEventId;
+      const payload = {
+        title: eventDraft.title,
+        description: eventDraft.description,
+        date: eventDraft.date,
+        time: eventDraft.time,
+        location: eventDraft.location,
+        category: eventDraft.category,
+        maxAttendees: eventDraft.maxAttendees ? Number(eventDraft.maxAttendees) : null,
+        buildingId: selectedBuilding.id,
+      };
+
+      if (isEditing) {
+        setSavingEventId(editingEventId);
+        await apiRequest(`/api/faculty/me/events/${editingEventId}`, {
+          method: 'PATCH',
+          body: payload,
+        });
+      } else {
+        await apiRequest('/api/faculty/me/events', {
+          method: 'POST',
+          body: {
+            ...payload,
+            maxAttendees: payload.maxAttendees ?? undefined,
+          },
+        });
+      }
 
       setEventDraft(toEventDraft(selectedBuilding));
+      setEditingEventId(null);
       await loadBuildingManagement();
-      setBuildingSuccess('Building event created');
+      setBuildingSuccess(isEditing ? 'Building event updated' : 'Building event created');
     } catch (err) {
-      setBuildingError(getErrorMessage(err, 'Unable to create building event'));
+      setBuildingError(getErrorMessage(err, editingEventId ? 'Unable to update building event' : 'Unable to create building event'));
     } finally {
       setCreatingEventBuildingId(null);
+      setSavingEventId(null);
+    }
+  };
+
+  const startEditingAnnouncement = (announcement) => {
+    setEditingAnnouncementId(announcement.id);
+    setAnnouncementDraft(toAnnouncementEditDraft(announcement));
+    setOpenSections((current) => ({
+      ...current,
+      alerts: true,
+    }));
+  };
+
+  const cancelEditingAnnouncement = () => {
+    setEditingAnnouncementId(null);
+    setAnnouncementDraft(emptyAnnouncementDraft);
+  };
+
+  const deleteAnnouncement = async (announcementId) => {
+    setDeletingAnnouncementId(announcementId);
+    setBuildingError(null);
+    setBuildingSuccess(null);
+
+    try {
+      await apiRequest(`/api/announcements/${announcementId}`, {
+        method: 'DELETE',
+      });
+      if (editingAnnouncementId === announcementId) {
+        cancelEditingAnnouncement();
+      }
+      await loadBuildingManagement();
+      setBuildingSuccess('Building alert deleted');
+    } catch (err) {
+      setBuildingError(getErrorMessage(err, 'Unable to delete building alert'));
+    } finally {
+      setDeletingAnnouncementId(null);
+    }
+  };
+
+  const startEditingEvent = (eventItem) => {
+    setEditingEventId(eventItem.id);
+    setEventDraft(toEventEditDraft(eventItem));
+    setOpenSections((current) => ({
+      ...current,
+      events: true,
+    }));
+  };
+
+  const cancelEditingEvent = () => {
+    setEditingEventId(null);
+    setEventDraft(toEventDraft(selectedBuilding));
+  };
+
+  const deleteEvent = async (eventId) => {
+    setDeletingEventId(eventId);
+    setBuildingError(null);
+    setBuildingSuccess(null);
+
+    try {
+      await apiRequest(`/api/faculty/me/events/${eventId}`, {
+        method: 'DELETE',
+      });
+      if (editingEventId === eventId) {
+        cancelEditingEvent();
+      }
+      await loadBuildingManagement();
+      setBuildingSuccess('Building event deleted');
+    } catch (err) {
+      setBuildingError(getErrorMessage(err, 'Unable to delete building event'));
+    } finally {
+      setDeletingEventId(null);
     }
   };
 
@@ -512,50 +694,48 @@ export function FacultyProfileSettings() {
           Add a building above to open its controls.
         </section>
       ) : (
-        <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
-          <aside>
-            <CollapsiblePanel
-              title="Managed buildings"
-              description="Switch between the buildings you already manage."
-              summary={`${managedBuildings.length} building${managedBuildings.length === 1 ? '' : 's'} assigned`}
-              open={openSections.managedBuildings}
-              onToggle={() => toggleSection('managedBuildings')}
-              contentClassName="space-y-3"
-            >
-              {managedBuildings.map((building) => (
-                <button
-                  key={building.id}
-                  type="button"
-                  onClick={() => setSelectedBuildingId(building.id)}
-                  className={cn(
-                    'w-full rounded-2xl border p-4 text-left transition-colors',
-                    selectedBuildingId === building.id
-                      ? 'border-primary/30 bg-secondary'
-                      : 'border-border/60 bg-card hover:bg-muted/40',
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                        {building.type}
-                      </p>
-                      <p className="mt-1 font-semibold">{building.name}</p>
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        'rounded-full border px-2 py-1 text-[10px] uppercase',
-                        buildingStatusTone[building.operationalStatus],
-                      )}
-                    >
-                      {building.operationalStatus}
-                    </Badge>
+        <div className="space-y-6">
+          <CollapsiblePanel
+            title="Managed buildings"
+            description="Switch between the buildings you already manage."
+            summary={`${managedBuildings.length} building${managedBuildings.length === 1 ? '' : 's'} assigned`}
+            open={openSections.managedBuildings}
+            onToggle={() => toggleSection('managedBuildings')}
+            contentClassName="space-y-3"
+          >
+            {managedBuildings.map((building) => (
+              <button
+                key={building.id}
+                type="button"
+                onClick={() => setSelectedBuildingId(building.id)}
+                className={cn(
+                  'w-full rounded-2xl border p-4 text-left transition-colors',
+                  selectedBuildingId === building.id
+                    ? 'border-primary/30 bg-secondary'
+                    : 'border-border/60 bg-card hover:bg-muted/40',
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                      {building.type}
+                    </p>
+                    <p className="mt-1 font-semibold">{building.name}</p>
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">{building.address}</p>
-                </button>
-              ))}
-            </CollapsiblePanel>
-          </aside>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'rounded-full border px-2 py-1 text-[10px] uppercase',
+                      buildingStatusTone[building.operationalStatus],
+                    )}
+                  >
+                    {building.operationalStatus}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">{building.address}</p>
+              </button>
+            ))}
+          </CollapsiblePanel>
 
           <div className="space-y-6">
             <section className="panel-card rounded-[1.7rem] p-5 md:p-6">
@@ -734,9 +914,13 @@ export function FacultyProfileSettings() {
                       <Megaphone className="h-5 w-5" />
                     </div>
                     <div>
-                      <h3 className="font-display text-xl font-bold tracking-tight">Publish a building alert</h3>
+                      <h3 className="font-display text-xl font-bold tracking-tight">
+                        {editingAnnouncementId ? 'Edit building alert' : 'Publish a building alert'}
+                      </h3>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Add an expiration for short-term disruptions so the notice clears itself automatically.
+                        {editingAnnouncementId
+                          ? 'Update the live notice or clear its expiration.'
+                          : 'Add an expiration for short-term disruptions so the notice clears itself automatically.'}
                       </p>
                     </div>
                   </div>
@@ -771,6 +955,8 @@ export function FacultyProfileSettings() {
                       <span>Ends at (optional)</span>
                       <Input
                         type="datetime-local"
+                        min={announcementExpirationMin}
+                        step={60}
                         value={announcementDraft.expiresAt}
                         onChange={(event) =>
                           setAnnouncementDraft((current) => ({ ...current, expiresAt: event.target.value }))
@@ -779,13 +965,31 @@ export function FacultyProfileSettings() {
                     </label>
                   </div>
 
-                  <Button
-                    type="submit"
-                    className="mt-5 w-full rounded-2xl"
-                    disabled={publishingBuildingId === selectedBuilding.id}
-                  >
-                    {publishingBuildingId === selectedBuilding.id ? 'Publishing...' : 'Publish building alert'}
-                  </Button>
+                  <div className="mt-5 flex flex-wrap items-center gap-3">
+                    <Button
+                      type="submit"
+                      className="rounded-2xl px-5"
+                      disabled={
+                        publishingBuildingId === selectedBuilding.id ||
+                        savingAnnouncementId === editingAnnouncementId
+                      }
+                    >
+                      {editingAnnouncementId
+                        ? savingAnnouncementId === editingAnnouncementId
+                          ? 'Saving...'
+                          : 'Save alert changes'
+                        : publishingBuildingId === selectedBuilding.id
+                          ? 'Publishing...'
+                          : 'Publish building alert'}
+                    </Button>
+
+                    {editingAnnouncementId ? (
+                      <Button type="button" variant="outline" className="rounded-2xl px-5" onClick={cancelEditingAnnouncement}>
+                        <X className="mr-2 h-4 w-4" />
+                        Cancel
+                      </Button>
+                    ) : null}
+                  </div>
                 </form>
 
                 <section className="rounded-[1.45rem] border border-border/60 bg-card p-5">
@@ -813,6 +1017,29 @@ export function FacultyProfileSettings() {
                             Posted {formatTimestamp(announcement.createdAt)}
                             {announcement.expiresAt ? ` • Ends ${formatTimestamp(announcement.expiresAt)}` : ''}
                           </p>
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="rounded-xl"
+                              onClick={() => startEditingAnnouncement(announcement)}
+                            >
+                              <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="rounded-xl"
+                              onClick={() => void deleteAnnouncement(announcement.id)}
+                              disabled={deletingAnnouncementId === announcement.id}
+                            >
+                              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                              {deletingAnnouncementId === announcement.id ? 'Deleting...' : 'Delete'}
+                            </Button>
+                          </div>
                         </div>
                       ))
                     )}
@@ -835,9 +1062,13 @@ export function FacultyProfileSettings() {
                       <CalendarDays className="h-5 w-5" />
                     </div>
                     <div>
-                      <h3 className="font-display text-xl font-bold tracking-tight">Create building event</h3>
+                      <h3 className="font-display text-xl font-bold tracking-tight">
+                        {editingEventId ? 'Edit building event' : 'Create building event'}
+                      </h3>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Tie the event to this building so student lookup and assistant responses can reference it directly.
+                        {editingEventId
+                          ? 'Update the event details that students already see.'
+                          : 'Tie the event to this building so student lookup and assistant responses can reference it directly.'}
                       </p>
                     </div>
                   </div>
@@ -934,13 +1165,31 @@ export function FacultyProfileSettings() {
                     </label>
                   </div>
 
-                  <Button
-                    type="submit"
-                    className="mt-5 w-full rounded-2xl"
-                    disabled={creatingEventBuildingId === selectedBuilding.id}
-                  >
-                    {creatingEventBuildingId === selectedBuilding.id ? 'Creating...' : 'Create building event'}
-                  </Button>
+                  <div className="mt-5 flex flex-wrap items-center gap-3">
+                    <Button
+                      type="submit"
+                      className="rounded-2xl px-5"
+                      disabled={
+                        creatingEventBuildingId === selectedBuilding.id ||
+                        savingEventId === editingEventId
+                      }
+                    >
+                      {editingEventId
+                        ? savingEventId === editingEventId
+                          ? 'Saving...'
+                          : 'Save event changes'
+                        : creatingEventBuildingId === selectedBuilding.id
+                          ? 'Creating...'
+                          : 'Create building event'}
+                    </Button>
+
+                    {editingEventId ? (
+                      <Button type="button" variant="outline" className="rounded-2xl px-5" onClick={cancelEditingEvent}>
+                        <X className="mr-2 h-4 w-4" />
+                        Cancel
+                      </Button>
+                    ) : null}
+                  </div>
                 </form>
 
                 <section className="rounded-[1.45rem] border border-border/60 bg-card p-5">
@@ -960,12 +1209,36 @@ export function FacultyProfileSettings() {
                     {selectedBuilding.upcomingEvents.length === 0 ? (
                       <p className="text-sm text-muted-foreground">No upcoming building events yet.</p>
                     ) : (
-                      selectedBuilding.upcomingEvents.map((event) => (
-                        <div key={event.id} className="rounded-2xl border border-border/60 bg-muted/10 p-3">
-                          <p className="font-semibold">{event.title}</p>
+                      selectedBuilding.upcomingEvents.map((eventItem) => (
+                        <div key={eventItem.id} className="rounded-2xl border border-border/60 bg-muted/10 p-3">
+                          <p className="font-semibold">{eventItem.title}</p>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            {formatTimestamp(event.date)} • {event.time} • {event.category}
+                            {formatTimestamp(eventItem.date)} • {eventItem.time} • {eventItem.category}
                           </p>
+                          <p className="mt-1 text-sm text-muted-foreground">{eventItem.location}</p>
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="rounded-xl"
+                              onClick={() => startEditingEvent(eventItem)}
+                            >
+                              <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="rounded-xl"
+                              onClick={() => void deleteEvent(eventItem.id)}
+                              disabled={deletingEventId === eventItem.id}
+                            >
+                              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                              {deletingEventId === eventItem.id ? 'Deleting...' : 'Delete'}
+                            </Button>
+                          </div>
                         </div>
                       ))
                     )}

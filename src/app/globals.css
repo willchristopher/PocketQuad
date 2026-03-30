@@ -240,31 +240,30 @@
   }
 
   .sidebar-shell {
-    background: rgb(var(--brand-primary-rgb));
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 18px 42px rgba(var(--brand-primary-rgb), 0.28);
-    color: #fff9eb;
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border) / 0.72);
+    box-shadow: var(--shadow-surface);
+    color: hsl(var(--foreground));
   }
 
   .sidebar-link {
     @apply relative flex items-center gap-3 rounded-[1.15rem] px-4 py-3 text-sm font-medium transition-all duration-200;
-    color: rgba(255, 249, 235, 0.9);
+    color: hsl(var(--muted-foreground));
   }
 
   .sidebar-link:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #fffaf0;
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
   }
 
   .sidebar-link-active {
-    background: rgba(var(--brand-secondary-rgb), 0.18);
-    color: #fffaf0;
-    box-shadow:
-      inset 0 0 0 1px rgba(var(--brand-secondary-rgb), 0.28);
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
+    box-shadow: var(--shadow-surface);
   }
 
   .sidebar-link-secondary {
-    color: rgba(255, 249, 235, 0.8);
+    color: hsl(var(--muted-foreground));
   }
 
   .poster-label {

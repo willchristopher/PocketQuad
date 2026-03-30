@@ -6,19 +6,29 @@ import { usePathname, useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 
 import { useAuth } from '@/lib/auth/context';
+import { useStudentPageVisibility } from '@/hooks/useStudentPageVisibility';
 import { cn } from '@/lib/utils';
 import {
+  getStudentNavigationSections,
+  getStudentSecondaryNavigationItems,
   isStudentPathActive,
-  studentNavigationSections,
-  studentSecondaryNavigationItems,
 } from '@/components/layout/studentNavigation';
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { signOut } = useAuth();
+  const { disabledStudentPages } = useStudentPageVisibility();
   const [hovered, setHovered] = React.useState(false);
   const [focusWithin, setFocusWithin] = React.useState(false);
+  const studentNavigationSections = React.useMemo(
+    () => getStudentNavigationSections(disabledStudentPages),
+    [disabledStudentPages],
+  );
+  const studentSecondaryNavigationItems = React.useMemo(
+    () => getStudentSecondaryNavigationItems(disabledStudentPages),
+    [disabledStudentPages],
+  );
 
   const navItems = [
     ...studentNavigationSections.flatMap((section) => section.items),
