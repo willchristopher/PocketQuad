@@ -1,4 +1,4 @@
-import { Moon, Palette, Sun } from '@phosphor-icons/react'
+import { Moon, Palette, Sun } from 'lucide-react'
 
 const currentDateFormatter = new Intl.DateTimeFormat(undefined, {
   weekday: 'long',

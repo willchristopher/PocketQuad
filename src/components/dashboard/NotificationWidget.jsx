@@ -28,7 +28,7 @@ export function NotificationWidget() {
 
   return (
     <div className="space-y-3">
-      <div className="subtle-panel flex items-center justify-between gap-3 rounded-[1.3rem] px-4 py-3">
+      <div className="subtle-panel flex items-center justify-between gap-3 rounded-xl px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold">Unread updates</span>
           <NotificationBadge count={unreadCount} />
@@ -48,7 +48,7 @@ export function NotificationWidget() {
       </div>
 
       {error ? (
-        <p className="rounded-[1.2rem] border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs font-medium text-red-700 dark:text-red-300">
+        <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs font-medium text-red-700 dark:text-red-300">
           {error}
         </p>
       ) : null}
@@ -56,7 +56,7 @@ export function NotificationWidget() {
       {loading ? (
         <p className="py-4 text-center text-xs text-muted-foreground">Loading notifications...</p>
       ) : notifications.length === 0 ? (
-        <p className="rounded-[1.3rem] border border-dashed border-border/60 bg-background px-4 py-7 text-center text-xs text-muted-foreground">
+        <p className="rounded-xl border border-dashed border-border/60 bg-background px-4 py-7 text-center text-xs text-muted-foreground">
           You&apos;re caught up. New faculty changes and campus announcements will land here.
         </p>
       ) : (
@@ -70,17 +70,17 @@ export function NotificationWidget() {
             const isPending = isUpdating || isClearing
 
             const cardClassName = cn(
-              'rounded-[1.25rem] border px-4 py-3.5 transition-all duration-200',
+              'rounded-xl border px-4 py-3.5 transition-colors duration-200',
               item.read
                 ? 'border-border/50 bg-card'
-                : 'border-primary/20 bg-secondary/45 shadow-surface',
+                : 'border-primary/20 bg-secondary/45 shadow-md',
               isPending && 'opacity-70',
             )
 
             const content = (
               <>
                 <div className="flex items-start gap-3">
-                  <div className={cn('mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem]', meta.iconClassName)}>
+                  <div className={cn('mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', meta.iconClassName)}>
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -102,7 +102,7 @@ export function NotificationWidget() {
               </>
             )
 
-            const actionClassName = 'block rounded-[1rem] text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-muted'
+            const actionClassName = 'block rounded-xl text-left transition-colors duration-200 hover:bg-muted'
 
             if (item.actionUrl) {
               if (external) {

@@ -14,7 +14,7 @@ const toneClasses = {
 };
 function FacultyCard({ entry, pending, onToggleFavorite }) {
     const tone = toneClasses[getStudentFacingFacultyAvailabilityTone(entry.studentAvailabilityState)];
-    return (<article className="rounded-[24px] border border-border/60 bg-card p-5 transition-all hover:border-primary/30 hover:shadow-surface">
+    return (<article className="rounded-xl border border-border/60 bg-card p-5 transition-all hover:border-primary/30 hover:shadow-md">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <Link href={`/faculty-directory/${entry.id}`} className="min-w-0 flex-1 space-y-1">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{entry.department}</p>
@@ -148,14 +148,14 @@ export default function FacultyDirectoryPage() {
         }
     }, [allEntries, entries, pendingFacultyId, updateFavoriteState]);
     return (<div className="space-y-6">
-      <section className="rounded-[24px] border border-border/60 bg-card p-4 md:p-5">
+      <section className="rounded-xl border border-border/60 bg-card p-4 md:p-5">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
-          <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-background px-3 transition-colors focus-within:border-primary/40 focus-within:bg-muted/50">
+          <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-background px-3 transition-colors focus-within:border-primary/40 focus-within:bg-muted/50">
             <Search className="h-4 w-4 text-muted-foreground"/>
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by faculty name, role, tag, or office" className="h-11 w-full bg-transparent text-sm outline-none"/>
           </div>
 
-          <select value={department} onChange={(event) => setDepartment(event.target.value)} className="h-11 rounded-2xl border border-border/60 bg-background px-3 text-sm transition-colors hover:bg-muted/50">
+          <select value={department} onChange={(event) => setDepartment(event.target.value)} className="h-11 rounded-xl border border-border/60 bg-background px-3 text-sm transition-colors hover:bg-muted/50">
             {departments.map((item) => (<option key={item} value={item}>
                 {item}
               </option>))}
@@ -163,7 +163,7 @@ export default function FacultyDirectoryPage() {
         </div>
       </section>
 
-      {error && (<p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-700 dark:text-red-300">
+      {error && (<p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-700 dark:text-red-300">
           {error}
         </p>)}
 
@@ -185,7 +185,7 @@ export default function FacultyDirectoryPage() {
         </div>
 
         <aside className="xl:sticky xl:top-6">
-          <div className="rounded-[24px] border border-border/60 bg-card p-5">
+          <div className="rounded-xl border border-border/60 bg-card p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Your saved faculty</p>
@@ -201,14 +201,14 @@ export default function FacultyDirectoryPage() {
             </p>
 
             <div className="mt-5 space-y-3">
-              {loading ? (<p className="text-sm text-muted-foreground">Loading favorites...</p>) : favoriteEntries.length === 0 ? (<div className="rounded-2xl border border-dashed border-border/60 bg-background px-4 py-8 text-center">
+              {loading ? (<p className="text-sm text-muted-foreground">Loading favorites...</p>) : favoriteEntries.length === 0 ? (<div className="rounded-xl border border-dashed border-border/60 bg-background px-4 py-8 text-center">
                   <p className="text-sm font-semibold">No saved faculty yet</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Tap Save on any faculty card to pin them here.
                   </p>
                 </div>) : (favoriteEntries.map((entry) => {
             const tone = toneClasses[getStudentFacingFacultyAvailabilityTone(entry.studentAvailabilityState)];
-            return (<article key={entry.id} className="rounded-[20px] border border-border/60 bg-background p-4">
+            return (<article key={entry.id} className="rounded-xl border border-border/60 bg-background p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 space-y-1">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{entry.department}</p>
@@ -218,7 +218,7 @@ export default function FacultyDirectoryPage() {
                           <p className="text-sm text-muted-foreground">{entry.title}</p>
                         </div>
 
-                        <button type="button" onClick={() => void onToggleFavorite(entry.id)} disabled={pendingFacultyId === entry.id} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-red-500/30 bg-red-500/10 text-red-600 transition-colors hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-400" aria-label={`Remove ${entry.name} from favorites`}>
+                        <button type="button" onClick={() => void onToggleFavorite(entry.id)} disabled={pendingFacultyId === entry.id} className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-red-500/30 bg-red-500/10 text-red-600 transition-colors hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-400" aria-label={`Remove ${entry.name} from favorites`}>
                           <Heart className="h-4 w-4 fill-current"/>
                         </button>
                       </div>
@@ -239,7 +239,7 @@ export default function FacultyDirectoryPage() {
         </aside>
       </section>
 
-      {!loading && entries.length === 0 && (<section className="rounded-[24px] border border-dashed border-border/60 bg-card p-10 text-center">
+      {!loading && entries.length === 0 && (<section className="rounded-xl border border-dashed border-border/60 bg-card p-10 text-center">
           <p className="text-base font-semibold">No faculty matched that search</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Try a department filter, a broader keyword, or a tag like advising, tutoring, or scholarships.

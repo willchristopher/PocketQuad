@@ -152,7 +152,7 @@ function formatTimestamp(value) {
 
 function CollapsiblePanel({ title, description, summary, open, onToggle, children, className, contentClassName }) {
   return (
-    <section className={cn('panel-card overflow-hidden rounded-[1.7rem]', className)}>
+    <section className={cn('panel-card overflow-hidden rounded-xl', className)}>
       <button
         type="button"
         onClick={onToggle}
@@ -533,7 +533,7 @@ export function FacultyProfileSettings() {
 
   return (
     <div className="space-y-7">
-      <section className="hero-panel rounded-[2rem] px-6 py-6 md:px-7 md:py-7">
+      <section className="hero-panel rounded-xl px-6 py-6 md:px-7 md:py-7">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-3">
             <Badge variant="outline" className="rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.18em]">
@@ -547,7 +547,7 @@ export function FacultyProfileSettings() {
             </div>
           </div>
 
-          <Button asChild variant="outline" className="rounded-2xl px-5">
+          <Button asChild variant="outline" className="rounded-xl px-5">
             <Link href="/faculty/dashboard">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to workspace
@@ -557,18 +557,18 @@ export function FacultyProfileSettings() {
       </section>
 
       {buildingError ? (
-        <p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-700 dark:text-red-300">
+        <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-700 dark:text-red-300">
           {buildingError}
         </p>
       ) : null}
 
       {buildingSuccess ? (
-        <p className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+        <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-700 dark:text-emerald-300">
           {buildingSuccess}
         </p>
       ) : null}
 
-      <section className="panel-card overflow-hidden rounded-[1.7rem]">
+      <section className="panel-card overflow-hidden rounded-xl">
         <div className="flex flex-col gap-4 px-5 py-5 md:px-6 md:py-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div className="space-y-1">
@@ -589,7 +589,7 @@ export function FacultyProfileSettings() {
               <Button
                 type="button"
                 variant="outline"
-                className="justify-between rounded-2xl px-4"
+                className="justify-between rounded-xl px-4"
                 onClick={() => toggleSection('availableBuildings')}
                 aria-expanded={showAvailableBuildings}
               >
@@ -605,7 +605,7 @@ export function FacultyProfileSettings() {
           </div>
 
           {!showAvailableBuildings && !buildingsLoading ? (
-            <div className="rounded-2xl border border-dashed border-border/70 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
+            <div className="rounded-xl border border-dashed border-border/70 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
               Search stays available here. Expand the list if you want to browse all {availableBuildings.length}{' '}
               building{availableBuildings.length === 1 ? '' : 's'}.
             </div>
@@ -625,7 +625,7 @@ export function FacultyProfileSettings() {
             ) : (
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {filteredBuildings.map((building) => (
-                  <article key={building.id} className="rounded-2xl border border-border/60 bg-card p-4">
+                  <article key={building.id} className="rounded-xl border border-border/60 bg-card p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -690,7 +690,7 @@ export function FacultyProfileSettings() {
       </section>
 
       {!selectedBuilding ? (
-        <section className="panel-card rounded-[1.7rem] border-dashed p-8 text-center text-sm text-muted-foreground">
+        <section className="panel-card rounded-xl border-dashed p-8 text-center text-sm text-muted-foreground">
           Add a building above to open its controls.
         </section>
       ) : (
@@ -709,7 +709,7 @@ export function FacultyProfileSettings() {
                 type="button"
                 onClick={() => setSelectedBuildingId(building.id)}
                 className={cn(
-                  'w-full rounded-2xl border p-4 text-left transition-colors',
+                  'w-full rounded-xl border p-4 text-left transition-colors',
                   selectedBuildingId === building.id
                     ? 'border-primary/30 bg-secondary'
                     : 'border-border/60 bg-card hover:bg-muted/40',
@@ -738,7 +738,7 @@ export function FacultyProfileSettings() {
           </CollapsiblePanel>
 
           <div className="space-y-6">
-            <section className="panel-card rounded-[1.7rem] p-5 md:p-6">
+            <section className="panel-card rounded-xl p-5 md:p-6">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -774,9 +774,9 @@ export function FacultyProfileSettings() {
               onToggle={() => toggleSection('buildingDetails')}
             >
               <div className="grid gap-6 xl:grid-cols-2">
-                <form onSubmit={saveBuilding} className="rounded-[1.45rem] border border-border/60 bg-card p-5">
+                <form onSubmit={saveBuilding} className="rounded-xl border border-border/60 bg-card p-5">
                   <div className="mb-5 flex items-start gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <Clock3 className="h-5 w-5" />
                     </div>
                     <div>
@@ -844,7 +844,7 @@ export function FacultyProfileSettings() {
                   <div className="mt-5 flex flex-wrap items-center gap-3">
                     <Button
                       type="submit"
-                      className="rounded-2xl px-5"
+                      className="rounded-xl px-5"
                       disabled={savingBuildingId === selectedBuilding.id}
                     >
                       <Save className="mr-2 h-4 w-4" />
@@ -853,9 +853,9 @@ export function FacultyProfileSettings() {
                   </div>
                 </form>
 
-                <section className="rounded-[1.45rem] border border-border/60 bg-card p-5">
+                <section className="rounded-xl border border-border/60 bg-card p-5">
                   <div className="mb-4 flex items-start gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <Accessibility className="h-5 w-5" />
                     </div>
                     <div>
@@ -866,7 +866,7 @@ export function FacultyProfileSettings() {
                     </div>
                   </div>
 
-                  <div className="space-y-3 rounded-2xl border border-border/60 bg-muted/10 p-4">
+                  <div className="space-y-3 rounded-xl border border-border/60 bg-muted/10 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold">{selectedBuilding.name}</p>
@@ -908,9 +908,9 @@ export function FacultyProfileSettings() {
               onToggle={() => toggleSection('alerts')}
             >
               <div className="grid gap-6 xl:grid-cols-2">
-                <form onSubmit={publishBuildingAnnouncement} className="rounded-[1.45rem] border border-border/60 bg-card p-5">
+                <form onSubmit={publishBuildingAnnouncement} className="rounded-xl border border-border/60 bg-card p-5">
                   <div className="mb-5 flex items-start gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <Megaphone className="h-5 w-5" />
                     </div>
                     <div>
@@ -968,7 +968,7 @@ export function FacultyProfileSettings() {
                   <div className="mt-5 flex flex-wrap items-center gap-3">
                     <Button
                       type="submit"
-                      className="rounded-2xl px-5"
+                      className="rounded-xl px-5"
                       disabled={
                         publishingBuildingId === selectedBuilding.id ||
                         savingAnnouncementId === editingAnnouncementId
@@ -984,7 +984,7 @@ export function FacultyProfileSettings() {
                     </Button>
 
                     {editingAnnouncementId ? (
-                      <Button type="button" variant="outline" className="rounded-2xl px-5" onClick={cancelEditingAnnouncement}>
+                      <Button type="button" variant="outline" className="rounded-xl px-5" onClick={cancelEditingAnnouncement}>
                         <X className="mr-2 h-4 w-4" />
                         Cancel
                       </Button>
@@ -992,9 +992,9 @@ export function FacultyProfileSettings() {
                   </div>
                 </form>
 
-                <section className="rounded-[1.45rem] border border-border/60 bg-card p-5">
+                <section className="rounded-xl border border-border/60 bg-card p-5">
                   <div className="mb-4 flex items-start gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <BellRing className="h-5 w-5" />
                     </div>
                     <div>
@@ -1010,7 +1010,7 @@ export function FacultyProfileSettings() {
                       <p className="text-sm text-muted-foreground">No active alerts for this building.</p>
                     ) : (
                       selectedBuilding.announcements.map((announcement) => (
-                        <div key={announcement.id} className="rounded-2xl border border-border/60 bg-muted/10 p-3">
+                        <div key={announcement.id} className="rounded-xl border border-border/60 bg-muted/10 p-3">
                           <p className="font-semibold">{announcement.title}</p>
                           <p className="mt-1 text-sm text-muted-foreground">{announcement.message}</p>
                           <p className="mt-2 text-[11px] text-muted-foreground">
@@ -1056,9 +1056,9 @@ export function FacultyProfileSettings() {
               onToggle={() => toggleSection('events')}
             >
               <div className="grid gap-6 xl:grid-cols-2">
-                <form onSubmit={createBuildingEvent} className="rounded-[1.45rem] border border-border/60 bg-card p-5">
+                <form onSubmit={createBuildingEvent} className="rounded-xl border border-border/60 bg-card p-5">
                   <div className="mb-5 flex items-start gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <CalendarDays className="h-5 w-5" />
                     </div>
                     <div>
@@ -1168,7 +1168,7 @@ export function FacultyProfileSettings() {
                   <div className="mt-5 flex flex-wrap items-center gap-3">
                     <Button
                       type="submit"
-                      className="rounded-2xl px-5"
+                      className="rounded-xl px-5"
                       disabled={
                         creatingEventBuildingId === selectedBuilding.id ||
                         savingEventId === editingEventId
@@ -1184,7 +1184,7 @@ export function FacultyProfileSettings() {
                     </Button>
 
                     {editingEventId ? (
-                      <Button type="button" variant="outline" className="rounded-2xl px-5" onClick={cancelEditingEvent}>
+                      <Button type="button" variant="outline" className="rounded-xl px-5" onClick={cancelEditingEvent}>
                         <X className="mr-2 h-4 w-4" />
                         Cancel
                       </Button>
@@ -1192,9 +1192,9 @@ export function FacultyProfileSettings() {
                   </div>
                 </form>
 
-                <section className="rounded-[1.45rem] border border-border/60 bg-card p-5">
+                <section className="rounded-xl border border-border/60 bg-card p-5">
                   <div className="mb-4 flex items-start gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <Building2 className="h-5 w-5" />
                     </div>
                     <div>
@@ -1210,7 +1210,7 @@ export function FacultyProfileSettings() {
                       <p className="text-sm text-muted-foreground">No upcoming building events yet.</p>
                     ) : (
                       selectedBuilding.upcomingEvents.map((eventItem) => (
-                        <div key={eventItem.id} className="rounded-2xl border border-border/60 bg-muted/10 p-3">
+                        <div key={eventItem.id} className="rounded-xl border border-border/60 bg-muted/10 p-3">
                           <p className="font-semibold">{eventItem.title}</p>
                           <p className="mt-1 text-sm text-muted-foreground">
                             {formatTimestamp(eventItem.date)} • {eventItem.time} • {eventItem.category}

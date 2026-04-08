@@ -199,13 +199,13 @@ function WelcomeStep({ name, role }) {
                 description: 'Choose clubs and a visual theme so PocketQuad feels tailored from day one.',
             },
         ];
-    return (<div className="space-y-6">
+    return (<div className="space-y-8">
       <StepHeader badge="Welcome" icon={<Sparkles className="h-5 w-5"/>} title={`Hey ${name}`} description={role === 'FACULTY'
             ? 'We will get your faculty profile ready in a couple of quick steps.'
             : 'We will tune PocketQuad to the people, places, and communities you care about most.'}/>
 
       <div className="grid gap-3 md:grid-cols-3">
-        {highlights.map((highlight) => (<div key={highlight.title} className="rounded-2xl border border-border/70 bg-card/80 p-5 shadow-surface">
+        {highlights.map((highlight) => (<div key={highlight.title} className="rounded-xl border border-border/70 bg-card/80 p-5 shadow-sm">
             <Badge variant="subtle">{highlight.title}</Badge>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">{highlight.description}</p>
           </div>))}
@@ -223,7 +223,7 @@ function FacultyStep({ facultyList, selected, onToggle, searchQuery, onSearch, }
       <div className="max-h-[320px] space-y-3 overflow-y-auto pr-1 custom-scrollbar">
         {filtered.length === 0 ? (<EmptyState label="No faculty found."/>) : (filtered.map((faculty) => {
             const isSelected = selected.includes(faculty.id);
-            return (<SelectionRow key={faculty.id} selected={isSelected} onClick={() => onToggle(faculty.id)} leading={<div className={cn('flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold', isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground')}>
+            return (<SelectionRow key={faculty.id} selected={isSelected} onClick={() => onToggle(faculty.id)} leading={<div className={cn('flex h-10 w-10 items-center justify-center rounded-lg text-sm font-semibold', isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground')}>
                     {faculty.name.charAt(0)}
                   </div>} title={faculty.name} description={faculty.department ?? faculty.title ?? 'Faculty member'} trailing={isSelected ? <Check className="h-4 w-4 text-primary"/> : null}/>);
         }))}
@@ -246,7 +246,7 @@ function BuildingsStep({ buildings, enabled, onToggle, selected, onSelect, searc
           <div className="max-h-[280px] space-y-3 overflow-y-auto pr-1 custom-scrollbar">
             {filtered.length === 0 ? (<EmptyState label="No buildings found."/>) : (filtered.map((building) => {
                 const isSelected = selected.includes(building.id);
-                return (<SelectionRow key={building.id} selected={isSelected} onClick={() => onSelect(building.id)} leading={<div className={cn('flex h-10 w-10 items-center justify-center rounded-2xl', isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
+                return (<SelectionRow key={building.id} selected={isSelected} onClick={() => onSelect(building.id)} leading={<div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
                         <Building2 className="h-4 w-4"/>
                       </div>} title={building.name} description={building.code ?? building.category ?? 'Campus building'} trailing={isSelected ? <Check className="h-4 w-4 text-primary"/> : null}/>);
             }))}
@@ -267,7 +267,7 @@ function ClubsStep({ clubs, selected, onToggle, searchQuery, onSearch, }) {
       <div className="max-h-[320px] space-y-3 overflow-y-auto pr-1 custom-scrollbar">
         {filtered.length === 0 ? (<EmptyState label="No clubs found."/>) : (filtered.map((club) => {
             const isSelected = selected.includes(club.id);
-            return (<SelectionRow key={club.id} selected={isSelected} onClick={() => onToggle(club.id)} leading={<div className={cn('flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold', isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground')}>
+            return (<SelectionRow key={club.id} selected={isSelected} onClick={() => onToggle(club.id)} leading={<div className={cn('flex h-10 w-10 items-center justify-center rounded-lg text-sm font-semibold', isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground')}>
                     {club.name.charAt(0)}
                   </div>} title={club.name} description={club.description ?? 'Student club'} meta={club.category ? <Badge variant="subtle">{club.category}</Badge> : null} trailing={isSelected ? <Check className="h-4 w-4 text-primary"/> : null}/>);
         }))}
@@ -322,7 +322,7 @@ function OfficeHoursStep({ officeHours, onChange, }) {
       </div>
 
       <div className="space-y-3">
-        {officeHours.length === 0 ? (<EmptyState label="Pick a day above to add office hours."/>) : (officeHours.map((slot, index) => (<div key={index} className="rounded-2xl border border-border/70 bg-card/85 p-4 shadow-surface">
+        {officeHours.length === 0 ? (<EmptyState label="Pick a day above to add office hours."/>) : (officeHours.map((slot, index) => (<div key={index} className="rounded-xl border border-border/70 bg-card/85 p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <Badge variant="section">{DAYS[slot.dayOfWeek]}</Badge>
@@ -344,7 +344,7 @@ function OfficeHoursStep({ officeHours, onChange, }) {
                   <Input type="text" value={slot.location} onChange={(event) => updateSlot(index, 'location', event.target.value)} placeholder="Location (optional)" variant="soft" inputSize="lg" className="pl-11"/>
                 </div>
 
-                <select value={slot.mode} onChange={(event) => updateSlot(index, 'mode', event.target.value)} className="h-12 rounded-2xl border border-border/70 bg-background/90 px-4 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-200 hover:border-primary/15 focus:border-primary/30 focus:ring-2 focus:ring-primary/10">
+                <select value={slot.mode} onChange={(event) => updateSlot(index, 'mode', event.target.value)} className="h-12 rounded-xl border border-border/70 bg-background/90 px-4 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-200 hover:border-primary/15 focus:border-primary/30 focus:ring-2 focus:ring-primary/10">
                   <option value="IN_PERSON">In Person</option>
                   <option value="VIRTUAL">Virtual</option>
                   <option value="HYBRID">Hybrid</option>
@@ -355,7 +355,7 @@ function OfficeHoursStep({ officeHours, onChange, }) {
     </div>);
 }
 function EmptyState({ label }) {
-    return (<div className="rounded-2xl border border-dashed border-border/80 bg-card/70 px-4 py-8 text-center text-sm text-muted-foreground">
+    return (<div className="rounded-xl border border-dashed border-border/80 bg-card/70 px-4 py-8 text-center text-sm text-muted-foreground">
       {label}
     </div>);
 }

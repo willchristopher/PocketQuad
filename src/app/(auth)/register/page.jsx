@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Eye, EyeSlash, Lock, EnvelopeSimple, User } from '@phosphor-icons/react';
+import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -406,7 +406,7 @@ export default function RegisterPage() {
         footer={
           <p>
             Already have an account?{' '}
-            <Link href="/login" className="font-medium text-[#ECAC00] transition-colors hover:underline">
+            <Link href="/login" className="font-medium text-msu-gold transition-colors hover:underline">
               Sign in
             </Link>
           </p>
@@ -420,7 +420,7 @@ export default function RegisterPage() {
             </div>
             <div className="h-px rounded-full bg-white/[0.08]">
               <motion.div
-                className="h-full rounded-full bg-[#ECAC00]"
+                className="h-full rounded-full bg-msu-gold"
                 initial={false}
                 animate={{ width: `${progressMeta.progress}%` }}
                 transition={{ duration: 0.38, ease: transitionEase }}
@@ -500,7 +500,7 @@ export default function RegisterPage() {
 
               <AuthField label="University Email" error={fieldErrors.email?.[0]} errorClassName="text-red-700">
                 <AuthFieldShell
-                  icon={<EnvelopeSimple className="h-4 w-4" />}
+                  icon={<Mail className="h-4 w-4" />}
                   invalid={!!fieldErrors.email?.[0]}
                   className={getDarkFieldShellClassName(!!fieldErrors.email?.[0])}
                 >
@@ -612,7 +612,7 @@ export default function RegisterPage() {
                             disabled={submitting}
                             aria-label={showPassword ? 'Hide password' : 'Show password'}
                           >
-                            {showPassword ? <EyeSlash className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </button>
                         }
                       >
@@ -650,10 +650,10 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={submitting || resendingCode}
-              className="group flex w-full items-center justify-center gap-2.5 rounded-xl bg-[#ECAC00] px-6 py-3.5 text-[14px] font-semibold text-[#002144] shadow-[0_2px_8px_rgba(0,0,0,0.12)] transition-all duration-200 hover:shadow-[0_4px_16px_rgba(0,0,0,0.18)] active:translate-y-px disabled:cursor-not-allowed"
+              className="group flex w-full items-center justify-center gap-2.5 rounded-xl bg-msu-gold px-6 py-3.5 text-[14px] font-semibold text-msu-blue shadow-sm transition-all duration-200 hover:shadow-md active:translate-y-px disabled:cursor-not-allowed"
             >
               {submitLabel}
-              {submitting ? null : <ArrowRight className="h-4 w-4" weight="bold" />}
+              {submitting ? null : <ArrowRight className="h-4 w-4" />}
             </button>
           </form>
         </div>

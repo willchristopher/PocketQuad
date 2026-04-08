@@ -627,7 +627,7 @@ export function AdminDashboard() {
 
         <TabsContent value="overview" className="mt-0 space-y-4">
           {/* University Info */}
-          <Card className="rounded-2xl border-border/60">
+          <Card className="rounded-xl border-border/60">
             <CardContent className="p-5">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
@@ -659,7 +659,7 @@ export function AdminDashboard() {
                 { label: 'Links', value: resourceLinks.length, icon: ExternalLink, tab: 'links' },
                 { label: 'Services', value: services.length, icon: Wrench, tab: 'services' },
                 { label: 'Users', value: allUsers.length, icon: Users, tab: 'users' },
-            ].map((stat) => (<button key={stat.label} className="rounded-2xl border border-border/60 bg-card/70 p-4 text-left hover:bg-card transition-colors duration-150 active:scale-[0.98]" onClick={() => handleTabChange(stat.tab)}>
+            ].map((stat) => (<button key={stat.label} className="rounded-xl border border-border/60 bg-card/70 p-4 text-left hover:bg-card transition-colors duration-150" onClick={() => handleTabChange(stat.tab)}>
                 <stat.icon className="h-4 w-4 text-muted-foreground mb-2"/>
                 <p className="text-2xl font-extrabold tracking-tight">{stat.value}</p>
                 <p className="text-xs font-medium text-muted-foreground mt-0.5">{stat.label}</p>
@@ -667,7 +667,7 @@ export function AdminDashboard() {
           </div>
 
           {/* Quick actions */}
-          <Card className="rounded-2xl border-border/60">
+          <Card className="rounded-xl border-border/60">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Quick Actions</CardTitle>
               <CardDescription>Jump to any section to manage content for {selectedUniversity.name}.</CardDescription>
@@ -695,7 +695,7 @@ export function AdminDashboard() {
         </TabsContent>
 
         <TabsContent value="universities" className="mt-0 space-y-4">
-          <Card className="rounded-2xl border-border/60">
+          <Card className="rounded-xl border-border/60">
             <CardHeader>
               <CardTitle>Manage University</CardTitle>
               <CardDescription>Update settings for the university currently in scope.</CardDescription>
@@ -766,7 +766,7 @@ export function AdminDashboard() {
         </TabsContent>
 
         <TabsContent value="student-pages" className="mt-0 space-y-4">
-          <Card className="rounded-2xl border-border/60">
+          <Card className="rounded-xl border-border/60">
             <CardHeader>
               <CardTitle>Student Page Visibility</CardTitle>
               <CardDescription>
@@ -782,7 +782,7 @@ export function AdminDashboard() {
               <div className="grid gap-3 md:grid-cols-2">
                 {studentPageVisibilityOptions.map((page) => {
                 const isVisible = !selectedUniversityDisabledStudentPages.includes(page.key);
-                return (<button key={page.key} type="button" onClick={() => toggleDisabledStudentPage(selectedUniversity.id, page.key)} className={cn('rounded-2xl border px-4 py-4 text-left transition-colors', isVisible
+                return (<button key={page.key} type="button" onClick={() => toggleDisabledStudentPage(selectedUniversity.id, page.key)} className={cn('rounded-xl border px-4 py-4 text-left transition-colors', isVisible
                     ? 'border-emerald-500/25 bg-emerald-500/5 hover:bg-emerald-500/10'
                     : 'border-border/60 bg-card hover:bg-muted/40')}>
                       <div className="flex items-start justify-between gap-3">
@@ -827,7 +827,7 @@ export function AdminDashboard() {
         <TabsContent value="faculty" className="mt-0 space-y-5">
 
           {/* ── Invite Faculty Member ─────────────────────────────── */}
-          <Card className="rounded-2xl border-border/60">
+          <Card className="rounded-xl border-border/60">
             <CardHeader>
               <CardTitle>Invite Faculty Member</CardTitle>
               <CardDescription>
@@ -950,7 +950,7 @@ export function AdminDashboard() {
           </Card>
 
           {/* ── Pending Invitations ───────────────────────────────── */}
-          {withinSelectedUniversity(facultySignupEmails).length > 0 && (<Card className="rounded-2xl border-border/60">
+          {withinSelectedUniversity(facultySignupEmails).length > 0 && (<Card className="rounded-xl border-border/60">
               <CardHeader>
                 <CardTitle>Pending Invitations</CardTitle>
                 <CardDescription>Invited faculty who haven&apos;t yet completed their profile.</CardDescription>
@@ -1034,7 +1034,7 @@ export function AdminDashboard() {
             </Card>)}
 
           {/* ── Faculty Directory ─────────────────────────────────── */}
-          <Card className="rounded-2xl border-border/60">
+          <Card className="rounded-xl border-border/60">
             <CardHeader>
               <CardTitle>Faculty Directory</CardTitle>
               <CardDescription>
@@ -1258,7 +1258,7 @@ export function AdminDashboard() {
           </div>
 
           {/* New building form */}
-          {expandedBuildingId === 'new' && (<Card className="rounded-2xl border-primary/30 bg-primary/5">
+          {expandedBuildingId === 'new' && (<Card className="rounded-xl border-primary/30 bg-primary/5">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">New Building</CardTitle>
               </CardHeader>
@@ -1298,7 +1298,7 @@ export function AdminDashboard() {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Operational Status</label>
-                    <select value={newBuilding.operationalStatus} onChange={(event) => setNewBuilding((c) => ({ ...c, operationalStatus: event.target.value }))} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                    <select value={newBuilding.operationalStatus} onChange={(event) => setNewBuilding((c) => ({ ...c, operationalStatus: event.target.value }))} className="h-11 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
                       <option value="OPEN">Open</option>
                       <option value="CLOSED">Closed</option>
                       <option value="LIMITED">Limited Access</option>
@@ -1342,7 +1342,7 @@ export function AdminDashboard() {
             </Card>)}
 
           {/* Buildings list */}
-          <Card className="rounded-2xl border-border/60">
+          <Card className="rounded-xl border-border/60">
             <CardContent className="p-0">
               {withinSelectedUniversity(buildings).length === 0 ? (<p className="px-6 py-6 text-sm text-muted-foreground">No buildings yet. Add one above or import from CSV.</p>) : (<div className="divide-y divide-border/40">
                   {withinSelectedUniversity(buildings).map((building) => {
@@ -1385,7 +1385,7 @@ export function AdminDashboard() {
                                 </div>))}
                               <div className="space-y-1.5">
                                 <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Operational Status</label>
-                                <select value={building.operationalStatus ?? 'OPEN'} onChange={(event) => setBuildings((current) => current.map((item) => (item.id === building.id ? { ...item, operationalStatus: event.target.value } : item)))} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                                <select value={building.operationalStatus ?? 'OPEN'} onChange={(event) => setBuildings((current) => current.map((item) => (item.id === building.id ? { ...item, operationalStatus: event.target.value } : item)))} className="h-11 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
                                   <option value="OPEN">Open</option>
                                   <option value="CLOSED">Closed</option>
                                   <option value="LIMITED">Limited Access</option>
@@ -1456,11 +1456,11 @@ export function AdminDashboard() {
                     File selected: <span className="font-medium text-foreground">{buildingImportFileName}</span>
                   </p>)}
 
-                {buildingImportError && (<p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+                {buildingImportError && (<p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
                     {buildingImportError}
                   </p>)}
 
-                {buildingImportValidation && (<div className={cn('rounded-md border px-3 py-2 text-xs', buildingImportValidation.valid
+                {buildingImportValidation && (<div className={cn('rounded-lg border px-3 py-2 text-xs', buildingImportValidation.valid
                     ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
                     : 'border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300')}>
                     <p className="font-semibold">
@@ -1509,11 +1509,11 @@ export function AdminDashboard() {
 
         <TabsContent value="links" className="mt-0 space-y-4">
           <SimpleCreateCard title="Create Resource Link" description="Links appear in the student Links Directory for the selected university." content={<>
-                <select value={newLink.universityId} onChange={(event) => setNewLink((current) => ({ ...current, universityId: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                <select value={newLink.universityId} onChange={(event) => setNewLink((current) => ({ ...current, universityId: event.target.value }))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                   {scopedUniversityOptions}
                 </select>
                 <Input value={newLink.label} onChange={(event) => setNewLink((current) => ({ ...current, label: event.target.value }))} placeholder="Link label"/>
-                <select value={newLink.category} onChange={(event) => setNewLink((current) => ({ ...current, category: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                <select value={newLink.category} onChange={(event) => setNewLink((current) => ({ ...current, category: event.target.value }))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                   {resourceCategories.map((category) => (<option key={category} value={category}>{category}</option>))}
                 </select>
                 <Input value={newLink.href} onChange={(event) => setNewLink((current) => ({ ...current, href: event.target.value }))} placeholder="https://..."/>
@@ -1553,11 +1553,11 @@ export function AdminDashboard() {
 
         <TabsContent value="services" className="mt-0 space-y-4">
           <SimpleCreateCard title="Create Service" description="Services power the student Services Status page." content={<>
-                <select value={newService.universityId} onChange={(event) => setNewService((current) => ({ ...current, universityId: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                <select value={newService.universityId} onChange={(event) => setNewService((current) => ({ ...current, universityId: event.target.value }))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                   {scopedUniversityOptions}
                 </select>
                 <Input value={newService.name} onChange={(event) => setNewService((current) => ({ ...current, name: event.target.value }))} placeholder="Service name"/>
-                <select value={newService.status} onChange={(event) => setNewService((current) => ({ ...current, status: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                <select value={newService.status} onChange={(event) => setNewService((current) => ({ ...current, status: event.target.value }))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                   {serviceStatuses.map((status) => (<option key={status} value={status}>{status}</option>))}
                 </select>
                 <Input value={newService.hours} onChange={(event) => setNewService((current) => ({ ...current, hours: event.target.value }))} placeholder="Hours"/>
@@ -1600,7 +1600,7 @@ export function AdminDashboard() {
 
         <TabsContent value="clubs" className="mt-0 space-y-4">
           <SimpleCreateCard title="Create Club/Organization" description="Organizations can be displayed across student discovery experiences." content={<>
-                <select value={newClub.universityId} onChange={(event) => setNewClub((current) => ({ ...current, universityId: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                <select value={newClub.universityId} onChange={(event) => setNewClub((current) => ({ ...current, universityId: event.target.value }))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                   {scopedUniversityOptions}
                 </select>
                 <Input value={newClub.name} onChange={(event) => setNewClub((current) => ({ ...current, name: event.target.value }))} placeholder="Club name"/>
@@ -1653,7 +1653,7 @@ export function AdminDashboard() {
 
         <TabsContent value="events" className="mt-0 space-y-4">
           <SimpleCreateCard title="Create Event" description="Events appear in the student events workflow." content={<>
-                <select value={newEvent.universityId} onChange={(event) => setNewEvent((current) => ({ ...current, universityId: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                <select value={newEvent.universityId} onChange={(event) => setNewEvent((current) => ({ ...current, universityId: event.target.value }))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                   {scopedUniversityOptions}
                 </select>
                 <Input value={newEvent.title} onChange={(event) => setNewEvent((current) => ({ ...current, title: event.target.value }))} placeholder="Event title"/>
@@ -1661,7 +1661,7 @@ export function AdminDashboard() {
                 <Input type="datetime-local" value={newEvent.date} onChange={(event) => setNewEvent((current) => ({ ...current, date: event.target.value }))}/>
                 <Input value={newEvent.time} onChange={(event) => setNewEvent((current) => ({ ...current, time: event.target.value }))} placeholder="Time label"/>
                 <Input value={newEvent.location} onChange={(event) => setNewEvent((current) => ({ ...current, location: event.target.value }))} placeholder="Location"/>
-                <select value={newEvent.category} onChange={(event) => setNewEvent((current) => ({ ...current, category: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                <select value={newEvent.category} onChange={(event) => setNewEvent((current) => ({ ...current, category: event.target.value }))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                   {eventCategories.map((category) => (<option key={category} value={category}>{category}</option>))}
                 </select>
                 <Input value={newEvent.organizer} onChange={(event) => setNewEvent((current) => ({ ...current, organizer: event.target.value }))} placeholder="Organizer"/>
@@ -1714,7 +1714,7 @@ export function AdminDashboard() {
         </TabsContent>
 
         <TabsContent value="it-accounts" className="mt-0 space-y-4">
-          {temporaryAccountPassword && (<Card className="rounded-2xl border-emerald-500/30 bg-emerald-500/10">
+          {temporaryAccountPassword && (<Card className="rounded-xl border-emerald-500/30 bg-emerald-500/10">
               <CardContent className="p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
                   Temporary Password
@@ -1728,7 +1728,7 @@ export function AdminDashboard() {
               </CardContent>
             </Card>)}
 
-          <Card className="rounded-2xl border-border/60">
+          <Card className="rounded-xl border-border/60">
             <CardHeader>
               <CardTitle>Create IT / Portal Account</CardTitle>
               <CardDescription>
@@ -1740,7 +1740,7 @@ export function AdminDashboard() {
                 <select value={newPortalAccount.universityId} onChange={(event) => setNewPortalAccount((current) => ({
                 ...current,
                 universityId: event.target.value,
-            }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+            }))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                   {scopedUniversityOptions}
                 </select>
                 <Input value={newPortalAccount.firstName} onChange={(event) => setNewPortalAccount((current) => ({
@@ -1758,7 +1758,7 @@ export function AdminDashboard() {
                 <select value={newPortalAccount.role} onChange={(event) => setNewPortalAccount((current) => ({
                 ...current,
                 role: event.target.value,
-            }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+            }))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                   <option value="ADMIN">Admin</option>
                   <option value="FACULTY">Faculty</option>
                   <option value="STUDENT">Student</option>
@@ -1766,7 +1766,7 @@ export function AdminDashboard() {
                 <select value={newPortalAccount.accessLevel} onChange={(event) => setNewPortalAccount((current) => ({
                 ...current,
                 accessLevel: event.target.value,
-            }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+            }))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                   {accessLevelOptions.map((level) => (<option key={level} value={level}>
                       {level.replaceAll('_', ' ')}
                     </option>))}
@@ -1782,7 +1782,7 @@ export function AdminDashboard() {
                   Portal Permissions
                 </p>
                 <div className="grid gap-2 md:grid-cols-3">
-                  {portalPermissionOptions.map((permission) => (<label key={permission} className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-xs">
+                  {portalPermissionOptions.map((permission) => (<label key={permission} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-input px-3 py-2 text-xs">
                       <input type="checkbox" checked={newPortalAccount.portalPermissions.includes(permission)} onChange={() => togglePermissionInDraftAccount(permission)}/>
                       {portalPermissionLabels[permission]}
                     </label>))}
@@ -1794,7 +1794,7 @@ export function AdminDashboard() {
                   Managed Clubs (for club leadership roles)
                 </p>
                 <div className="grid gap-2 md:grid-cols-3">
-                  {withinSelectedUniversity(clubs).map((club) => (<label key={club.id} className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-xs">
+                  {withinSelectedUniversity(clubs).map((club) => (<label key={club.id} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-input px-3 py-2 text-xs">
                       <input type="checkbox" checked={newPortalAccount.managedClubIds.includes(club.id)} onChange={() => toggleManagedClubInDraftAccount(club.id)}/>
                       {club.name}
                     </label>))}
@@ -1865,7 +1865,7 @@ export function AdminDashboard() {
 
         <TabsContent value="users" className="mt-0 space-y-4">
           {/* Filters */}
-          <Card className="rounded-2xl border-border/60">
+          <Card className="rounded-xl border-border/60">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">All Users</CardTitle>
               <CardDescription>
@@ -1874,7 +1874,7 @@ export function AdminDashboard() {
             </CardHeader>
             <CardContent className="flex flex-wrap gap-3">
               <Input className="max-w-xs" placeholder="Search by name or email…" value={userSearchQuery} onChange={(event) => setUserSearchQuery(event.target.value)}/>
-              <select value={userRoleFilter} onChange={(event) => setUserRoleFilter(event.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+              <select value={userRoleFilter} onChange={(event) => setUserRoleFilter(event.target.value)} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 <option value="">All Roles</option>
                 <option value="STUDENT">Student</option>
                 <option value="FACULTY">Faculty</option>
@@ -1918,7 +1918,7 @@ export function AdminDashboard() {
                 });
             }, 'User deleted')}/>
         </TabsContent>
-        </Tabs>) : (<Card className="mx-auto w-full max-w-2xl rounded-2xl border-border/60">
+        </Tabs>) : (<Card className="mx-auto w-full max-w-2xl rounded-xl border-border/60">
           <CardHeader>
             <CardTitle>What university are you working on?</CardTitle>
             <CardDescription>
@@ -1936,7 +1936,7 @@ export function AdminDashboard() {
                   <label htmlFor="admin-university-selection" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     University
                   </label>
-                  <select id="admin-university-selection" value={universitySelectionDraft} onChange={(event) => setUniversitySelectionDraft(event.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <select id="admin-university-selection" value={universitySelectionDraft} onChange={(event) => setUniversitySelectionDraft(event.target.value)} className="h-11 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
                     <option value="">Select university</option>
                     {universityOptions}
                   </select>
@@ -1951,7 +1951,7 @@ export function AdminDashboard() {
           </CardContent>
         </Card>)}
 
-      {loading && (<div className="fixed inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm">
+      {loading && (<div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80">
           <div className="rounded-xl border border-border/60 bg-card px-4 py-3 text-sm text-muted-foreground">
             Loading admin data...
           </div>
@@ -1959,7 +1959,7 @@ export function AdminDashboard() {
     </div>);
 }
 function SimpleCreateCard({ title, description, content, }) {
-    return (<Card className="rounded-2xl border-border/60">
+    return (<Card className="rounded-xl border-border/60">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
@@ -1972,12 +1972,12 @@ function CrudLinkTable({ records, universities, saving, onChange, onSave, onDele
       <BaseCrudTable rows={records.map((record) => (<TableRow key={record.id}>
             <TableCell className="space-y-2 min-w-[260px]">
               <Input value={record.label} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, label: event.target.value } : item)))}/>
-              <select value={record.category} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, category: event.target.value } : item)))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+              <select value={record.category} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, category: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {resourceCategories.map((category) => (<option key={category} value={category}>{category}</option>))}
               </select>
             </TableCell>
             <TableCell>
-              <select value={record.universityId} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, universityId: event.target.value } : item)))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+              <select value={record.universityId} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, universityId: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {universities.map((university) => (<option key={university.id} value={university.id}>{university.name}</option>))}
               </select>
             </TableCell>
@@ -1997,12 +1997,12 @@ function CrudServiceTable({ records, universities, saving, onChange, onSave, onD
       <BaseCrudTable rows={records.map((record) => (<TableRow key={record.id}>
             <TableCell className="space-y-2 min-w-[260px]">
               <Input value={record.name} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, name: event.target.value } : item)))}/>
-              <select value={record.status} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, status: event.target.value } : item)))} className={cn('h-10 rounded-md border border-input bg-background px-3 text-sm', record.status === 'OPEN' ? 'text-emerald-600' : record.status === 'LIMITED' ? 'text-amber-600' : 'text-red-600')}>
+              <select value={record.status} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, status: event.target.value } : item)))} className={cn('h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm', record.status === 'OPEN' ? 'text-emerald-600' : record.status === 'LIMITED' ? 'text-amber-600' : 'text-red-600')}>
                 {serviceStatuses.map((status) => (<option key={status} value={status}>{status}</option>))}
               </select>
             </TableCell>
             <TableCell>
-              <select value={record.universityId} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, universityId: event.target.value } : item)))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+              <select value={record.universityId} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, universityId: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {universities.map((university) => (<option key={university.id} value={university.id}>{university.name}</option>))}
               </select>
             </TableCell>
@@ -2026,7 +2026,7 @@ function CrudClubTable({ records, universities, saving, onChange, onSave, onDele
               <Input value={record.category} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, category: event.target.value } : item)))}/>
             </TableCell>
             <TableCell>
-              <select value={record.universityId} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, universityId: event.target.value } : item)))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+              <select value={record.universityId} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, universityId: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {universities.map((university) => (<option key={university.id} value={university.id}>{university.name}</option>))}
               </select>
             </TableCell>
@@ -2052,7 +2052,7 @@ function CrudEventTable({ records, universities, saving, onChange, onSave, onDel
               <Input value={record.organizer} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, organizer: event.target.value } : item)))}/>
             </TableCell>
             <TableCell className="space-y-2 min-w-[220px]">
-              <select value={record.universityId ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, universityId: event.target.value } : item)))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+              <select value={record.universityId ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, universityId: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {universities.map((university) => (<option key={university.id} value={university.id}>{university.name}</option>))}
               </select>
               <Input type="datetime-local" value={formatDateTimeInput(record.date)} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, date: new Date(event.target.value).toISOString() } : item)))}/>
@@ -2060,7 +2060,7 @@ function CrudEventTable({ records, universities, saving, onChange, onSave, onDel
               <Input value={record.location} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, location: event.target.value } : item)))}/>
             </TableCell>
             <TableCell className="space-y-2">
-              <select value={record.category} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, category: event.target.value } : item)))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+              <select value={record.category} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, category: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {eventCategories.map((category) => (<option key={category} value={category}>{category}</option>))}
               </select>
               <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
@@ -2112,7 +2112,7 @@ function CrudPortalAccountsTable({ records, universities, clubs, saving, onChang
                     <Input value={record.email} disabled/>
                   </TableCell>
                   <TableCell>
-                    <select value={record.universityId ?? ''} disabled className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                    <select value={record.universityId ?? ''} disabled className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                       <option value="">Unscoped</option>
                       {universities.map((university) => (<option key={university.id} value={university.id}>
                           {university.name}
@@ -2125,7 +2125,7 @@ function CrudPortalAccountsTable({ records, universities, clubs, saving, onChang
                         ...item,
                         role: event.target.value,
                     }
-                    : item))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                    : item))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                       <option value="ADMIN">Admin</option>
                       <option value="FACULTY">Faculty</option>
                       <option value="STUDENT">Student</option>
@@ -2135,7 +2135,7 @@ function CrudPortalAccountsTable({ records, universities, clubs, saving, onChang
                         ...item,
                         adminAccessLevel: (event.target.value || null),
                     }
-                    : item))} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                    : item))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                       <option value="">No access level</option>
                       {accessLevelOptions.map((level) => (<option key={level} value={level}>
                           {level.replaceAll('_', ' ')}
@@ -2145,7 +2145,7 @@ function CrudPortalAccountsTable({ records, universities, clubs, saving, onChang
                   </TableCell>
                   <TableCell className="min-w-[360px]">
                     <div className="grid gap-1.5 md:grid-cols-2">
-                      {portalPermissionOptions.map((permission) => (<label key={`${record.id}-${permission}`} className="inline-flex items-center gap-1.5 rounded-md border border-input px-2 py-1 text-[11px]">
+                      {portalPermissionOptions.map((permission) => (<label key={`${record.id}-${permission}`} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-input px-2 py-2 text-[11px]">
                           <input type="checkbox" checked={record.portalPermissions.includes(permission)} onChange={() => onTogglePermission(record.id, permission)}/>
                           {portalPermissionLabels[permission]}
                         </label>))}
@@ -2153,7 +2153,7 @@ function CrudPortalAccountsTable({ records, universities, clubs, saving, onChang
                   </TableCell>
                   <TableCell className="min-w-[240px]">
                     <div className="grid gap-1.5">
-                      {clubs.map((club) => (<label key={`${record.id}-${club.id}`} className="inline-flex items-center gap-1.5 rounded-md border border-input px-2 py-1 text-[11px]">
+                      {clubs.map((club) => (<label key={`${record.id}-${club.id}`} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-input px-2 py-2 text-[11px]">
                           <input type="checkbox" checked={assignedClubIds.has(club.id)} onChange={() => onToggleManagedClub(record.id, club.id)}/>
                           {club.name}
                         </label>))}
@@ -2234,7 +2234,7 @@ function CrudUsersTable({ records, searchQuery, roleFilter, saving, onChange, on
                 <TableCell className="space-y-2 min-w-[160px]">
                   <select value={record.role} onChange={(event) => onChange((current) => current.map((item) => item.id === record.id
                 ? { ...item, role: event.target.value }
-                : item))} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                : item))} className="h-11 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
                     <option value="STUDENT">Student</option>
                     <option value="FACULTY">Faculty</option>
                     <option value="ADMIN">Admin</option>
@@ -2244,7 +2244,7 @@ function CrudUsersTable({ records, searchQuery, roleFilter, saving, onChange, on
                         ...item,
                         adminAccessLevel: (event.target.value || null),
                     }
-                    : item))} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                    : item))} className="h-11 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
                       <option value="">No Access Level</option>
                       <option value="OWNER">Owner</option>
                       <option value="IT_ADMIN">IT Admin</option>
@@ -2288,7 +2288,7 @@ function CrudUsersTable({ records, searchQuery, roleFilter, saving, onChange, on
     </CrudCard>);
 }
 function CrudCard({ title, description, children }) {
-    return (<Card className="rounded-2xl border-border/60">
+    return (<Card className="rounded-xl border-border/60">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>

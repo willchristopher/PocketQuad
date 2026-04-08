@@ -1,5 +1,5 @@
 'use client';
-import { ArrowRight, EnvelopeOpen, ArrowClockwise } from '@phosphor-icons/react';
+import { ArrowRight, MailOpen, RotateCw } from 'lucide-react';
 import Link from 'next/link';
 import { AppBrand, AuthCard, AuthMessage, AuthShell } from '@/components/auth/AuthShell';
 import { Button } from '@/components/ui/button';
@@ -12,8 +12,8 @@ export default function VerifyEmailPage() {
               Check your <span className="gradient-text">inbox</span>
             </>} description="We sent a verification link to your university email. Open that message to confirm your account and continue.">
           <div className="space-y-5">
-            <div className="flex h-16 w-16 items-center justify-center rounded-[1.5rem] bg-primary text-primary-foreground shadow-accent">
-              <EnvelopeOpen className="h-8 w-8"/>
+            <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
+              <MailOpen className="h-8 w-8" />
             </div>
 
             <AuthMessage>
@@ -24,7 +24,7 @@ export default function VerifyEmailPage() {
 
             <div className="space-y-3">
               <Button type="button" variant="surface" size="xl" className="w-full gap-2">
-                <ArrowClockwise className="h-4 w-4"/>
+                <RotateCw className="h-4 w-4" />
                 Resend verification email
               </Button>
               <Button asChild variant="gradient" size="xl" className="w-full gap-2">

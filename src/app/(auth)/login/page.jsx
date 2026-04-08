@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Suspense } from 'react';
-import { ArrowRight, Eye, EyeSlash, Lock, EnvelopeSimple } from '@phosphor-icons/react';
+import { ArrowRight, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -93,7 +93,7 @@ function LoginForm() {
         footer={
           <p>
             New here?{' '}
-            <Link href="/register" className="font-medium text-[#ECAC00] transition-colors hover:underline">
+            <Link href="/register" className="font-medium text-msu-gold transition-colors hover:underline">
               Create an account
             </Link>
           </p>
@@ -101,7 +101,7 @@ function LoginForm() {
       >
         <form className="space-y-6" onSubmit={onSubmit}>
           <AuthField label="Email" labelClassName="!text-white/30">
-            <AuthFieldShell icon={<EnvelopeSimple className="h-4 w-4" weight="light" />} className={authPanelFieldShellClassName}>
+            <AuthFieldShell icon={<Mail className="h-4 w-4" />} className={authPanelFieldShellClassName}>
               <input
                 type="email"
                 value={email}
@@ -128,7 +128,7 @@ function LoginForm() {
             }
           >
             <AuthFieldShell
-              icon={<Lock className="h-4 w-4" weight="light" />}
+              icon={<Lock className="h-4 w-4" />}
               className={authPanelFieldShellClassName}
               trailing={
                 <button
@@ -138,7 +138,7 @@ function LoginForm() {
                 disabled={submitting}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                  {showPassword ? <EyeSlash className="h-4 w-4" weight="light" /> : <Eye className="h-4 w-4" weight="light" />}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               }
             >
@@ -168,7 +168,7 @@ function LoginForm() {
                 checked={rememberMe}
                 onChange={(event) => setRememberMe(event.target.checked)}
                 disabled={submitting}
-                className="h-3.5 w-3.5 rounded border-white/10 bg-white/[0.04] text-[#ECAC00] focus:ring-white/10"
+                className="h-3.5 w-3.5 rounded border-white/10 bg-white/[0.04] text-msu-gold focus:ring-white/10"
               />
               <span>Remember me</span>
             </label>
@@ -177,10 +177,10 @@ function LoginForm() {
           <button
             type="submit"
             disabled={submitting}
-            className="group flex w-full items-center justify-center gap-2.5 rounded-xl bg-[#ECAC00] px-6 py-3.5 text-[14px] font-semibold text-[#002144] shadow-[0_2px_8px_rgba(0,0,0,0.12)] transition-all duration-200 hover:shadow-[0_4px_16px_rgba(0,0,0,0.18)] active:translate-y-px disabled:cursor-not-allowed"
+            className="group flex w-full items-center justify-center gap-2.5 rounded-xl bg-msu-gold px-6 py-3.5 text-[14px] font-semibold text-msu-blue shadow-sm transition-all duration-200 hover:shadow-md active:translate-y-px disabled:cursor-not-allowed"
           >
             {submitting ? 'Signing in\u2026' : 'Sign in'}
-            {submitting ? null : <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" weight="bold" />}
+            {submitting ? null : <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />}
           </button>
         </form>
       </AuthInteractionPanel>

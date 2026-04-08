@@ -1,11 +1,11 @@
 import {
   Bell,
-  BellRinging,
-  CalendarBlank,
+  BellRing,
+  Calendar,
   CalendarX,
   Megaphone,
   Timer,
-} from '@phosphor-icons/react'
+} from 'lucide-react'
 
 export const notificationFilters = [
   'All',
@@ -28,14 +28,14 @@ const notificationMeta = {
   NEW_EVENT: {
     label: 'New event',
     filter: 'Events',
-    icon: CalendarBlank,
+    icon: Calendar,
     badgeClassName: 'border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300',
     iconClassName: 'bg-blue-500/10 text-blue-700 dark:text-blue-300',
   },
   EVENT_UPDATED: {
     label: 'Event update',
     filter: 'Events',
-    icon: BellRinging,
+    icon: BellRing,
     badgeClassName: 'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300',
     iconClassName: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
   },
@@ -56,7 +56,7 @@ const notificationMeta = {
   DEADLINE: {
     label: 'Deadline',
     filter: 'Deadlines',
-    icon: CalendarBlank,
+    icon: Calendar,
     badgeClassName: 'border-orange-500/25 bg-orange-500/10 text-orange-700 dark:text-orange-300',
     iconClassName: 'bg-orange-500/10 text-orange-700 dark:text-orange-300',
   },

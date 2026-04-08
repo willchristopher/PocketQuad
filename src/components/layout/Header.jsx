@@ -102,7 +102,7 @@ export function Header() {
                               href={item.href}
                               onClick={() => setSheetOpen(false)}
                               className={cn(
-                                'flex items-center gap-3 rounded-[1.15rem] border px-4 py-3 text-sm font-medium transition-all',
+                                'flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-all',
                                 isActive
                                   ? 'border-primary/25 bg-secondary text-foreground shadow-surface'
                                   : 'border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted hover:text-foreground',
@@ -130,7 +130,7 @@ export function Header() {
                           href={item.href}
                           onClick={() => setSheetOpen(false)}
                           className={cn(
-                            'flex items-center gap-3 rounded-[1.15rem] border px-4 py-3 text-sm font-medium transition-all',
+                            'flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-all',
                             isActive
                               ? 'border-primary/25 bg-secondary text-foreground shadow-surface'
                               : 'border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted hover:text-foreground',
@@ -145,7 +145,7 @@ export function Header() {
                     <button
                       type="button"
                       onClick={() => void handleSignOut()}
-                      className="flex w-full items-center gap-3 rounded-[1.15rem] border border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-all hover:border-border/70 hover:bg-muted hover:text-foreground"
+                      className="flex w-full items-center gap-3 rounded-xl border border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-all hover:border-border/70 hover:bg-muted hover:text-foreground"
                     >
                       <LogOut className="h-[18px] w-[18px] shrink-0" />
                       Sign out
@@ -162,7 +162,7 @@ export function Header() {
               {showDashboardBrand ? (
                 <Link
                   href="/dashboard"
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-card/70 p-1.5 shadow-surface transition-all hover:border-primary/25 hover:bg-card"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-card/70 p-1.5 shadow-surface transition-all hover:border-primary/25 hover:bg-card"
                   aria-label="PocketQuad dashboard"
                 >
                   <Image

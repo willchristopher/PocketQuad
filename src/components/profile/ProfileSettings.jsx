@@ -186,7 +186,7 @@ export function ProfileSettings() {
         }
     };
     return (<div className="mx-auto max-w-4xl space-y-7">
-      <section className="hero-panel rounded-[2rem] p-6 md:p-7 animate-in-soft">
+      <section className="hero-panel rounded-xl p-6 md:p-7 animate-in-soft">
         <div>
           <h1 className="font-display text-2xl font-extrabold tracking-tight md:text-3xl">
             Profile and Preferences
@@ -195,7 +195,7 @@ export function ProfileSettings() {
             Manage your account name and notification settings for your {isFaculty ? 'faculty' : 'student'} account.
           </p>
 
-          <div className="subtle-panel mt-5 rounded-[1.3rem] p-4">
+          <div className="subtle-panel mt-5 rounded-xl p-4">
             <p className="mb-2 poster-label">Account Email</p>
             <p className="inline-flex items-center gap-2 text-sm font-medium">
               <Mail className="h-4 w-4 text-muted-foreground"/>
@@ -203,7 +203,7 @@ export function ProfileSettings() {
             </p>
           </div>
 
-          <div className="subtle-panel mt-3 rounded-[1.3rem] p-4">
+          <div className="subtle-panel mt-3 rounded-xl p-4">
             <p className="mb-2 poster-label">University</p>
             <p className="inline-flex items-center gap-2 text-sm font-medium">
               <GraduationCap className="h-4 w-4 text-muted-foreground"/>
@@ -223,7 +223,7 @@ export function ProfileSettings() {
         </div>
       </section>
 
-      <section className="panel-card overflow-hidden rounded-[1.8rem] animate-in-up stagger-1">
+      <section className="panel-card overflow-hidden rounded-xl animate-in-up stagger-1">
         <button type="button" onClick={() => toggleSection('details')} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/60">
           <div>
             <h2 className="text-base font-bold">Profile Details</h2>
@@ -254,7 +254,7 @@ export function ProfileSettings() {
           </div>)}
       </section>
 
-      <section className="panel-card overflow-hidden rounded-[1.8rem] animate-in-up stagger-2">
+      <section className="panel-card overflow-hidden rounded-xl animate-in-up stagger-2">
         <button type="button" onClick={() => toggleSection('notifications')} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/60">
           <div>
             <h2 className="text-base font-bold">Notification Preferences</h2>
@@ -271,7 +271,7 @@ export function ProfileSettings() {
                 </span>
               </button>))}
             {isStudent && (<div className="px-5 py-4">
-                <div className="subtle-panel rounded-[1.3rem] p-4">
+                <div className="subtle-panel rounded-xl p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold">Saved buildings</p>
@@ -291,7 +291,7 @@ export function ProfileSettings() {
           </div>)}
       </section>
 
-      <section className="panel-card overflow-hidden rounded-[1.8rem] animate-in-up stagger-3">
+      <section className="panel-card overflow-hidden rounded-xl animate-in-up stagger-3">
         <button type="button" onClick={() => toggleSection('dashboard')} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/60">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -318,7 +318,7 @@ export function ProfileSettings() {
             <div className="grid gap-2 sm:grid-cols-2">
               {dashboardModuleConfig.map((module) => {
                 const enabled = dashboardPreferences[module.id];
-                return (<button key={module.id} type="button" onClick={() => void handleDashboardModuleToggle(module.id)} disabled={savingDashboardPrefs} className={cn('rounded-[1.25rem] border px-4 py-3.5 text-left transition-colors disabled:opacity-60', enabled
+                return (<button key={module.id} type="button" onClick={() => void handleDashboardModuleToggle(module.id)} disabled={savingDashboardPrefs} className={cn('min-h-11 rounded-lg border px-4 py-3.5 text-left transition-colors disabled:opacity-60', enabled
                         ? 'border-primary/35 bg-secondary text-foreground'
                         : 'border-border/60 bg-card text-muted-foreground hover:bg-muted')}>
                     <p className="text-sm font-semibold">{module.label}</p>
@@ -363,7 +363,7 @@ function ThemeSelector({ open, onToggle, }) {
             icon: <Palette className="h-5 w-5"/>,
         });
     }
-    return (<section className="panel-card overflow-hidden rounded-[1.8rem] animate-in-up stagger-4">
+    return (<section className="panel-card overflow-hidden rounded-xl animate-in-up stagger-4">
       <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/60">
         <div>
           <h2 className="text-base font-bold">Appearance</h2>
@@ -376,7 +376,7 @@ function ThemeSelector({ open, onToggle, }) {
 
       {open && (<>
           <div className="grid grid-cols-2 gap-3 border-t border-border/60 p-4">
-            {themeOptions.map((option) => (<button key={option.id} onClick={() => setThemeMode(option.id)} className={cn('flex flex-col items-center gap-2 rounded-[1.25rem] border p-4 text-center transition-all hover:bg-card/55', themeMode === option.id
+            {themeOptions.map((option) => (<button key={option.id} onClick={() => setThemeMode(option.id)} className={cn('flex min-h-11 flex-col items-center gap-2 rounded-lg border p-4 text-center transition-colors hover:bg-card/55', themeMode === option.id
                     ? 'border-primary/35 bg-secondary ring-1 ring-primary/20'
                     : 'border-border/60 bg-card')}>
                 <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg transition-colors', themeMode === option.id ? 'bg-card text-primary' : 'bg-muted text-muted-foreground')}>

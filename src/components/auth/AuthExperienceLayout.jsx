@@ -26,9 +26,9 @@ export function AuthExperienceLayout({
   const prefersReducedMotion = useReducedMotion();
 
   return (
-    <div className={cn('dark relative min-h-screen overflow-hidden bg-[#002144] text-white', className)}>
+    <div className={cn('dark relative min-h-screen overflow-hidden bg-msu-blue text-white', className)}>
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[#002144]" />
+        <div className="absolute inset-0 bg-msu-blue" />
       </div>
 
       <div className="relative min-h-screen">
@@ -63,7 +63,7 @@ export function AuthExperienceLayout({
             <div className="relative max-w-[32rem] lg:my-auto">
               <div
                 className={cn(
-                  'mb-16 h-px w-12 bg-[#ECAC00]',
+                  'mb-16 h-px w-12 bg-msu-gold',
                   prefersReducedMotion ? '' : 'animate-in-up stagger-2'
                 )}
               />
@@ -141,7 +141,7 @@ export function AuthInteractionPanel({
 
         <div className="space-y-4">
           {eyebrow ? (
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#ECAC00]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-msu-gold">
               {eyebrow}
             </p>
           ) : null}

@@ -1,15 +1,15 @@
 import {
-  BellRinging,
-  CalendarBlank,
+  BellRing,
+  CalendarDays,
   Calendar,
-  ArrowSquareOut,
+  ExternalLink,
   Flag,
-  SquaresFour,
-  MapPinLine,
-  ChatCircleDots,
-  UserCircle,
-  UsersThree,
-} from '@phosphor-icons/react'
+  LayoutGrid,
+  MapPin,
+  MessageCircle,
+  CircleUser,
+  Users,
+} from 'lucide-react'
 
 import {
   getFirstVisibleStudentHref,
@@ -21,49 +21,49 @@ const baseStudentNavigationSections = [
   {
     title: 'Overview',
     items: [
-      { icon: SquaresFour, label: 'Dashboard', href: '/dashboard', pageKey: 'dashboard' },
-      { icon: Calendar, label: 'Calendar', href: '/calendar', pageKey: 'calendar' },
+      { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard', pageKey: 'dashboard' },
+      { icon: CalendarDays, label: 'Calendar', href: '/calendar', pageKey: 'calendar' },
     ],
   },
   {
     title: 'Campus',
     items: [
-      { icon: UsersThree, label: 'Faculty', href: '/faculty-directory', pageKey: 'faculty-directory' },
-      { icon: CalendarBlank, label: 'Events', href: '/events', pageKey: 'events' },
-      { icon: MapPinLine, label: 'Map & Services', href: '/campus-map', pageKey: 'campus-map' },
-      { icon: ArrowSquareOut, label: 'Resources', href: '/links-directory', pageKey: 'links-directory' },
+      { icon: Users, label: 'Faculty', href: '/faculty-directory', pageKey: 'faculty-directory' },
+      { icon: Calendar, label: 'Events', href: '/events', pageKey: 'events' },
+      { icon: MapPin, label: 'Map & Services', href: '/campus-map', pageKey: 'campus-map' },
+      { icon: ExternalLink, label: 'Resources', href: '/links-directory', pageKey: 'links-directory' },
     ],
   },
   {
     title: 'Community',
     items: [
-      { icon: ChatCircleDots, label: 'Chat', href: '/chatroom', pageKey: 'chatroom' },
+      { icon: MessageCircle, label: 'Chat', href: '/chatroom', pageKey: 'chatroom' },
       { icon: Flag, label: 'Clubs', href: '/clubs', pageKey: 'clubs' },
     ],
   },
 ]
 
 const baseStudentSecondaryNavigationItems = [
-  { icon: BellRinging, label: 'Notifications', href: '/notifications', pageKey: 'notifications' },
-  { icon: UserCircle, label: 'Profile', href: '/profile', pageKey: 'profile' },
+  { icon: BellRing, label: 'Notifications', href: '/notifications', pageKey: 'notifications' },
+  { icon: CircleUser, label: 'Profile', href: '/profile', pageKey: 'profile' },
 ]
 
 const baseStudentMobileNavigationItems = [
-  { icon: SquaresFour, label: 'Home', href: '/dashboard', pageKey: 'dashboard' },
-  { icon: CalendarBlank, label: 'Events', href: '/events', pageKey: 'events' },
-  { icon: ChatCircleDots, label: 'Chat', href: '/chatroom', pageKey: 'chatroom' },
-  { icon: UserCircle, label: 'Profile', href: '/profile', pageKey: 'profile' },
+  { icon: LayoutGrid, label: 'Home', href: '/dashboard', pageKey: 'dashboard' },
+  { icon: Calendar, label: 'Events', href: '/events', pageKey: 'events' },
+  { icon: MessageCircle, label: 'Chat', href: '/chatroom', pageKey: 'chatroom' },
+  { icon: CircleUser, label: 'Profile', href: '/profile', pageKey: 'profile' },
 ]
 
 const baseStudentCommandNavigationItems = [
-  { icon: SquaresFour, label: 'Dashboard', href: '/dashboard', pageKey: 'dashboard' },
-  { icon: CalendarBlank, label: 'Events', href: '/events', pageKey: 'events' },
-  { icon: UsersThree, label: 'Faculty', href: '/faculty-directory', pageKey: 'faculty-directory' },
-  { icon: ChatCircleDots, label: 'Chat', href: '/chatroom', pageKey: 'chatroom' },
-  { icon: MapPinLine, label: 'Map & Services', href: '/campus-map', pageKey: 'campus-map' },
-  { icon: ArrowSquareOut, label: 'Resources', href: '/links-directory', pageKey: 'links-directory' },
-  { icon: BellRinging, label: 'Notifications', href: '/notifications', pageKey: 'notifications' },
-  { icon: UserCircle, label: 'Profile', href: '/profile', pageKey: 'profile' },
+  { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard', pageKey: 'dashboard' },
+  { icon: Calendar, label: 'Events', href: '/events', pageKey: 'events' },
+  { icon: Users, label: 'Faculty', href: '/faculty-directory', pageKey: 'faculty-directory' },
+  { icon: MessageCircle, label: 'Chat', href: '/chatroom', pageKey: 'chatroom' },
+  { icon: MapPin, label: 'Map & Services', href: '/campus-map', pageKey: 'campus-map' },
+  { icon: ExternalLink, label: 'Resources', href: '/links-directory', pageKey: 'links-directory' },
+  { icon: BellRing, label: 'Notifications', href: '/notifications', pageKey: 'notifications' },
+  { icon: CircleUser, label: 'Profile', href: '/profile', pageKey: 'profile' },
 ]
 
 function filterStudentNavigationItems(items, disabledStudentPages = []) {

@@ -121,8 +121,7 @@ export default function EventDetailPage({ params }) {
           {error}
         </p>)}
 
-      <section className="relative overflow-hidden rounded-2xl border border-border/60 bg-card p-6 md:p-8 animate-in-up stagger-1">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-32 w-32 rounded-full bg-primary/10 blur-3xl"/>
+      <section className="relative overflow-hidden rounded-xl border border-border/60 bg-card p-6 md:p-8 animate-in-up stagger-1">
         <div className="relative">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">{event.category}</span>
@@ -150,7 +149,7 @@ export default function EventDetailPage({ params }) {
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
-            <button onClick={() => void addToCalendar()} disabled={event.isCancelled} className={cn('inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60', added ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-primary text-primary-foreground shadow-lg shadow-primary/20')}>
+            <button onClick={() => void addToCalendar()} disabled={event.isCancelled} className={cn('inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60', added ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-primary text-primary-foreground shadow-lg')}>
               <CalendarPlus className="h-4 w-4"/>
               {event.isCancelled ? 'Unavailable' : added ? 'Added to Calendar' : 'Add to Calendar'}
             </button>

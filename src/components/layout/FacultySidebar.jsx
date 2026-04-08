@@ -37,15 +37,15 @@ function FacultySidebarContent() {
   };
 
   return (
-    <div className={cn('sidebar-shell flex h-full w-full flex-col rounded-none p-4 transition-[padding] duration-200 lg:rounded-[2rem]', sidebarCollapsed && 'items-center px-3')}>
+    <div className={cn('sidebar-shell flex h-full w-full flex-col rounded-none p-4 transition-[padding] duration-200 lg:rounded-2xl', sidebarCollapsed && 'items-center px-3')}>
       <div className={cn('flex items-start gap-3', sidebarCollapsed ? 'w-full flex-col items-center' : 'justify-between')}>
         <Link
           href="/faculty/dashboard"
-          className={cn('rounded-[1.6rem] border border-border/60 bg-card px-4 py-4 transition-colors hover:bg-muted/40', sidebarCollapsed && 'flex h-14 w-14 items-center justify-center p-0')}
+          className={cn('rounded-xl border border-border/60 bg-card px-4 py-4 transition-colors hover:bg-muted/40', sidebarCollapsed && 'flex h-14 w-14 items-center justify-center p-0')}
           title="PocketQuad faculty tools"
         >
           <div className={cn('flex items-center gap-3', sidebarCollapsed && 'justify-center')}>
-            <div className="flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-border/60 bg-background text-foreground">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border/60 bg-background text-foreground">
               <School className="h-5 w-5" />
             </div>
             {!sidebarCollapsed ? (
@@ -63,7 +63,7 @@ function FacultySidebarContent() {
         <button
           type="button"
           onClick={toggleSidebar}
-          className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-[1.15rem] border border-border/60 bg-card text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground lg:inline-flex"
+          className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-card text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground lg:inline-flex"
           aria-label={sidebarCollapsed ? 'Expand faculty navigation' : 'Collapse faculty navigation'}
           title={sidebarCollapsed ? 'Expand navigation' : 'Collapse navigation'}
         >
@@ -85,7 +85,7 @@ function FacultySidebarContent() {
             >
               <span
                 className={cn(
-                  'flex h-10 w-10 items-center justify-center rounded-[1rem] border border-border/60 bg-background',
+                  'flex h-10 w-10 items-center justify-center rounded-lg border border-border/60 bg-background',
                   isActive && 'border-primary/20 bg-card',
                 )}
               >
@@ -97,11 +97,11 @@ function FacultySidebarContent() {
         })}
       </div>
 
-      <div className={cn('mt-4 rounded-[1.6rem] border border-border/60 bg-card p-4', sidebarCollapsed && 'w-full p-3')}>
+      <div className={cn('mt-4 rounded-xl border border-border/60 bg-card p-4', sidebarCollapsed && 'w-full p-3')}>
         <div className={cn('flex items-center gap-3', sidebarCollapsed && 'justify-center')}>
-          <Avatar className="h-11 w-11 rounded-[1rem] border border-border/60">
+          <Avatar className="h-11 w-11 rounded-lg border border-border/60">
             <AvatarImage src={profile?.avatar ?? undefined} alt={displayName} />
-            <AvatarFallback className="rounded-[1rem] bg-background text-sm text-foreground">
+            <AvatarFallback className="rounded-lg bg-background text-sm text-foreground">
               {initials || 'FM'}
             </AvatarFallback>
           </Avatar>

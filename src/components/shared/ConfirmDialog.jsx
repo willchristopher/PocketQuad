@@ -19,7 +19,7 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, description, co
         }
     };
     return (<AlertDialog open={open} onOpenChange={onClose}>
-      <AlertDialogContent>
+      <AlertDialogContent className="rounded-xl sm:rounded-xl">
         <AlertDialogHeader>
           <div className="flex items-center gap-3">
               {getIcon()}

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 export function AppBrand({ href = '/login', align = 'center', }) {
     return (<Link href={href} className={cn('inline-flex items-center gap-3 text-foreground transition-opacity hover:opacity-90', align === 'center' ? 'mx-auto' : '')}>
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/15 bg-card shadow-surface">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-primary/15 bg-card shadow-surface">
         <Image src="/transparentlogo.png" alt="PocketQuad logo" width={36} height={36} className="rounded-xl" priority/>
       </div>
       <div>
@@ -21,7 +21,7 @@ export function AppBrand({ href = '/login', align = 'center', }) {
 export function AuthShell({ children, className, }) {
     return (<div className="dark relative min-h-screen overflow-hidden bg-background text-foreground">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[#002144]"/>
+        <div className="absolute inset-0 bg-msu-blue"/>
       </div>
 
       <main className={cn('relative mx-auto flex min-h-screen w-full max-w-2xl items-center px-4 py-10 sm:px-6', className)}>
@@ -30,7 +30,7 @@ export function AuthShell({ children, className, }) {
     </div>);
 }
 export function AuthCard({ badge, title, description, children, footer, className, }) {
-    return (<section className={cn('surface-card-lg relative overflow-hidden rounded-[2rem] border border-border/70 bg-card/90 p-6 backdrop-blur-xl sm:p-8', className)}>
+    return (<section className={cn('surface-card-lg relative overflow-hidden rounded-xl border border-border/70 bg-card p-6 sm:p-8', className)}>
       <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-white/[0.06]"/>
       <div className="relative">
         <div className="space-y-4">
@@ -61,7 +61,7 @@ export function AuthField({ label, error, hint, children, className, labelClassN
       {error ? <p className={cn('text-xs font-medium text-red-600 dark:text-red-400', errorClassName)}>{error}</p> : null}
     </div>);
 }
-const fieldShellVariants = cva('group flex min-h-14 items-center gap-3 rounded-2xl border border-border/70 bg-background/90 px-4 shadow-sm transition-[border-color,box-shadow,background-color] duration-200 backdrop-blur-sm hover:border-primary/15 focus-within:border-primary/30 focus-within:bg-card focus-within:shadow-[var(--shadow-accent)] focus-within:ring-2 focus-within:ring-primary/10', {
+const fieldShellVariants = cva('group flex min-h-14 items-center gap-3 rounded-xl border border-border/70 bg-background px-4 shadow-sm transition-[border-color,box-shadow,background-color] duration-200 hover:border-primary/15 focus-within:border-primary/30 focus-within:bg-card focus-within:shadow-md focus-within:ring-2 focus-within:ring-primary/10', {
     variants: {
         invalid: {
             true: 'border-red-400/60 bg-red-50/60 focus-within:border-red-500 focus-within:ring-red-500/10 dark:bg-red-950/20',

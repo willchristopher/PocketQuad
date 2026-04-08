@@ -22,7 +22,7 @@ export function EventList({ events, compact }) {
             const day = date.toLocaleDateString('en', { day: 'numeric' });
             const month = date.toLocaleDateString('en', { month: 'short' }).toUpperCase();
             return (<Link key={event.id} href={`/events/${event.id}`} className="group block">
-            <div className={cn("flex items-start gap-3.5 rounded-2xl border border-border/60 bg-card hover:shadow-md hover:shadow-primary/5 hover:-translate-y-0.5 transition-all", compact ? "p-3" : "p-4")}>
+            <div className={cn("flex items-start gap-3.5 rounded-xl border border-border/60 bg-card hover:bg-muted/30 transition-colors", compact ? "p-3" : "p-4")}>
               <div className={cn("rounded-xl bg-primary/10 flex flex-col items-center justify-center shrink-0", compact ? "w-10 h-10" : "w-12 h-12")}>
                 <span className={cn("font-extrabold text-primary leading-none", compact ? "text-sm" : "text-base")}>{day}</span>
                 <span className="text-[8px] font-bold text-primary/60">{month}</span>

@@ -280,7 +280,7 @@ export default function CampusGoogleMap({
   }, [])
 
   return (
-    <div className="overflow-hidden rounded-[24px] border border-border/60">
+    <div className="overflow-hidden rounded-xl border border-border/60">
       <div ref={mapElementRef} className="h-[420px] w-full bg-muted/20" />
       <div className="border-t border-border/60 bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
         {mapStatus}

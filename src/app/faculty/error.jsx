@@ -1,9 +1,9 @@
 'use client';
 export default function FacultyError({ error, reset }) {
-    return (<div className="flex flex-col items-center justify-center py-16 text-center">
-      <h2 className="text-lg font-bold">Something went wrong</h2>
-      <p className="text-sm text-muted-foreground mt-2 max-w-md">{error.message}</p>
-      <button onClick={() => reset()} className="mt-4 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold">
+    return (<div className="mx-auto flex max-w-md flex-col items-center justify-center px-4 py-16 text-center">
+      <h2 className="font-display text-lg font-bold text-foreground">Something went wrong</h2>
+      <p className="mt-2 max-w-md text-sm text-muted-foreground">{error.message}</p>
+      <button type="button" onClick={() => reset()} className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-sm">
         Try Again
       </button>
     </div>);

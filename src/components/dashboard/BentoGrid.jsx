@@ -16,12 +16,12 @@ export const BentoGrid = ({ className, children }) => (
 export const BentoWidget = ({ children, className, span = 'medium', title, icon: Icon, action, noPadding = false, }) => (
   <div className={cn(
     spanClasses[span],
-    "panel-card rounded-[1.5rem] overflow-hidden flex flex-col relative",
-    "transition-shadow duration-300 hover:shadow-surface-lg",
+    "panel-card rounded-xl overflow-hidden flex flex-col relative",
+    "transition-shadow duration-300 hover:shadow-lg",
     className
   )}>
     {title && (
-      <div className="flex items-start justify-between gap-4 px-5 pt-5 pb-3 md:px-6 md:pt-6">
+      <div className="flex items-start justify-between gap-4 px-5 pb-4 pt-5 md:px-6 md:pb-4 md:pt-6">
         <div className="flex min-w-0 items-center gap-3">
           {Icon && (
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-muted/40 text-foreground/70">

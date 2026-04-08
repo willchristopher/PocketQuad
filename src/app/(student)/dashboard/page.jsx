@@ -64,8 +64,8 @@ const facultyAvailabilityColors = {
     rose: 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300',
     slate: 'border-border/60 bg-muted/20 text-muted-foreground',
 };
-const listItemClassName = 'rounded-[1.2rem] border border-border/60 bg-card px-4 py-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-muted';
-const emptyStateClassName = 'rounded-[1.3rem] border border-dashed border-border/60 bg-background px-4 py-7 text-center text-xs text-muted-foreground';
+const listItemClassName = 'rounded-xl border border-border/60 bg-card px-4 py-3 transition-colors duration-200 hover:border-primary/25 hover:bg-muted';
+const emptyStateClassName = 'rounded-xl border border-dashed border-border/60 bg-background px-4 py-7 text-center text-xs text-muted-foreground';
 export default function DashboardPage() {
     const { profile } = useAuth();
     const { isHrefVisible, isPageVisible } = useStudentPageVisibility();
@@ -327,7 +327,7 @@ function DashboardLoadingColumn({ title, rows }) {
 }
 function DashboardLoadingRows({ rows }) {
     return (<div className="space-y-2">
-      {Array.from({ length: rows }, (_, index) => (<div key={index} className="rounded-[1.2rem] border border-border/55 bg-card/45 px-4 py-3">
+      {Array.from({ length: rows }, (_, index) => (<div key={index} className="rounded-xl border border-border/55 bg-card/45 px-4 py-3">
           <div className="h-3.5 w-2/3 animate-pulse rounded bg-muted/60"/>
           <div className="mt-2 h-2.5 w-1/2 animate-pulse rounded bg-muted/40"/>
           <div className="mt-1.5 h-2.5 w-1/3 animate-pulse rounded bg-muted/30"/>

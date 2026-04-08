@@ -42,9 +42,9 @@ export function AdminHeader({ onMenuClick }) {
     const { theme, setTheme } = useTheme();
     const activeTab = searchParams.get('tab') ?? 'overview';
     const content = tabConfig[activeTab] ?? tabConfig.overview;
-    return (<header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-border/50 bg-background/80 px-4 backdrop-blur-xl md:px-6">
+    return (<header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-border/50 bg-background px-4 md:px-6">
       <div className="flex min-w-0 items-center gap-3">
-        <Button variant="ghost" size="icon" className="md:hidden rounded-lg h-8 w-8" onClick={onMenuClick}>
+        <Button variant="ghost" size="icon" className="relative md:hidden rounded-lg" onClick={onMenuClick}>
           <Menu className="h-4 w-4"/>
         </Button>
         <div className="min-w-0">
@@ -54,7 +54,7 @@ export function AdminHeader({ onMenuClick }) {
       </div>
 
       <div className="flex items-center gap-1.5">
-        <Button variant="ghost" size="icon" className="rounded-lg h-8 w-8 text-muted-foreground hover:text-foreground" aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+        <Button variant="ghost" size="icon" className="relative rounded-lg text-muted-foreground hover:text-foreground" aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
           <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0"/>
           <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100"/>
         </Button>

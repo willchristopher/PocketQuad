@@ -29,7 +29,7 @@ export default function NotificationsPage() {
 
       <section className="flex flex-wrap gap-2 animate-in-up stagger-1">
         {notificationFilters.map((filter) => (<button key={filter} onClick={() => setActiveFilter(filter)} className={cn('rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200', activeFilter === filter
-                ? 'border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                ? 'border-primary bg-primary text-primary-foreground shadow-lg'
                 : 'border-border/60 text-muted-foreground hover:bg-muted/40')}>
             {filter}
           </button>))}
@@ -69,10 +69,10 @@ export default function NotificationsPage() {
                     </span>)}
                 </div>
               </div>);
-            const className = cn('w-full rounded-2xl border p-4 transition-all duration-200 animate-in-up', item.read
+            const className = cn('w-full rounded-xl border p-4 transition-all duration-200 animate-in-up', item.read
                 ? 'border-border/60 bg-card hover:bg-muted/25'
                 : 'border-primary/25 bg-primary/[0.04] hover:bg-primary/[0.07]', isPending && 'opacity-70');
-            const actionClassName = 'block min-w-0 flex-1 rounded-xl text-left transition-all duration-200 hover-lift';
+            const actionClassName = 'block min-w-0 flex-1 rounded-xl text-left transition-all duration-200';
             const style = { animationDelay: `${0.035 * (index + 1)}s` };
             if (item.actionUrl) {
                 if (external) {
@@ -126,7 +126,7 @@ export default function NotificationsPage() {
         })}
       </section>
 
-      {!loading && filtered.length === 0 && (<section className="rounded-2xl border border-dashed border-border/60 bg-card p-10 text-center text-sm text-muted-foreground animate-in-up">
+      {!loading && filtered.length === 0 && (<section className="rounded-xl border border-dashed border-border/60 bg-card p-10 text-center text-sm text-muted-foreground animate-in-up">
           No notifications in this filter.
         </section>)}
     </div>);

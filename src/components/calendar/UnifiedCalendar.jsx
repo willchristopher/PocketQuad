@@ -97,7 +97,7 @@ export function UnifiedCalendar() {
     const selectedEntries = selectedDate
         ? filteredEntries.filter((entry) => isSameDay(new Date(entry.dateISO), selectedDate))
         : [];
-    return (<section className="overflow-hidden rounded-2xl border border-border/60 bg-card animate-in-up">
+    return (<section className="overflow-hidden rounded-xl border border-border/60 bg-card animate-in-up">
       <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/10 p-4 md:flex-row md:items-center md:justify-between md:p-5">
         <div className="flex items-center gap-3">
           <h2 className="font-display text-xl font-extrabold tracking-tight">{format(currentMonth, 'MMMM yyyy')}</h2>
@@ -157,7 +157,7 @@ export function UnifiedCalendar() {
       </div>
 
       {selectedDate && (<Dialog open={Boolean(selectedDate)} onOpenChange={() => setSelectedDate(null)}>
-          <DialogContent className="rounded-2xl">
+          <DialogContent className="rounded-xl">
             <DialogHeader>
               <DialogTitle>{format(selectedDate, 'EEEE, MMMM d')}</DialogTitle>
               <DialogDescription>

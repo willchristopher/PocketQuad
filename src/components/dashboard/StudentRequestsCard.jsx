@@ -14,7 +14,7 @@ const typeColors = {
 };
 const avatarColors = ['bg-blue-500', 'bg-sky-500', 'bg-emerald-500', 'bg-amber-500'];
 export function StudentRequestsCard() {
-    return (<div className="rounded-2xl border border-border/60 bg-card overflow-hidden">
+    return (<div className="rounded-xl border border-border/60 bg-card overflow-hidden">
       <div className="p-4 md:p-5 border-b border-border/60 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-pink-500/10 flex items-center justify-center">

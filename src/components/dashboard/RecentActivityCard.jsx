@@ -10,7 +10,7 @@ const activities = [
     { id: '5', action: 'Met with', detail: '4 students in office hours', time: 'Yesterday', icon: Users2, color: 'bg-pink-500/10 text-pink-600 dark:text-pink-400' },
 ];
 export function RecentActivityCard() {
-    return (<div className="rounded-2xl border border-border/60 bg-card overflow-hidden">
+    return (<div className="rounded-xl border border-border/60 bg-card overflow-hidden">
       <div className="p-4 md:p-5 border-b border-border/60 flex items-center gap-2.5">
         <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
           <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400"/>
