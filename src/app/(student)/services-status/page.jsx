@@ -43,30 +43,31 @@ export default function ServicesStatusPage() {
       <section className="space-y-3">
         {loading && <p className="text-sm text-muted-foreground">Loading services...</p>}
 
-        {!loading && services.map((service, index) => (<article key={service.id} className="rounded-2xl border border-border/60 bg-card p-5 hover-lift animate-in-up" style={{ animationDelay: `${0.04 * (index + 1)}s` }}>
+        {!loading && services.map((service, index) => (<article key={service.id} className="rounded-xl border border-border/60 bg-card p-4 transition-colors hover:bg-muted/30 animate-in-up" style={{ animationDelay: `${0.04 * (index + 1)}s` }}>
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-bold">{service.name}</h2>
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold leading-tight">{service.name}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">{service.hours}</p>
-                <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                  <MapPin className="h-3.5 w-3.5"/>
-                  {service.location}
-                </p>
               </div>
 
-              <span className={cn('rounded-full px-3 py-1 text-xs font-bold', statusStyles[service.status])}>
+              <span className={cn('shrink-0 rounded-full px-3 py-1 text-xs font-bold', statusStyles[service.status])}>
                 {service.status}
               </span>
             </div>
 
-            <a href={service.directionsUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-border/60 px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted/35">
+            <p className="mt-2 inline-flex items-start gap-1 text-xs text-muted-foreground">
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0"/>
+              <span>{service.location}</span>
+            </p>
+
+            <a href={service.directionsUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted/35">
               <ExternalLink className="h-3.5 w-3.5"/>
               Get Directions
             </a>
           </article>))}
       </section>
 
-      {!loading && services.length === 0 && (<section className="rounded-2xl border border-dashed border-border/60 bg-card p-10 text-center text-sm text-muted-foreground animate-in-up">
+      {!loading && services.length === 0 && (<section className="rounded-xl border border-dashed border-border/60 bg-card p-10 text-center text-sm text-muted-foreground animate-in-up">
           No service status records are available for your university.
         </section>)}
     </div>);

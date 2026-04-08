@@ -34,9 +34,9 @@ function escapeHtml(value) {
 function buildInfoWindowContent(marker) {
   return `
     <div style="min-width: 180px; font-family: var(--font-body);">
-      <div style="font-weight: 700; font-size: 14px; color: #0f172a;">${escapeHtml(marker.name)}</div>
-      <div style="margin-top: 4px; font-size: 12px; color: #475569;">${escapeHtml(marker.type)}</div>
-      <div style="margin-top: 6px; font-size: 12px; color: #64748b;">${escapeHtml(marker.address)}</div>
+      <div style="font-weight: 700; font-size: 14px; color: #002144;">${escapeHtml(marker.name)}</div>
+      <div style="margin-top: 4px; font-size: 12px; font-weight: 500; color: #002144;">${escapeHtml(marker.type)}</div>
+      <div style="margin-top: 6px; font-size: 11px; color: #002144;">${escapeHtml(marker.address)}</div>
     </div>
   `
 }
@@ -280,7 +280,7 @@ export default function CampusGoogleMap({
   }, [])
 
   return (
-    <div className="overflow-hidden rounded-[24px] border border-border/60">
+    <div className="overflow-hidden rounded-xl border border-border/60">
       <div ref={mapElementRef} className="h-[420px] w-full bg-muted/20" />
       <div className="border-t border-border/60 bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
         {mapStatus}

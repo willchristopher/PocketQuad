@@ -112,6 +112,20 @@ export const createAnnouncementSchema = z.object({
         });
     }
 });
+export const updateAnnouncementSchema = z.object({
+    title: z.string().trim().min(1).max(120),
+    message: z.string().trim().min(1).max(2000),
+    linkUrl: z.string().trim().url().optional().or(z.literal('')),
+    expiresAt: z.coerce.date().nullable().optional(),
+}).superRefine((value, context) => {
+    if (value.expiresAt && value.expiresAt <= new Date()) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['expiresAt'],
+            message: 'Expiration must be in the future',
+        });
+    }
+});
 export const facultyBuildingManagerSchema = z.object({
     buildingId: z.string().cuid(),
 });

@@ -73,7 +73,7 @@ export function OfficeHoursManager() {
 
         {!loadingSlots && slots.map((slot) => {
             const ModeIcon = modeIcons[slot.mode];
-            return (<div key={slot.id} onClick={() => setSelectedSlot(slot.id)} className={cn('rounded-2xl border bg-card p-5 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5', selectedSlot === slot.id ? 'border-primary shadow-lg shadow-primary/10' : 'border-border/60')}>
+            return (<div key={slot.id} onClick={() => setSelectedSlot(slot.id)} className={cn('rounded-xl border bg-card p-5 cursor-pointer transition-colors hover:bg-muted/30', selectedSlot === slot.id ? 'border-primary shadow-lg shadow-primary/10' : 'border-border/60')}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', modeColors[slot.mode])}>
@@ -95,7 +95,7 @@ export function OfficeHoursManager() {
             </div>);
         })}
 
-        {!loadingSlots && (<div className="rounded-2xl border-2 border-dashed border-border/60 p-5 flex flex-col items-center justify-center gap-2 text-muted-foreground min-h-[140px]">
+        {!loadingSlots && (<div className="rounded-xl border-2 border-dashed border-border/60 p-5 flex flex-col items-center justify-center gap-2 text-muted-foreground min-h-[140px]">
             <Plus className="w-6 h-6"/>
             <span className="text-sm font-semibold">Create slot via API (UI form pending)</span>
           </div>)}

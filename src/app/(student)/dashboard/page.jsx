@@ -7,6 +7,7 @@ import { NotificationWidget } from '@/components/dashboard/NotificationWidget';
 import { dashboardModulesToPreferences, } from '@/lib/studentData';
 import { getStudentFacingFacultyAvailabilityTone } from '@/lib/faculty';
 import { readFavorites, toggleFavoriteItem } from '@/lib/favorites';
+import { useStudentPageVisibility } from '@/hooks/useStudentPageVisibility';
 import { useAuth } from '@/lib/auth/context';
 import { apiRequest } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
@@ -63,10 +64,11 @@ const facultyAvailabilityColors = {
     rose: 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300',
     slate: 'border-border/60 bg-muted/20 text-muted-foreground',
 };
-const listItemClassName = 'rounded-[1.2rem] border border-border/60 bg-card px-4 py-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-muted';
-const emptyStateClassName = 'rounded-[1.3rem] border border-dashed border-border/60 bg-background px-4 py-7 text-center text-xs text-muted-foreground';
+const listItemClassName = 'rounded-xl border border-border/60 bg-card px-4 py-3 transition-colors duration-200 hover:border-primary/25 hover:bg-muted';
+const emptyStateClassName = 'rounded-xl border border-dashed border-border/60 bg-background px-4 py-7 text-center text-xs text-muted-foreground';
 export default function DashboardPage() {
     const { profile } = useAuth();
+    const { isHrefVisible, isPageVisible } = useStudentPageVisibility();
     const [upcomingEvents, setUpcomingEvents] = React.useState([]);
     const [upcomingDeadlines, setUpcomingDeadlines] = React.useState([]);
     const [serviceSnapshot, setServiceSnapshot] = React.useState([]);
@@ -154,19 +156,31 @@ export default function DashboardPage() {
             subtitle: item.category,
             href: '/clubs',
         })),
-    ];
-    return (overviewLoading ? (<DashboardLoadingGrid dashboardPreferences={dashboardPreferences}/>) : (<BentoGrid>
-          {(dashboardPreferences.events || dashboardPreferences.deadlines) && (<BentoWidget title="Schedule" icon={CalendarClock} span="large" action={{ label: 'Calendar', href: '/calendar' }} className="animate-in-up stagger-2">
+    ].filter((item) => isHrefVisible(item.href));
+    const scheduleAction = isPageVisible('calendar')
+        ? { label: 'Calendar', href: '/calendar' }
+        : isPageVisible('events')
+            ? { label: 'Events', href: '/events' }
+            : undefined;
+    return (overviewLoading ? (<DashboardLoadingGrid dashboardPreferences={dashboardPreferences} isPageVisible={isPageVisible}/>) : (<BentoGrid>
+          {(dashboardPreferences.events || dashboardPreferences.deadlines) && scheduleAction && (<BentoWidget title="Schedule" icon={CalendarClock} span="large" action={scheduleAction} className="animate-in-up stagger-2">
               <div className="grid gap-4 md:grid-cols-2">
                 {dashboardPreferences.events && (<div>
                     <p className="mb-3 poster-label">Upcoming Events</p>
                     <div className="space-y-2">
-                      {upcomingEvents.length === 0 ? (<p className={emptyStateClassName}>No upcoming events</p>) : (upcomingEvents.map((event) => (<Link key={event.id} href={`/events/${event.id}`} className={cn('block', listItemClassName)}>
-                            <p className="line-clamp-1 text-sm font-semibold">{event.title}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {formatDate(event.date)} · {event.time}
-                            </p>
-                          </Link>)))}
+                      {upcomingEvents.length === 0 ? (<p className={emptyStateClassName}>No upcoming events</p>) : (upcomingEvents.map((event) => {
+                    const eventContent = (<>
+                              <p className="line-clamp-1 text-sm font-semibold">{event.title}</p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {formatDate(event.date)} · {event.time}
+                              </p>
+                            </>);
+                    return isPageVisible('events') ? (<Link key={event.id} href={`/events/${event.id}`} className={cn('block', listItemClassName)}>
+                              {eventContent}
+                            </Link>) : (<div key={event.id} className={listItemClassName}>
+                              {eventContent}
+                            </div>);
+                }))}
                     </div>
                   </div>)}
 
@@ -188,7 +202,7 @@ export default function DashboardPage() {
               </div>
             </BentoWidget>)}
 
-          {dashboardPreferences.favorites && (<BentoWidget title="Pinned" icon={Star} span="medium" action={{ label: 'Preferences', href: '/profile' }} className="animate-in-up stagger-3">
+          {dashboardPreferences.favorites && (<BentoWidget title="Pinned" icon={Star} span="medium" action={isPageVisible('profile') ? { label: 'Preferences', href: '/profile' } : undefined} className="animate-in-up stagger-3">
               <div className="space-y-2">
                 {pinnedItems.length === 0 ? (<p className={emptyStateClassName}>
                     No pinned items yet. Save buildings from the campus map, pin campus resources below, and manage building alerts in your profile.
@@ -199,7 +213,7 @@ export default function DashboardPage() {
               </div>
             </BentoWidget>)}
 
-          {dashboardPreferences.faculty && (<BentoWidget title="Favorite Faculty" icon={Heart} span="medium" action={{ label: 'Directory', href: '/faculty-directory' }} className="animate-in-up stagger-4">
+          {dashboardPreferences.faculty && isPageVisible('faculty-directory') && (<BentoWidget title="Favorite Faculty" icon={Heart} span="medium" action={{ label: 'Directory', href: '/faculty-directory' }} className="animate-in-up stagger-4">
               <div className="space-y-2">
                 {favoriteFaculty.length === 0 ? (<p className={emptyStateClassName}>
                     No favorite faculty yet. Star professors from the faculty directory.
@@ -222,11 +236,11 @@ export default function DashboardPage() {
               </div>
             </BentoWidget>)}
 
-          {dashboardPreferences.news && (<BentoWidget title="Notifications" icon={Newspaper} span="medium" action={{ label: 'Inbox', href: '/notifications' }} className="animate-in-up stagger-5">
+          {dashboardPreferences.news && isPageVisible('notifications') && (<BentoWidget title="Notifications" icon={Newspaper} span="medium" action={{ label: 'Inbox', href: '/notifications' }} className="animate-in-up stagger-5">
               <NotificationWidget />
             </BentoWidget>)}
 
-          {dashboardPreferences.services && (<BentoWidget title="Services" icon={Compass} span="medium" action={{ label: 'All', href: '/services-status' }} className="animate-in-up stagger-6">
+          {dashboardPreferences.services && isPageVisible('campus-map') && (<BentoWidget title="Services" icon={Compass} span="medium" action={{ label: 'All', href: '/services-status' }} className="animate-in-up stagger-6">
               <div className="space-y-2">
                 {serviceSnapshot.length === 0 ? (<p className={emptyStateClassName}>No service data</p>) : (serviceSnapshot.map((service) => (<div key={service.id} className={listItemClassName}>
                       <div className="flex items-center justify-between gap-2">
@@ -246,7 +260,7 @@ export default function DashboardPage() {
               </div>
             </BentoWidget>)}
 
-          {dashboardPreferences.links && (<BentoWidget title="Quick Links" icon={ExternalLink} span="medium" action={{ label: 'All', href: '/links-directory' }} className="animate-in-up stagger-7">
+          {dashboardPreferences.links && isPageVisible('links-directory') && (<BentoWidget title="Quick Links" icon={ExternalLink} span="medium" action={{ label: 'All', href: '/links-directory' }} className="animate-in-up stagger-7">
               <div className="grid gap-2 sm:grid-cols-2">
                 {quickLinks.length === 0 ? (<p className={cn(emptyStateClassName, 'col-span-full')}>No links available</p>) : (quickLinks.map((link) => {
                     const favoriteId = `resource-link-${link.id}`;
@@ -268,7 +282,7 @@ export default function DashboardPage() {
               </div>
             </BentoWidget>)}
 
-          {dashboardPreferences.clubs && (<BentoWidget title="Clubs" icon={Flag} span="medium" action={{ label: 'All', href: '/clubs' }} className="animate-in-up stagger-8">
+          {dashboardPreferences.clubs && isPageVisible('clubs') && (<BentoWidget title="Clubs" icon={Flag} span="medium" action={{ label: 'All', href: '/clubs' }} className="animate-in-up stagger-8">
               <div className="space-y-2">
                 {clubSnapshot.length === 0 ? (<p className={emptyStateClassName}>No clubs to show</p>) : (clubSnapshot.map((club) => (<Link key={club.id} href="/clubs" className={cn('block', listItemClassName)}>
                       <p className="text-sm font-semibold">{club.name}</p>
@@ -278,9 +292,9 @@ export default function DashboardPage() {
             </BentoWidget>)}
         </BentoGrid>));
 }
-function DashboardLoadingGrid({ dashboardPreferences }) {
+function DashboardLoadingGrid({ dashboardPreferences, isPageVisible }) {
     return (<BentoGrid>
-      {(dashboardPreferences.events || dashboardPreferences.deadlines) && (<BentoWidget title="Schedule" icon={CalendarClock} span="large" className="animate-in-up stagger-2">
+      {(dashboardPreferences.events || dashboardPreferences.deadlines) && (isPageVisible('calendar') || isPageVisible('events')) && (<BentoWidget title="Schedule" icon={CalendarClock} span="large" className="animate-in-up stagger-2">
           <div className="grid gap-4 md:grid-cols-2">
             {dashboardPreferences.events && <DashboardLoadingColumn title="Upcoming Events" rows={3}/>}
             {dashboardPreferences.deadlines && <DashboardLoadingColumn title="Deadlines" rows={3}/>}
@@ -289,15 +303,15 @@ function DashboardLoadingGrid({ dashboardPreferences }) {
 
       {dashboardPreferences.favorites && (<DashboardLoadingWidget title="Pinned" icon={Star} className="animate-in-up stagger-3"/>)}
 
-      {dashboardPreferences.faculty && (<DashboardLoadingWidget title="Favorite Faculty" icon={Heart} className="animate-in-up stagger-4"/>)}
+      {dashboardPreferences.faculty && isPageVisible('faculty-directory') && (<DashboardLoadingWidget title="Favorite Faculty" icon={Heart} className="animate-in-up stagger-4"/>)}
 
-      {dashboardPreferences.news && (<DashboardLoadingWidget title="Notifications" icon={Newspaper} className="animate-in-up stagger-5"/>)}
+      {dashboardPreferences.news && isPageVisible('notifications') && (<DashboardLoadingWidget title="Notifications" icon={Newspaper} className="animate-in-up stagger-5"/>)}
 
-      {dashboardPreferences.services && (<DashboardLoadingWidget title="Services" icon={Compass} className="animate-in-up stagger-6"/>)}
+      {dashboardPreferences.services && isPageVisible('campus-map') && (<DashboardLoadingWidget title="Services" icon={Compass} className="animate-in-up stagger-6"/>)}
 
-      {dashboardPreferences.links && (<DashboardLoadingWidget title="Quick Links" icon={ExternalLink} className="animate-in-up stagger-7"/>)}
+      {dashboardPreferences.links && isPageVisible('links-directory') && (<DashboardLoadingWidget title="Quick Links" icon={ExternalLink} className="animate-in-up stagger-7"/>)}
 
-      {dashboardPreferences.clubs && (<DashboardLoadingWidget title="Clubs" icon={Flag} className="animate-in-up stagger-8"/>)}
+      {dashboardPreferences.clubs && isPageVisible('clubs') && (<DashboardLoadingWidget title="Clubs" icon={Flag} className="animate-in-up stagger-8"/>)}
     </BentoGrid>);
 }
 function DashboardLoadingWidget({ title, icon, className, }) {
@@ -313,7 +327,7 @@ function DashboardLoadingColumn({ title, rows }) {
 }
 function DashboardLoadingRows({ rows }) {
     return (<div className="space-y-2">
-      {Array.from({ length: rows }, (_, index) => (<div key={index} className="rounded-[1.2rem] border border-border/55 bg-card/45 px-4 py-3">
+      {Array.from({ length: rows }, (_, index) => (<div key={index} className="rounded-xl border border-border/55 bg-card/45 px-4 py-3">
           <div className="h-3.5 w-2/3 animate-pulse rounded bg-muted/60"/>
           <div className="mt-2 h-2.5 w-1/2 animate-pulse rounded bg-muted/40"/>
           <div className="mt-1.5 h-2.5 w-1/3 animate-pulse rounded bg-muted/30"/>

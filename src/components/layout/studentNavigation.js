@@ -1,64 +1,99 @@
 import {
   BellRing,
-  CalendarClock,
-  CalendarRange,
+  CalendarDays,
+  Calendar,
   ExternalLink,
   Flag,
   LayoutGrid,
-  MapPinned,
-  MessageCircleMore,
-  UserCircle2,
-  Users2,
+  MapPin,
+  MessageCircle,
+  CircleUser,
+  Users,
 } from 'lucide-react'
 
-export const studentNavigationSections = [
+import {
+  getFirstVisibleStudentHref,
+  getStudentPageKeyForPathname,
+  isStudentPageVisible,
+} from '@/lib/studentPageVisibility'
+
+const baseStudentNavigationSections = [
   {
     title: 'Overview',
     items: [
-      { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard' },
-      { icon: CalendarRange, label: 'Calendar', href: '/calendar' },
+      { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard', pageKey: 'dashboard' },
+      { icon: CalendarDays, label: 'Calendar', href: '/calendar', pageKey: 'calendar' },
     ],
   },
   {
     title: 'Campus',
     items: [
-      { icon: Users2, label: 'Faculty', href: '/faculty-directory' },
-      { icon: CalendarClock, label: 'Events', href: '/events' },
-      { icon: MapPinned, label: 'Map & Services', href: '/campus-map' },
-      { icon: ExternalLink, label: 'Resources', href: '/links-directory' },
+      { icon: Users, label: 'Faculty', href: '/faculty-directory', pageKey: 'faculty-directory' },
+      { icon: Calendar, label: 'Events', href: '/events', pageKey: 'events' },
+      { icon: MapPin, label: 'Map & Services', href: '/campus-map', pageKey: 'campus-map' },
+      { icon: ExternalLink, label: 'Resources', href: '/links-directory', pageKey: 'links-directory' },
     ],
   },
   {
     title: 'Community',
     items: [
-      { icon: MessageCircleMore, label: 'Chat', href: '/chatroom' },
-      { icon: Flag, label: 'Clubs', href: '/clubs' },
+      { icon: MessageCircle, label: 'Chat', href: '/chatroom', pageKey: 'chatroom' },
+      { icon: Flag, label: 'Clubs', href: '/clubs', pageKey: 'clubs' },
     ],
   },
 ]
 
-export const studentSecondaryNavigationItems = [
-  { icon: BellRing, label: 'Notifications', href: '/notifications' },
-  { icon: UserCircle2, label: 'Profile', href: '/profile' },
+const baseStudentSecondaryNavigationItems = [
+  { icon: BellRing, label: 'Notifications', href: '/notifications', pageKey: 'notifications' },
+  { icon: CircleUser, label: 'Profile', href: '/profile', pageKey: 'profile' },
 ]
 
-export const studentMobileNavigationItems = [
-  { icon: LayoutGrid, label: 'Home', href: '/dashboard' },
-  { icon: CalendarClock, label: 'Events', href: '/events' },
-  { icon: MessageCircleMore, label: 'Chat', href: '/chatroom' },
-  { icon: UserCircle2, label: 'Profile', href: '/profile' },
+const baseStudentMobileNavigationItems = [
+  { icon: LayoutGrid, label: 'Home', href: '/dashboard', pageKey: 'dashboard' },
+  { icon: Calendar, label: 'Events', href: '/events', pageKey: 'events' },
+  { icon: MessageCircle, label: 'Chat', href: '/chatroom', pageKey: 'chatroom' },
+  { icon: CircleUser, label: 'Profile', href: '/profile', pageKey: 'profile' },
 ]
 
-export const studentCommandNavigationItems = [
-  { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard' },
-  { icon: CalendarClock, label: 'Events', href: '/events' },
-  { icon: Users2, label: 'Faculty', href: '/faculty-directory' },
-  { icon: MessageCircleMore, label: 'Chat', href: '/chatroom' },
-  { icon: MapPinned, label: 'Map & Services', href: '/campus-map' },
-  { icon: ExternalLink, label: 'Resources', href: '/links-directory' },
-  { icon: BellRing, label: 'Notifications', href: '/notifications' },
-  { icon: UserCircle2, label: 'Profile', href: '/profile' },
+const baseStudentCommandNavigationItems = [
+  { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard', pageKey: 'dashboard' },
+  { icon: Calendar, label: 'Events', href: '/events', pageKey: 'events' },
+  { icon: Users, label: 'Faculty', href: '/faculty-directory', pageKey: 'faculty-directory' },
+  { icon: MessageCircle, label: 'Chat', href: '/chatroom', pageKey: 'chatroom' },
+  { icon: MapPin, label: 'Map & Services', href: '/campus-map', pageKey: 'campus-map' },
+  { icon: ExternalLink, label: 'Resources', href: '/links-directory', pageKey: 'links-directory' },
+  { icon: BellRing, label: 'Notifications', href: '/notifications', pageKey: 'notifications' },
+  { icon: CircleUser, label: 'Profile', href: '/profile', pageKey: 'profile' },
 ]
+
+function filterStudentNavigationItems(items, disabledStudentPages = []) {
+  return items.filter((item) => isStudentPageVisible(disabledStudentPages, item.pageKey))
+}
+
+export function getStudentNavigationSections(disabledStudentPages = []) {
+  return baseStudentNavigationSections
+    .map((section) => ({
+      ...section,
+      items: filterStudentNavigationItems(section.items, disabledStudentPages),
+    }))
+    .filter((section) => section.items.length > 0)
+}
+
+export function getStudentSecondaryNavigationItems(disabledStudentPages = []) {
+  return filterStudentNavigationItems(baseStudentSecondaryNavigationItems, disabledStudentPages)
+}
+
+export function getStudentMobileNavigationItems(disabledStudentPages = []) {
+  return filterStudentNavigationItems(baseStudentMobileNavigationItems, disabledStudentPages)
+}
+
+export function getStudentCommandNavigationItems(disabledStudentPages = []) {
+  return filterStudentNavigationItems(baseStudentCommandNavigationItems, disabledStudentPages)
+}
+
+export function getStudentFallbackHref(disabledStudentPages = []) {
+  return getFirstVisibleStudentHref(disabledStudentPages)
+}
 
 const studentPageMeta = {
   calendar: {
@@ -108,43 +143,45 @@ const studentPageMeta = {
 }
 
 export function getStudentPageMeta(pathname) {
-  if (!pathname || pathname === '/dashboard' || pathname === '/') {
+  const pageKey = getStudentPageKeyForPathname(pathname)
+
+  if (pageKey === 'dashboard') {
     return studentPageMeta.dashboard
   }
 
-  if (pathname === '/calendar') {
+  if (pageKey === 'calendar') {
     return studentPageMeta.calendar
   }
 
-  if (pathname === '/events' || pathname.startsWith('/events/')) {
+  if (pageKey === 'events') {
     return studentPageMeta.events
   }
 
-  if (pathname.startsWith('/faculty-directory')) {
+  if (pageKey === 'faculty-directory') {
     return studentPageMeta.facultyDirectory
   }
 
-  if (pathname === '/chatroom') {
+  if (pageKey === 'chatroom') {
     return studentPageMeta.chatroom
   }
 
-  if (pathname === '/campus-map' || pathname === '/services-status') {
+  if (pageKey === 'campus-map') {
     return studentPageMeta.campusMap
   }
 
-  if (pathname === '/links-directory') {
+  if (pageKey === 'links-directory') {
     return studentPageMeta.resources
   }
 
-  if (pathname === '/clubs') {
+  if (pageKey === 'clubs') {
     return studentPageMeta.clubs
   }
 
-  if (pathname === '/notifications') {
+  if (pageKey === 'notifications') {
     return studentPageMeta.notifications
   }
 
-  if (pathname === '/profile') {
+  if (pageKey === 'profile') {
     return studentPageMeta.profile
   }
 

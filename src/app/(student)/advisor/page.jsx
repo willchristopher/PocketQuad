@@ -73,8 +73,7 @@ export default function AdvisorPage() {
         }
     };
     return (<div className="mx-auto max-w-4xl space-y-6">
-      <section className="relative overflow-hidden rounded-2xl border border-border/60 bg-card p-6 md:p-7 animate-in-up">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-primary/10 blur-3xl"/>
+      <section className="relative overflow-hidden rounded-xl border border-border/60 bg-card p-6 md:p-7 animate-in-up">
         <div className="relative flex items-center gap-3">
           <div className="rounded-xl bg-primary/10 p-2 text-primary">
             <Bot className="h-5 w-5"/>
@@ -92,7 +91,7 @@ export default function AdvisorPage() {
           {error}
         </p>)}
 
-      <section className="overflow-hidden rounded-2xl border border-border/60 bg-card animate-in-up stagger-1">
+      <section className="overflow-hidden rounded-xl border border-border/60 bg-card animate-in-up stagger-1">
         <div ref={listRef} className="max-h-[55vh] space-y-3 overflow-y-auto p-4 custom-scrollbar">
           {messages.map((message, index) => (<div key={message.id} className={cn('flex animate-in-up', message.role === 'user' ? 'justify-end' : 'justify-start')} style={{ animationDelay: `${0.02 * index}s` }}>
               <div className={cn('max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed', message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground')}>
@@ -110,8 +109,8 @@ export default function AdvisorPage() {
             if (event.key === 'Enter') {
                 void send();
             }
-        }} placeholder="Ask the advisor..." className="h-9 flex-1 bg-transparent text-sm outline-none" disabled={loading}/>
-            <button onClick={() => void send()} disabled={!input.trim() || loading} className={cn('inline-flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200', input.trim() && !loading ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 'bg-muted text-muted-foreground')} aria-label="Send">
+        }} placeholder="Ask the advisor..." className="h-11 min-h-11 flex-1 bg-transparent text-sm outline-none" disabled={loading}/>
+            <button onClick={() => void send()} disabled={!input.trim() || loading} className={cn('inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-all duration-200', input.trim() && !loading ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground')} aria-label="Send">
               <Send className="h-4 w-4"/>
             </button>
           </div>

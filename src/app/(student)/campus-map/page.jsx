@@ -225,14 +225,14 @@ export default function CampusMapPage() {
       </section>
 
       {error ? (
-        <p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-700 dark:text-red-300">
+        <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-700 dark:text-red-300">
           {error}
         </p>
       ) : null}
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
         <div className="space-y-4">
-          <article className="rounded-[28px] border border-border/60 bg-card p-5 shadow-sm animate-in-up stagger-1">
+          <article className="rounded-xl border border-border/60 bg-card p-5 shadow-sm animate-in-up stagger-1">
             <div className="space-y-4">
               <div>
                 <p className="text-sm font-semibold">Search</p>
@@ -244,7 +244,7 @@ export default function CampusMapPage() {
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Science Hall, advising, library, BIO..."
-                  className="h-12 rounded-2xl pl-11 pr-4"
+                  className="h-12 rounded-xl pl-11 pr-4"
                   aria-label="Search campus buildings"
                 />
                 {loading ? (
@@ -252,7 +252,7 @@ export default function CampusMapPage() {
                 ) : null}
               </div>
 
-              <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-muted/20 px-4 py-3">
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
                 <p className="text-sm font-semibold">
                   {getSearchResultLabel(buildings.length, debouncedSearchQuery)}
                 </p>
@@ -263,7 +263,7 @@ export default function CampusMapPage() {
             </div>
           </article>
 
-          <article className="rounded-[28px] border border-border/60 bg-card p-3 shadow-sm animate-in-up stagger-2">
+          <article className="rounded-xl border border-border/60 bg-card p-3 shadow-sm animate-in-up stagger-2">
             <div className="mb-2 flex items-center justify-between gap-2 px-2 py-1">
               <p className="text-sm font-semibold">Results</p>
             </div>
@@ -274,14 +274,14 @@ export default function CampusMapPage() {
                   {[0, 1, 2, 3].map((item) => (
                     <div
                       key={item}
-                      className="h-24 animate-pulse rounded-2xl border border-border/60 bg-muted/20"
+                      className="h-24 animate-pulse rounded-xl border border-border/60 bg-muted/20"
                     />
                   ))}
                 </div>
               ) : null}
 
               {!loading && buildings.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border/60 bg-muted/10 px-4 py-10 text-center">
+                <div className="rounded-xl border border-dashed border-border/60 bg-muted/10 px-4 py-10 text-center">
                   <p className="text-sm font-semibold">No buildings matched that search.</p>
                 </div>
               ) : null}
@@ -295,9 +295,9 @@ export default function CampusMapPage() {
                     type="button"
                     onClick={() => setSelectedBuildingId(building.id)}
                     className={cn(
-                      'w-full rounded-[26px] border p-4 text-left transition-all',
+                      'w-full rounded-xl border p-4 text-left transition-all',
                       isSelected
-                        ? 'border-primary/40 bg-primary/6 shadow-sm shadow-primary/5'
+                        ? 'border-primary/40 bg-primary/6 shadow-sm'
                         : 'border-border/60 bg-card hover:border-primary/20 hover:bg-muted/20',
                     )}
                   >
@@ -348,7 +348,7 @@ export default function CampusMapPage() {
         </div>
 
         <div className="space-y-4">
-          <article className="rounded-[28px] border border-border/60 bg-card p-5 shadow-sm animate-in-up stagger-2">
+          <article className="rounded-xl border border-border/60 bg-card p-5 shadow-sm animate-in-up stagger-2">
             {selectedBuilding ? (
               <div className="space-y-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -387,7 +387,7 @@ export default function CampusMapPage() {
                   selectedBuilding.accessibilityNotes) ? (
                   <div className="grid gap-3 md:grid-cols-2">
                     {selectedBuilding.operatingHours ? (
-                      <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+                      <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
                         <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">
                           <Clock3 className="h-3.5 w-3.5" />
                           Hours
@@ -397,7 +397,7 @@ export default function CampusMapPage() {
                     ) : null}
 
                     {selectedBuilding.operationalNote ? (
-                      <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+                      <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
                         <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">
                           <AlertTriangle className="h-3.5 w-3.5" />
                           Notice
@@ -409,7 +409,7 @@ export default function CampusMapPage() {
                     ) : null}
 
                     {selectedBuilding.accessibilityNotes ? (
-                      <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 md:col-span-2">
+                      <div className="rounded-xl border border-border/60 bg-muted/20 p-4 md:col-span-2">
                         <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">
                           <Accessibility className="h-3.5 w-3.5" />
                           Accessibility
@@ -465,7 +465,7 @@ export default function CampusMapPage() {
                     {selectedBuilding.announcements.map((announcement) => (
                       <div
                         key={announcement.id}
-                        className="rounded-2xl border border-border/60 bg-card p-4"
+                        className="rounded-xl border border-border/60 bg-card p-4"
                       >
                         <p className="text-sm font-semibold">{announcement.title}</p>
                         <p className="mt-1 text-sm text-muted-foreground">
@@ -488,7 +488,7 @@ export default function CampusMapPage() {
                     {selectedBuilding.upcomingEvents.map((event) => (
                       <div
                         key={event.id}
-                        className="flex items-start gap-3 rounded-2xl border border-border/60 bg-card p-4"
+                        className="flex items-start gap-3 rounded-xl border border-border/60 bg-card p-4"
                       >
                         <CalendarDays className="mt-0.5 h-4 w-4 text-muted-foreground" />
                         <div>
@@ -503,7 +503,7 @@ export default function CampusMapPage() {
                 ) : null}
               </div>
             ) : (
-              <div className="flex min-h-[240px] flex-col items-center justify-center rounded-[24px] border border-dashed border-border/60 bg-muted/10 px-6 text-center">
+              <div className="flex min-h-[240px] flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/10 px-6 text-center">
                 <Building2 className="h-10 w-10 text-primary/80" />
                 <p className="mt-4 text-base font-semibold">Choose a building to see details.</p>
               </div>
@@ -512,7 +512,7 @@ export default function CampusMapPage() {
 
           <section
             ref={mapSectionRef}
-            className="rounded-[28px] border border-border/60 bg-card p-4 shadow-sm animate-in-up stagger-3"
+            className="rounded-xl border border-border/60 bg-card p-4 shadow-sm animate-in-up stagger-3"
           >
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <p className="text-sm font-semibold">Google Maps preview</p>
@@ -531,7 +531,7 @@ export default function CampusMapPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-border/60 bg-card p-4 text-sm text-muted-foreground animate-in-up stagger-3">
+      <section className="rounded-xl border border-border/60 bg-card p-4 text-sm text-muted-foreground animate-in-up stagger-3">
         <Link href="/services-status" className="font-semibold text-primary hover:text-primary/80">
           Services Status
         </Link>

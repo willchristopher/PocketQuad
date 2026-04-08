@@ -2,7 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Building2, CalendarDays, ExternalLink, Landmark, LayoutDashboard, LogOut, ShieldCheck, ShieldUser, School, UserCog, Users, Wrench, } from 'lucide-react';
+import { Building2, CalendarDays, ExternalLink, Landmark, LayoutDashboard, LayoutGrid, LogOut, ShieldCheck, ShieldUser, School, UserCog, Users, Wrench, } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth/context';
@@ -10,6 +10,7 @@ import { getAllowedAdminTabs } from '@/lib/auth/portalPermissions';
 import { cn } from '@/lib/utils';
 const adminLinks = [
     { icon: LayoutDashboard, label: 'Overview', tab: 'overview' },
+    { icon: LayoutGrid, label: 'Student Pages', tab: 'student-pages' },
     { icon: UserCog, label: 'Faculty', tab: 'faculty' },
     { icon: Building2, label: 'Buildings', tab: 'buildings' },
     { icon: ExternalLink, label: 'Resource Links', tab: 'links' },
@@ -68,8 +69,8 @@ export function AdminSidebar({ className, mobile = false, onNavigate }) {
         router.replace(`/admin?${params.toString()}`, { scroll: false });
     };
     return (<aside className={cn(mobile
-            ? 'flex h-full w-full flex-col border-r border-border/50 bg-card/95 backdrop-blur-xl'
-            : 'hidden md:flex fixed left-0 top-0 z-40 h-screen w-[260px] flex-col border-r border-border/50 bg-card/95 backdrop-blur-xl', className)}>
+            ? 'flex h-full w-full flex-col border-r border-border/50 bg-card shadow-sm'
+            : 'hidden md:flex fixed left-0 top-0 z-40 h-screen w-[260px] flex-col border-r border-border/50 bg-card shadow-sm', className)}>
       <div className="flex h-14 items-center justify-between border-b border-border/50 px-5">
         <Link href={buildAdminHref(defaultTab)} onClick={onNavigate} className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background">

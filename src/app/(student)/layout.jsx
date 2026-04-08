@@ -5,6 +5,7 @@ import { MobileNav } from '@/components/layout/MobileNav';
 import { Header } from '@/components/layout/Header';
 import { SkipLink } from '@/components/layout/SkipLink';
 import { AuthenticatedLayoutGate } from '@/components/auth/AuthenticatedLayoutGate';
+import { StudentPageVisibilityGate } from '@/components/auth/StudentPageVisibilityGate';
 const CommandPalette = dynamic(() => import('@/components/layout/CommandPalette').then((module) => module.CommandPalette), { ssr: false });
 const AIChatWidget = dynamic(() => import('@/components/ai/AIChatWidget').then((module) => module.AIChatWidget), { ssr: false });
 function LayoutShell({ children }) {
@@ -26,6 +27,8 @@ function LayoutShell({ children }) {
 }
 export default function StudentLayout({ children, }) {
     return (<AuthenticatedLayoutGate title="Loading your dashboard" message="Please wait while PocketQuad loads your account details and dashboard preferences.">
-        <LayoutShell>{children}</LayoutShell>
+        <StudentPageVisibilityGate>
+          <LayoutShell>{children}</LayoutShell>
+        </StudentPageVisibilityGate>
       </AuthenticatedLayoutGate>);
 }

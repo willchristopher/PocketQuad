@@ -26,7 +26,7 @@ import {
   formatFacultySlotLabel,
   getStudentFacingFacultyAvailabilityTone,
 } from '@/lib/faculty';
-import { cn } from '@/lib/utils';
+import { cn, formatDateTimeLocalInput, toAbsoluteDateTime } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -191,10 +191,10 @@ function getEventSuccessMessage(label, notifiedCount) {
 
 function WorkspaceCard({ title, description, icon: Icon, iconClassName, children, headerAction }) {
   return (
-    <section className="panel-card rounded-[1.95rem] p-5 md:p-6">
+    <section className="panel-card rounded-xl p-5 md:p-6">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
-          <div className={cn('flex h-12 w-12 items-center justify-center rounded-[1.15rem] border border-border/60 bg-secondary text-primary', iconClassName)}>
+          <div className={cn('flex h-12 w-12 items-center justify-center rounded-lg border border-border/60 bg-secondary text-primary', iconClassName)}>
             <Icon className="h-5 w-5" />
           </div>
           <div>
@@ -218,7 +218,7 @@ function FeedbackMessage({ tone = 'success', children }) {
   return (
     <p
       className={cn(
-        'rounded-2xl border px-4 py-3 text-sm font-medium',
+        'rounded-xl border px-4 py-3 text-sm font-medium',
         tone === 'success'
           ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
           : 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300',
@@ -430,6 +430,11 @@ export function FacultyDashboard() {
   const totalAnnouncementAccess = (announcementPermissions?.canPublishCampus ? 1 : 0)
     + (announcementPermissions?.canPublishBuildings ? 1 : 0)
     + (announcementPermissions?.canPublishServices ? 1 : 0);
+  const announcementExpirationMin = React.useMemo(() => {
+    const now = new Date();
+    now.setSeconds(0, 0);
+    return formatDateTimeLocalInput(now);
+  }, []);
   const availabilityTone = toneClasses[getStudentFacingFacultyAvailabilityTone(workspace?.studentAvailabilityState ?? 'TBD')];
 
   const resetOfficeHourForm = () => {
@@ -682,7 +687,7 @@ export function FacultyDashboard() {
           title: announcementForm.title,
           message: announcementForm.message,
           linkUrl: announcementForm.linkUrl.trim() || undefined,
-          expiresAt: announcementForm.expiresAt || undefined,
+          expiresAt: toAbsoluteDateTime(announcementForm.expiresAt),
           scope: announcementForm.scope,
           buildingId: announcementForm.scope === 'BUILDING' ? announcementForm.targetId : undefined,
           serviceId: announcementForm.scope === 'SERVICE' ? announcementForm.targetId : undefined,
@@ -707,7 +712,7 @@ export function FacultyDashboard() {
 
   return (
     <div className="space-y-7">
-      <section className="hero-panel rounded-[2.2rem] px-6 py-6 md:px-8 md:py-8 animate-in-soft">
+      <section className="hero-panel rounded-xl px-6 py-6 md:px-8 md:py-8 animate-in-soft">
         <div className="space-y-6">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div className="space-y-3">
@@ -760,11 +765,11 @@ export function FacultyDashboard() {
       </section>
 
       <Tabs defaultValue="contact" className="space-y-6">
-        <TabsList className="grid h-auto grid-cols-2 gap-1.5 rounded-[1.8rem] border border-border/60 bg-card p-1.5 shadow-sm md:grid-cols-4">
-          <TabsTrigger value="contact" className="rounded-[1.05rem] px-4 py-3">Contact</TabsTrigger>
-          <TabsTrigger value="office-hours" className="rounded-[1.05rem] px-4 py-3">Office Hours</TabsTrigger>
-          <TabsTrigger value="events" className="rounded-[1.05rem] px-4 py-3">Events</TabsTrigger>
-          <TabsTrigger value="announcements" className="rounded-[1.05rem] px-4 py-3">Announcements</TabsTrigger>
+        <TabsList className="grid h-auto grid-cols-2 gap-1.5 rounded-xl border border-border/60 bg-card p-1.5 shadow-sm md:grid-cols-4">
+          <TabsTrigger value="contact" className="min-h-11 rounded-lg px-4 py-3">Contact</TabsTrigger>
+          <TabsTrigger value="office-hours" className="min-h-11 rounded-lg px-4 py-3">Office Hours</TabsTrigger>
+          <TabsTrigger value="events" className="min-h-11 rounded-lg px-4 py-3">Events</TabsTrigger>
+          <TabsTrigger value="announcements" className="min-h-11 rounded-lg px-4 py-3">Announcements</TabsTrigger>
         </TabsList>
 
         <TabsContent value="contact" className="mt-0">
@@ -828,7 +833,7 @@ export function FacultyDashboard() {
                     </Button>
                   </div>
 
-                  <div className="flex min-h-14 flex-wrap gap-2 rounded-2xl border border-dashed border-border/60 bg-muted/10 p-3">
+                  <div className="flex min-h-14 flex-wrap gap-2 rounded-xl border border-dashed border-border/60 bg-muted/10 p-3">
                     {profileDraft.tags.length === 0 ? (
                       <p className="text-sm text-muted-foreground">No tags yet. Add a few so students know what you can help with.</p>
                     ) : (
@@ -844,7 +849,7 @@ export function FacultyDashboard() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
-                    <Button type="submit" className="rounded-2xl px-5" disabled={profileSaving || workspaceLoading}>
+                    <Button type="submit" className="rounded-xl px-5" disabled={profileSaving || workspaceLoading}>
                       {profileSaving ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -880,11 +885,11 @@ export function FacultyDashboard() {
                     <p className="text-sm text-muted-foreground">{profileDraft.title || 'Faculty title'}</p>
                   </div>
 
-                  <div className={cn('rounded-2xl border px-3 py-2 text-sm font-medium', availabilityTone)}>
+                  <div className={cn('rounded-xl border px-3 py-2 text-sm font-medium', availabilityTone)}>
                     {workspace?.studentAvailabilityLabel ?? 'Availability unavailable'}
                   </div>
 
-                  <div className="space-y-2 rounded-2xl border border-border/60 bg-muted/10 p-4 text-sm">
+                  <div className="space-y-2 rounded-xl border border-border/60 bg-muted/10 p-4 text-sm">
                     <p className="flex items-center gap-2">
                       <Mail className="h-4 w-4 text-muted-foreground" />
                       {workspace?.email ?? 'faculty@university.edu'}
@@ -932,7 +937,7 @@ export function FacultyDashboard() {
                       type="button"
                       onClick={() => setStatusState((current) => ({ ...current, status: option.value }))}
                       className={cn(
-                        'rounded-2xl border px-4 py-4 text-left transition-colors',
+                        'rounded-xl border px-4 py-4 text-left transition-colors',
                         statusState.status === option.value
                           ? 'border-primary bg-primary/8 shadow-sm'
                           : 'border-border/60 bg-muted/10 hover:bg-muted/20',
@@ -956,7 +961,7 @@ export function FacultyDashboard() {
                 </label>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <Button type="submit" size="lg" className="rounded-2xl px-5" disabled={statusLoading || statusSaving}>
+                  <Button type="submit" size="lg" className="rounded-xl px-5" disabled={statusLoading || statusSaving}>
                     {statusSaving ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1063,14 +1068,14 @@ export function FacultyDashboard() {
               {officeHoursLoading ? (
                 <p className="text-sm text-muted-foreground">Loading office hours...</p>
               ) : officeHours.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border/60 bg-muted/10 px-5 py-10 text-center">
+                <div className="rounded-xl border border-dashed border-border/60 bg-muted/10 px-5 py-10 text-center">
                   <p className="text-sm font-medium">No office hours yet</p>
                   <p className="mt-1 text-sm text-muted-foreground">Use the editor above to add your first slot.</p>
                 </div>
               ) : (
                 <div className="grid gap-3 lg:grid-cols-2">
                   {officeHours.map((slot) => (
-                    <div key={slot.id} className="rounded-2xl border border-border/60 bg-muted/10 p-4">
+                    <div key={slot.id} className="rounded-xl border border-border/60 bg-muted/10 p-4">
                       <div className="flex flex-col gap-4">
                         <div className="space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
@@ -1130,14 +1135,14 @@ export function FacultyDashboard() {
                 {eventsLoading ? (
                   <p className="text-sm text-muted-foreground">Loading your events...</p>
                 ) : facultyEvents.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-border/60 bg-muted/10 px-5 py-10 text-center">
+                  <div className="rounded-xl border border-dashed border-border/60 bg-muted/10 px-5 py-10 text-center">
                     <p className="text-sm font-medium">No faculty events yet</p>
                     <p className="mt-1 text-sm text-muted-foreground">Use the composer to publish your first student-facing event.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {facultyEvents.map((eventItem) => (
-                      <article key={eventItem.id} className={cn('rounded-2xl border p-4', eventItem.isCancelled ? 'border-rose-500/25 bg-rose-500/5' : 'border-border/60 bg-muted/10')}>
+                      <article key={eventItem.id} className={cn('rounded-xl border p-4', eventItem.isCancelled ? 'border-rose-500/25 bg-rose-500/5' : 'border-border/60 bg-muted/10')}>
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                           <div className="space-y-2">
                             <div className="flex flex-wrap items-center gap-2">
@@ -1293,7 +1298,7 @@ export function FacultyDashboard() {
                 || (!announcementPermissions.canPublishCampus
                   && !announcementPermissions.canPublishBuildings
                   && !announcementPermissions.canPublishServices) ? (
-                    <div className="rounded-2xl border border-dashed border-border/60 bg-muted/10 px-4 py-8 text-center">
+                    <div className="rounded-xl border border-dashed border-border/60 bg-muted/10 px-4 py-8 text-center">
                       <p className="text-sm font-medium">No announcement permissions</p>
                       <p className="mt-1 text-sm text-muted-foreground">
                         You can still manage contact details, office hours, and faculty events here.
@@ -1348,7 +1353,7 @@ export function FacultyDashboard() {
 
                       <label className="space-y-2 text-sm font-medium">
                         <span>Ends at (optional)</span>
-                        <Input type="datetime-local" value={announcementForm.expiresAt} onChange={(event) => setAnnouncementForm((current) => ({ ...current, expiresAt: event.target.value }))} />
+                        <Input type="datetime-local" min={announcementExpirationMin} step={60} value={announcementForm.expiresAt} onChange={(event) => setAnnouncementForm((current) => ({ ...current, expiresAt: event.target.value }))} />
                       </label>
 
                       <Button type="submit" className="rounded-xl" disabled={announcementSaving}>
@@ -1376,20 +1381,20 @@ export function FacultyDashboard() {
               iconClassName={moduleIconClassName}
             >
               <div className="space-y-4">
-                <div className="rounded-2xl border border-border/60 bg-muted/10 p-4">
+                <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Publishing channels</p>
                   <p className="mt-2 text-sm font-semibold">{totalAnnouncementAccess} active channel{totalAnnouncementAccess === 1 ? '' : 's'}</p>
                   <p className="mt-1 text-sm text-muted-foreground">Campus, building, and service access stay permission-aware.</p>
                 </div>
 
                 {!announcementState || announcementState.items.length === 0 ? (
-                  <p className="rounded-2xl border border-dashed border-border/60 px-4 py-6 text-sm text-muted-foreground">
+                  <p className="rounded-xl border border-dashed border-border/60 px-4 py-6 text-sm text-muted-foreground">
                     No announcements published yet.
                   </p>
                 ) : (
                   <div className="space-y-3">
                     {announcementState.items.slice(0, 5).map((item) => (
-                      <div key={item.id} className="rounded-2xl border border-border/60 bg-muted/10 p-4">
+                      <div key={item.id} className="rounded-xl border border-border/60 bg-muted/10 p-4">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="outline" className="rounded-full">
                             {item.audienceLabel}

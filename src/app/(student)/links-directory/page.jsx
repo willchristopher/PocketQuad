@@ -42,7 +42,7 @@ export default function LinksDirectoryPage() {
         void loadLinks();
     }, [loadLinks]);
     return (<div className="space-y-6">
-      <section className="rounded-2xl border border-border/60 bg-card/90 p-4 md:p-5 animate-in-up stagger-1">
+      <section className="rounded-xl border border-border/60 bg-card/90 p-4 md:p-5 animate-in-up stagger-1">
         <div className="grid gap-3 md:grid-cols-2">
           <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 transition-colors focus-within:border-primary/40 focus-within:bg-muted/35">
             <Search className="h-4 w-4 text-muted-foreground"/>
@@ -50,8 +50,8 @@ export default function LinksDirectoryPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {categories.map((category) => (<button key={category} onClick={() => setActiveCategory(category)} className={cn('rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200', activeCategory === category
-                ? 'border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+            {categories.map((category) => (<button key={category} type="button" onClick={() => setActiveCategory(category)} className={cn('rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors', activeCategory === category
+                ? 'border-primary bg-primary text-primary-foreground shadow-sm'
                 : 'border-border/60 text-muted-foreground hover:bg-muted/40')}>
                 {category === 'All' ? 'All' : category.replaceAll('_', ' ')}
               </button>))}
@@ -63,21 +63,33 @@ export default function LinksDirectoryPage() {
           {error}
         </p>)}
 
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="space-y-3">
         {loading && <p className="text-sm text-muted-foreground">Loading links...</p>}
 
-        {!loading && links.map((link, index) => (<a key={link.id} href={link.href} target="_blank" rel="noreferrer" className="rounded-2xl border border-border/60 bg-card p-5 hover-lift animate-in-up" style={{ animationDelay: `${0.04 * (index + 1)}s` }}>
-            <p className="text-xs font-bold uppercase tracking-wide text-primary/80">{link.category.replaceAll('_', ' ')}</p>
-            <h2 className="mt-1 text-lg font-bold">{link.label}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">{link.description}</p>
-            <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-primary">
-              Open portal
-              <ExternalLink className="h-3.5 w-3.5"/>
-            </span>
-          </a>))}
+        {!loading && links.map((link, index) => (<article key={link.id} className="rounded-xl border border-border/60 bg-card p-4 transition-colors hover:bg-muted/30 animate-in-up" style={{ animationDelay: `${0.04 * (index + 1)}s` }}>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-4">
+              <div className="shrink-0 sm:w-40">
+                <p className="text-xs font-bold uppercase tracking-wide text-primary/80">{link.category.replaceAll('_', ' ')}</p>
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <a href={link.href} target="_blank" rel="noreferrer" className="text-lg font-bold leading-tight text-foreground underline-offset-2 hover:underline">
+                  {link.label}
+                </a>
+                <p className="mt-1 text-sm text-muted-foreground">{link.description}</p>
+              </div>
+
+              <div className="shrink-0 sm:self-center">
+                <a href={link.href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-muted/35">
+                  Open portal
+                  <ExternalLink className="h-3.5 w-3.5"/>
+                </a>
+              </div>
+            </div>
+          </article>))}
       </section>
 
-      {!loading && links.length === 0 && (<section className="rounded-2xl border border-dashed border-border/60 bg-card p-10 text-center text-sm text-muted-foreground animate-in-up">
+      {!loading && links.length === 0 && (<section className="rounded-xl border border-dashed border-border/60 bg-card p-10 text-center text-sm text-muted-foreground animate-in-up">
           No links matched your query.
         </section>)}
     </div>);

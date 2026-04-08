@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse, } from '@/lib/api/utils';
 import { ALL_UNIVERSITY_DATA_TAGS, invalidateUniversityData } from '@/lib/server/universityData';
+import { sanitizeDisabledStudentPages, studentPageVisibilityOptions } from '@/lib/studentPageVisibility';
 import { universityUpdateSchema } from '@/lib/validations/admin';
 import { slugifyUniversityName } from '@/lib/university';
 export async function PATCH(request, context) {
@@ -8,10 +9,21 @@ export async function PATCH(request, context) {
         await getAuthenticatedAdmin('ADMIN_TAB_UNIVERSITIES');
         const { id } = await context.params;
         const payload = universityUpdateSchema.parse(await request.json());
+        const disabledStudentPages = payload.disabledStudentPages
+            ? sanitizeDisabledStudentPages(payload.disabledStudentPages)
+            : undefined;
+        if (disabledStudentPages && disabledStudentPages.length >= studentPageVisibilityOptions.length) {
+            throw new ApiError(400, 'At least one student page must remain visible');
+        }
         const updated = await prisma.university.update({
             where: { id },
             data: {
                 ...payload,
+                ...(disabledStudentPages
+                    ? {
+                        disabledStudentPages,
+                    }
+                    : {}),
                 ...(payload.slug
                     ? { slug: payload.slug }
                     : payload.name

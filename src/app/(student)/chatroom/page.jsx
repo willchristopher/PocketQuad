@@ -139,7 +139,7 @@ export default function ChatroomPage() {
             setReportingMessageId(null);
         }
     };
-    return (<div className="overflow-hidden rounded-2xl border border-border/60 bg-card animate-in-up">
+    return (<div className="overflow-hidden rounded-xl border border-border/60 bg-card animate-in-up">
       <section className="flex min-h-[70vh] flex-col">
         <div className="border-b border-border/60 bg-muted/5 px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
@@ -166,12 +166,12 @@ export default function ChatroomPage() {
 
           {messages.map((message, index) => {
             const isOwn = message.user.id === profile?.id;
-            return (<div key={message.id} className={cn('rounded-xl border p-3 hover-lift animate-in-up', isOwn ? 'border-primary/30 bg-primary/5' : 'border-border/50 bg-muted/10')} style={{ animationDelay: `${0.02 * (index + 1)}s` }}>
+            return (<div key={message.id} className={cn('rounded-xl border p-3 animate-in-up', isOwn ? 'border-primary/30 bg-primary/5' : 'border-border/50 bg-muted/10')} style={{ animationDelay: `${0.02 * (index + 1)}s` }}>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold">{isOwn ? 'You' : message.user.displayName}</p>
                   <div className="flex items-center gap-2">
                     <p className="text-[11px] text-muted-foreground">{formatTime(message.createdAt)}</p>
-                    {!isOwn && !message.isDeleted && (<button type="button" onClick={() => void reportMessage(message.id)} disabled={reportingMessageId === message.id} className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground disabled:opacity-60">
+                    {!isOwn && !message.isDeleted && (<button type="button" onClick={() => void reportMessage(message.id)} disabled={reportingMessageId === message.id} className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-border/60 px-3 text-[11px] text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground disabled:opacity-60">
                         <Flag className="h-3 w-3"/>
                         {reportingMessageId === message.id ? 'Reporting...' : 'Report'}
                       </button>)}
@@ -190,9 +190,9 @@ export default function ChatroomPage() {
             if (event.key === 'Enter') {
                 void sendMessage();
             }
-        }} placeholder="Message Campus Chat" className="h-9 flex-1 bg-transparent text-sm outline-none" disabled={!room?.id || sending}/>
-            <button onClick={() => void sendMessage()} disabled={!draft.trim() || !room?.id || sending} className={cn('inline-flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200', draft.trim() && room?.id && !sending
-            ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+        }} placeholder="Message Campus Chat" className="h-11 min-h-11 flex-1 bg-transparent text-sm outline-none" disabled={!room?.id || sending}/>
+            <button onClick={() => void sendMessage()} disabled={!draft.trim() || !room?.id || sending} className={cn('inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-all duration-200', draft.trim() && room?.id && !sending
+            ? 'bg-primary text-primary-foreground shadow-lg'
             : 'bg-muted text-muted-foreground')} aria-label="Send message">
               <Send className="h-4 w-4"/>
             </button>

@@ -1,10 +1,10 @@
 import {
   Bell,
   BellRing,
-  CalendarClock,
-  CalendarX2,
+  Calendar,
+  CalendarX,
   Megaphone,
-  TimerReset,
+  Timer,
 } from 'lucide-react'
 
 export const notificationFilters = [
@@ -28,7 +28,7 @@ const notificationMeta = {
   NEW_EVENT: {
     label: 'New event',
     filter: 'Events',
-    icon: CalendarClock,
+    icon: Calendar,
     badgeClassName: 'border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300',
     iconClassName: 'bg-blue-500/10 text-blue-700 dark:text-blue-300',
   },
@@ -42,21 +42,21 @@ const notificationMeta = {
   EVENT_CANCELLED: {
     label: 'Event canceled',
     filter: 'Events',
-    icon: CalendarX2,
+    icon: CalendarX,
     badgeClassName: 'border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300',
     iconClassName: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
   },
   OFFICE_HOUR: {
     label: 'Office hours',
     filter: 'Office Hours',
-    icon: TimerReset,
+    icon: Timer,
     badgeClassName: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
     iconClassName: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
   },
   DEADLINE: {
     label: 'Deadline',
     filter: 'Deadlines',
-    icon: CalendarClock,
+    icon: Calendar,
     badgeClassName: 'border-orange-500/25 bg-orange-500/10 text-orange-700 dark:text-orange-300',
     iconClassName: 'bg-orange-500/10 text-orange-700 dark:text-orange-300',
   },

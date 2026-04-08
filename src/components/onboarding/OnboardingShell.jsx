@@ -7,11 +7,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 export function OnboardingShell({ children, footer, currentStep, totalSteps, }) {
     return (<div className="relative min-h-screen overflow-hidden bg-background">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-[-10rem] top-[-7rem] h-[24rem] w-[24rem] rounded-full bg-primary/10 blur-3xl"/>
-        <div className="absolute bottom-[-11rem] right-[-10rem] h-[22rem] w-[22rem] rounded-full bg-primary/10 blur-3xl"/>
-        <div className="absolute inset-0 opacity-[0.045] [background-image:radial-gradient(circle,_#0f172a_1px,_transparent_1px)] [background-size:30px_30px]"/>
-      </div>
+      <div className="pointer-events-none absolute inset-0 bg-background" />
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center px-4 py-8 sm:px-6">
         <AppBrand />
@@ -31,13 +27,13 @@ export function StepProgress({ currentStep, totalSteps, className, }) {
       </div>
       <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${totalSteps}, minmax(0, 1fr))` }}>
         {Array.from({ length: totalSteps }).map((_, index) => (<div key={index} className={cn('h-2 rounded-full transition-all duration-300', index <= currentStep
-                ? 'bg-[image:var(--gradient-primary)] shadow-accent'
+                ? 'bg-primary shadow-sm'
                 : 'bg-muted')}/>))}
       </div>
     </div>);
 }
 export function StepCard({ children, direction, className, }) {
-    return (<section data-direction={direction} className={cn('surface-card-lg animate-in-soft rounded-[2rem] border border-border/70 bg-card/90 p-6 backdrop-blur-xl sm:p-8', className)}>
+    return (<section data-direction={direction} className={cn('surface-card-lg animate-in-soft rounded-xl border border-border/70 bg-card/90 p-6 sm:p-8', className)}>
       {children}
     </section>);
 }
@@ -45,7 +41,7 @@ export function StepHeader({ badge, icon, title, description, }) {
     return (<div className="mb-5 space-y-4">
       {badge ? <Badge variant="section">{badge}</Badge> : null}
       <div className="flex items-start gap-4">
-        {icon ? (<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[image:var(--gradient-primary)] text-primary-foreground shadow-accent">
+        {icon ? (<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-md">
             {icon}
           </div>) : null}
         <div className="space-y-1.5">
@@ -57,15 +53,15 @@ export function StepHeader({ badge, icon, title, description, }) {
 }
 export function SearchField({ value, onChange, placeholder, className, }) {
     return (<div className={cn('relative', className)}>
-      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"/>
+      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
       <Input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} variant="soft" inputSize="lg" className="pl-11"/>
     </div>);
 }
-const selectionRowVariants = cva('flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition-all duration-200', {
+const selectionRowVariants = cva('flex min-h-11 w-full items-center gap-3 rounded-xl border p-4 text-left transition-colors duration-200', {
     variants: {
         selected: {
-            true: 'border-primary/25 bg-primary/[0.06] shadow-accent',
-            false: 'border-border/70 bg-card/70 hover:-translate-y-0.5 hover:border-primary/15 hover:bg-card hover:shadow-surface',
+            true: 'border-primary/25 bg-primary/[0.06] shadow-md',
+            false: 'border-border/70 bg-card/70 hover:border-primary/15 hover:bg-card hover:shadow-sm',
         },
     },
     defaultVariants: {
@@ -92,10 +88,10 @@ export function SelectionRow({ selected, leading, title, description, meta, trai
     </button>);
 }
 export function ChoiceTile({ selected, title, description, icon, detail, onClick, className, }) {
-    return (<button type="button" onClick={onClick} className={cn('relative flex h-full flex-col items-start gap-4 rounded-2xl border p-5 text-left transition-all duration-200', selected
-            ? 'border-primary/25 bg-primary/[0.06] shadow-accent'
-            : 'border-border/70 bg-card/75 hover:-translate-y-0.5 hover:border-primary/15 hover:bg-card hover:shadow-surface', className)}>
-      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[image:var(--gradient-primary)] text-primary-foreground shadow-accent">
+    return (<button type="button" onClick={onClick} className={cn('relative flex h-full flex-col items-start gap-4 rounded-xl border p-5 text-left transition-colors duration-200', selected
+            ? 'border-primary/25 bg-primary/[0.06] shadow-md'
+            : 'border-border/70 bg-card/75 hover:border-primary/15 hover:bg-card hover:shadow-sm', className)}>
+      <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-md">
         {icon}
       </div>
       <div>
@@ -107,9 +103,9 @@ export function ChoiceTile({ selected, title, description, icon, detail, onClick
     </button>);
 }
 export function StepToggle({ enabled, onToggle, title, description, }) {
-    return (<button type="button" onClick={() => onToggle(!enabled)} className={cn('flex w-full items-center justify-between gap-4 rounded-2xl border p-4 text-left transition-all duration-200', enabled
-            ? 'border-primary/25 bg-primary/[0.06] shadow-accent'
-            : 'border-border/70 bg-card/75 hover:border-primary/15 hover:shadow-surface')}>
+    return (<button type="button" onClick={() => onToggle(!enabled)} className={cn('flex min-h-11 w-full items-center justify-between gap-4 rounded-xl border p-4 text-left transition-colors duration-200', enabled
+            ? 'border-primary/25 bg-primary/[0.06] shadow-md'
+            : 'border-border/70 bg-card/75 hover:border-primary/15 hover:shadow-sm')}>
       <div>
         <p className="text-sm font-semibold text-foreground">{title}</p>
         {description ? <p className="mt-1 text-xs text-muted-foreground">{description}</p> : null}
@@ -120,7 +116,7 @@ export function StepToggle({ enabled, onToggle, title, description, }) {
     </button>);
 }
 export function DayChip({ selected, onClick, children, }) {
-    return (<button type="button" onClick={onClick} className={cn('rounded-full border px-3 py-2 text-xs font-semibold transition-all duration-200', selected
+    return (<button type="button" onClick={onClick} className={cn('min-h-11 rounded-full border px-4 py-2 text-xs font-semibold transition-colors duration-200', selected
             ? 'border-primary/25 bg-primary/[0.06] text-primary'
             : 'border-border/70 bg-card/80 text-muted-foreground hover:border-primary/15 hover:text-foreground')}>
       {children}

@@ -4,7 +4,7 @@ import { Clock, Play, Pause, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 export function OfficeHoursStatusCard() {
     const isActive = true;
-    return (<div className={cn("rounded-2xl border overflow-hidden transition-all", isActive ? "border-emerald-500/30 bg-card" : "border-border/60 bg-card")}>
+    return (<div className={cn("rounded-xl border overflow-hidden transition-all", isActive ? "border-emerald-500/30 bg-card" : "border-border/60 bg-card")}>
       <div className="p-4 md:p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">

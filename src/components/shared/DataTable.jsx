@@ -77,7 +77,7 @@ export function DataTable({ columns, data, searchKey, searchPlaceholder = "Filte
             </DropdownMenu>
         </div>
       </div>
-      <div className="rounded-md border animate-in fade-in duration-500">
+      <div className="rounded-xl border border-border/60 shadow-sm animate-in fade-in duration-500">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (<TableRow key={headerGroup.id}>

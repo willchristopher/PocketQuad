@@ -12,7 +12,7 @@ const actions = [
     { label: 'Resources', icon: BookOpen, href: '#', color: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400' },
 ];
 export function QuickActionsCard() {
-    return (<div className="rounded-2xl border border-border/60 bg-card p-4 md:p-5">
+    return (<div className="rounded-xl border border-border/60 bg-card p-4 md:p-5">
       <div className="flex items-center gap-2.5 mb-4">
         <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
           <Zap className="w-4 h-4 text-amber-600 dark:text-amber-400"/>

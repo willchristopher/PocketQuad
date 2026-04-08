@@ -15,12 +15,13 @@ import {
   renderThemeModeIcon,
 } from '@/components/layout/layoutUtils';
 import {
+  getStudentNavigationSections,
+  getStudentSecondaryNavigationItems,
   getStudentPageMeta,
   isStudentPathActive,
-  studentNavigationSections,
-  studentSecondaryNavigationItems,
 } from '@/components/layout/studentNavigation';
 import { useUnreadNotificationCount } from '@/hooks/useNotifications';
+import { useStudentPageVisibility } from '@/hooks/useStudentPageVisibility';
 import { useAuth } from '@/lib/auth/context';
 import { useUniversityTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
@@ -29,12 +30,21 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const { signOut } = useAuth();
+  const { disabledStudentPages, isPageVisible } = useStudentPageVisibility();
   const { themeMode, setThemeMode, universityColors, universityName } = useUniversityTheme();
   const { unreadCount } = useUnreadNotificationCount();
   const [mounted, setMounted] = React.useState(false);
   const [sheetOpen, setSheetOpen] = React.useState(false);
 
   const page = getStudentPageMeta(pathname);
+  const studentNavigationSections = React.useMemo(
+    () => getStudentNavigationSections(disabledStudentPages),
+    [disabledStudentPages],
+  );
+  const studentSecondaryNavigationItems = React.useMemo(
+    () => getStudentSecondaryNavigationItems(disabledStudentPages),
+    [disabledStudentPages],
+  );
   const dateLabel = React.useMemo(() => getCurrentDateLabel(), []);
 
   React.useEffect(() => setMounted(true), []);
@@ -92,7 +102,7 @@ export function Header() {
                               href={item.href}
                               onClick={() => setSheetOpen(false)}
                               className={cn(
-                                'flex items-center gap-3 rounded-[1.15rem] border px-4 py-3 text-sm font-medium transition-all',
+                                'flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-all',
                                 isActive
                                   ? 'border-primary/25 bg-secondary text-foreground shadow-surface'
                                   : 'border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted hover:text-foreground',
@@ -120,7 +130,7 @@ export function Header() {
                           href={item.href}
                           onClick={() => setSheetOpen(false)}
                           className={cn(
-                            'flex items-center gap-3 rounded-[1.15rem] border px-4 py-3 text-sm font-medium transition-all',
+                            'flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-all',
                             isActive
                               ? 'border-primary/25 bg-secondary text-foreground shadow-surface'
                               : 'border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted hover:text-foreground',
@@ -135,7 +145,7 @@ export function Header() {
                     <button
                       type="button"
                       onClick={() => void handleSignOut()}
-                      className="flex w-full items-center gap-3 rounded-[1.15rem] border border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-all hover:border-border/70 hover:bg-muted hover:text-foreground"
+                      className="flex w-full items-center gap-3 rounded-xl border border-transparent px-4 py-3 text-sm font-medium text-muted-foreground transition-all hover:border-border/70 hover:bg-muted hover:text-foreground"
                     >
                       <LogOut className="h-[18px] w-[18px] shrink-0" />
                       Sign out
@@ -152,7 +162,7 @@ export function Header() {
               {showDashboardBrand ? (
                 <Link
                   href="/dashboard"
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-card/70 p-1.5 shadow-surface transition-all hover:border-primary/25 hover:bg-card"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-card/70 p-1.5 shadow-surface transition-all hover:border-primary/25 hover:bg-card"
                   aria-label="PocketQuad dashboard"
                 >
                   <Image
@@ -187,16 +197,18 @@ export function Header() {
             <span className="hidden md:inline">{themeLabel}</span>
           </button>
 
-          <Link
-            href="/notifications"
-            className="relative flex h-11 w-11 items-center justify-center rounded-full border border-border/70 bg-card/70 text-muted-foreground transition-all hover:border-primary/25 hover:bg-card hover:text-foreground"
-            aria-label="Notifications"
-          >
-            <Bell className="h-[18px] w-[18px]" />
-            <div className="absolute -right-1.5 -top-1">
-              <NotificationBadge count={unreadCount} />
-            </div>
-          </Link>
+          {isPageVisible('notifications') ? (
+            <Link
+              href="/notifications"
+              className="relative flex h-11 w-11 items-center justify-center rounded-full border border-border/70 bg-card/70 text-muted-foreground transition-all hover:border-primary/25 hover:bg-card hover:text-foreground"
+              aria-label="Notifications"
+            >
+              <Bell className="h-[18px] w-[18px]" />
+              <div className="absolute -right-1.5 -top-1">
+                <NotificationBadge count={unreadCount} />
+              </div>
+            </Link>
+          ) : null}
         </div>
       </div>
     </header>
