@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, CalendarPlus, Heart, MapPin } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, Heart, MapPin, Trash2 } from 'lucide-react';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 function formatLongDate(iso) {
@@ -19,6 +19,7 @@ export default function EventDetailPage({ params }) {
     const { id } = React.use(params);
     const [event, setEvent] = React.useState(null);
     const [added, setAdded] = React.useState(false);
+    const [calendarEntryId, setCalendarEntryId] = React.useState(null);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState(null);
     React.useEffect(() => {
@@ -80,7 +81,7 @@ export default function EventDetailPage({ params }) {
             return;
         setError(null);
         try {
-            await apiRequest('/api/calendar', {
+            const created = await apiRequest('/api/calendar', {
                 method: 'POST',
                 body: {
                     title: event.title,
@@ -93,9 +94,28 @@ export default function EventDetailPage({ params }) {
                 },
             });
             setAdded(true);
+            setCalendarEntryId(created.id);
         }
         catch (err) {
             const message = err instanceof ApiClientError ? err.message : 'Unable to add event to calendar';
+            setError(message);
+        }
+    };
+    const removeFromCalendar = async () => {
+        if (!calendarEntryId) {
+            setError('This event can only be removed if it was added in this session');
+            return;
+        }
+        setError(null);
+        try {
+            await apiRequest(`/api/calendar/${calendarEntryId}`, {
+                method: 'DELETE',
+            });
+            setAdded(false);
+            setCalendarEntryId(null);
+        }
+        catch (err) {
+            const message = err instanceof ApiClientError ? err.message : 'Unable to remove event from calendar';
             setError(message);
         }
     };
@@ -153,6 +173,10 @@ export default function EventDetailPage({ params }) {
               <CalendarPlus className="h-4 w-4"/>
               {event.isCancelled ? 'Unavailable' : added ? 'Added to Calendar' : 'Add to Calendar'}
             </button>
+                        {added && !event.isCancelled ? (<button onClick={() => void removeFromCalendar()} className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/30 px-3.5 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-500/10 dark:text-red-400">
+                                <Trash2 className="h-4 w-4"/>
+                                Remove from Calendar
+                            </button>) : null}
 
             <button onClick={() => void toggleInterest()} disabled={event.isCancelled} className={cn('inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60', event.isInterested
             ? 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400'
