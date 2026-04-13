@@ -1,159 +1,172 @@
 import { canManageBuilding } from '@/lib/facultyPermissions';
+import { combineEventDateTime, formatEventTimeLabel } from '@/lib/events';
 import { prisma } from '@/lib/prisma';
+import { getEventsCatalogData } from '@/lib/server/eventsCatalog';
 import { createEventSchema, eventQuerySchema } from '@/lib/validations';
-import { ApiError, getAuthenticatedUser, handleApiError, successResponse, } from '@/lib/api/utils';
-function formatTimeLabel(time24) {
-    const [hoursRaw, minutesRaw] = time24.split(':').map(Number);
-    const period = hoursRaw >= 12 ? 'PM' : 'AM';
-    const hours = hoursRaw % 12 || 12;
-    return `${hours}:${String(minutesRaw).padStart(2, '0')} ${period}`;
-}
+import {
+  ApiError,
+  getAuthenticatedUser,
+  handleApiError,
+  successResponse,
+} from '@/lib/api/utils';
+
+const eventWriteSelect = {
+  id: true,
+  universityId: true,
+  buildingId: true,
+  title: true,
+  description: true,
+  imageUrl: true,
+  date: true,
+  endDate: true,
+  time: true,
+  location: true,
+  category: true,
+  organizer: true,
+  organizerId: true,
+  maxAttendees: true,
+  isPublished: true,
+  isCancelled: true,
+  createdAt: true,
+  updatedAt: true,
+};
+
 export async function GET(request) {
-    try {
-        const { profile } = await getAuthenticatedUser();
-        const requestedUniversityId = request.nextUrl.searchParams.get('universityId') ?? undefined;
-        const universityId = profile.role === 'ADMIN' && requestedUniversityId
-            ? requestedUniversityId
-            : profile.universityId ?? undefined;
-        const payload = eventQuerySchema.parse({
-            category: request.nextUrl.searchParams.get('category') ?? undefined,
-            search: request.nextUrl.searchParams.get('search') ?? undefined,
-            upcoming: request.nextUrl.searchParams.get('upcoming') === null
-                ? undefined
-                : request.nextUrl.searchParams.get('upcoming') === 'true',
-            page: request.nextUrl.searchParams.get('page') ?? undefined,
-            limit: request.nextUrl.searchParams.get('limit') ?? undefined,
-        });
-        const where = {
-            ...(universityId ? { universityId } : {}),
-            ...(payload.category ? { category: payload.category } : {}),
-            ...(payload.search
-                ? {
-                    OR: [
-                        { title: { contains: payload.search, mode: 'insensitive' } },
-                        { description: { contains: payload.search, mode: 'insensitive' } },
-                    ],
-                }
-                : {}),
-            ...(payload.upcoming ? { date: { gte: new Date() } } : {}),
-            isPublished: true,
-        };
-        const [events, total] = await Promise.all([
-            prisma.event.findMany({
-                where,
-                include: {
-                    _count: { select: { interests: true } },
-                    interests: {
-                        where: { userId: profile.id },
-                        select: { id: true },
-                    },
-                },
-                orderBy: { date: 'asc' },
-                skip: (payload.page - 1) * payload.limit,
-                take: payload.limit,
-            }),
-            prisma.event.count({ where }),
-        ]);
-        const items = events.map((event) => ({
-            ...event,
-            interestedCount: event._count.interests,
-            isInterested: event.interests.length > 0,
-        }));
-        return successResponse({
-            items,
-            page: payload.page,
-            limit: payload.limit,
-            total,
-            hasMore: payload.page * payload.limit < total,
-        });
-    }
-    catch (error) {
-        return handleApiError(error);
-    }
+  try {
+    const { profile } = await getAuthenticatedUser({
+      includePreferences: true,
+    });
+    const payload = eventQuerySchema.parse({
+      category: request.nextUrl.searchParams.get('category') ?? undefined,
+      search: request.nextUrl.searchParams.get('search') ?? undefined,
+      upcoming:
+        request.nextUrl.searchParams.get('upcoming') === null
+          ? undefined
+          : request.nextUrl.searchParams.get('upcoming') === 'true',
+      page: request.nextUrl.searchParams.get('page') ?? undefined,
+      limit: request.nextUrl.searchParams.get('limit') ?? undefined,
+    });
+
+    return successResponse(
+      await getEventsCatalogData(profile, {
+        ...payload,
+        requestedUniversityId: request.nextUrl.searchParams.get('universityId') ?? undefined,
+        includeMeta: request.nextUrl.searchParams.get('includeMeta') === 'true',
+        includeCancelled: request.nextUrl.searchParams.get('includeCancelled') === 'true',
+      }),
+    );
+  } catch (error) {
+    return handleApiError(error);
+  }
 }
+
 export async function POST(request) {
+  try {
+    const { profile } = await getAuthenticatedUser({
+      includeManagedBuildings: true,
+    });
+    if (profile.role !== 'FACULTY' && profile.role !== 'ADMIN') {
+      throw new ApiError(403, 'Faculty access required');
+    }
+
+    const payload = createEventSchema.parse(await request.json());
+    let building = null;
+    if (payload.buildingId) {
+      if (!canManageBuilding(profile, payload.buildingId)) {
+        throw new ApiError(403, 'You do not manage that building');
+      }
+      building = await prisma.campusBuilding.findFirst({
+        where: {
+          id: payload.buildingId,
+          ...(profile.universityId ? { universityId: profile.universityId } : {}),
+        },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+        },
+      });
+      if (!building) {
+        throw new ApiError(404, 'Building not found');
+      }
+    }
+
+    const startsAt = combineEventDateTime(payload.date, payload.time);
+    if (!startsAt) {
+      throw new ApiError(400, 'Unable to parse the event date and time.');
+    }
+
+    const nextEventData = {
+      universityId: profile.universityId,
+      buildingId: building?.id ?? null,
+      title: payload.title,
+      description: payload.description,
+      date: startsAt,
+      time: formatEventTimeLabel(payload.time),
+      location: payload.location || (building ? `${building.name} · ${building.address}` : payload.location),
+      category: payload.category,
+      organizer: profile.displayName,
+      organizerId: profile.id,
+      maxAttendees: payload.maxAttendees,
+      tags: [payload.category],
+    };
+
+    let event;
     try {
-        const { profile } = await getAuthenticatedUser({
-            includeManagedBuildings: true,
-        });
-        if (profile.role !== 'FACULTY' && profile.role !== 'ADMIN') {
-            throw new ApiError(403, 'Faculty access required');
-        }
-        const payload = createEventSchema.parse(await request.json());
-        let building = null;
-        if (payload.buildingId) {
-            if (!canManageBuilding(profile, payload.buildingId)) {
-                throw new ApiError(403, 'You do not manage that building');
-            }
-            building = await prisma.campusBuilding.findFirst({
-                where: {
-                    id: payload.buildingId,
-                    ...(profile.universityId ? { universityId: profile.universityId } : {}),
-                },
-                select: {
-                    id: true,
-                    name: true,
-                    address: true,
-                },
-            });
-            if (!building) {
-                throw new ApiError(404, 'Building not found');
-            }
-        }
-        const event = await prisma.event.create({
-            data: {
-                universityId: profile.universityId,
-                buildingId: building?.id ?? null,
-                title: payload.title,
-                description: payload.description,
-                date: new Date(`${payload.date}T00:00:00`),
-                time: formatTimeLabel(payload.time),
-                location: payload.location || (building ? `${building.name} · ${building.address}` : payload.location),
-                category: payload.category,
-                organizer: profile.displayName,
-                organizerId: profile.id,
-                maxAttendees: payload.maxAttendees,
+      event = await prisma.event.create({
+        data: nextEventData,
+        select: eventWriteSelect,
+      });
+    } catch (error) {
+      if (!isPrismaSchemaCompatibilityError(error)) {
+        throw error;
+      }
+      const { tags, ...legacyEventData } = nextEventData;
+      event = await prisma.event.create({
+        data: legacyEventData,
+        select: eventWriteSelect,
+      });
+    }
+
+    let notifiedCount = 0;
+    const faculty = await prisma.faculty.findUnique({
+      where: { userId: profile.id },
+      select: { id: true },
+    });
+    if (faculty) {
+      const subscribers = await prisma.facultyFavorite.findMany({
+        where: {
+          facultyId: faculty.id,
+          user: {
+            role: 'STUDENT',
+            notificationPreferences: {
+              is: {
+                newEvents: true,
+              },
             },
+          },
+        },
+        select: {
+          userId: true,
+        },
+      });
+      if (subscribers.length > 0) {
+        await prisma.notification.createMany({
+          data: subscribers.map((subscriber) => ({
+            userId: subscriber.userId,
+            type: 'NEW_EVENT',
+            title: `${profile.displayName} created a new event`,
+            message: `${event.title} | ${event.time} | ${event.location}`,
+            actionUrl: `/events/${event.id}`,
+            actionLabel: 'View event',
+          })),
         });
-        let notifiedCount = 0;
-        const faculty = await prisma.faculty.findUnique({
-            where: { userId: profile.id },
-            select: { id: true },
-        });
-        if (faculty) {
-            const subscribers = await prisma.facultyFavorite.findMany({
-                where: {
-                    facultyId: faculty.id,
-                    user: {
-                        role: 'STUDENT',
-                        notificationPreferences: {
-                            is: {
-                                newEvents: true,
-                            },
-                        },
-                    },
-                },
-                select: {
-                    userId: true,
-                },
-            });
-            if (subscribers.length > 0) {
-                await prisma.notification.createMany({
-                    data: subscribers.map((subscriber) => ({
-                        userId: subscriber.userId,
-                        type: 'NEW_EVENT',
-                        title: `${profile.displayName} created a new event`,
-                        message: `${event.title} | ${event.time} | ${event.location}`,
-                        actionUrl: `/events/${event.id}`,
-                        actionLabel: 'View event',
-                    })),
-                });
-            }
-            notifiedCount = subscribers.length;
-        }
-        return successResponse({ ...event, notifiedCount }, 201);
+      }
+      notifiedCount = subscribers.length;
     }
-    catch (error) {
-        return handleApiError(error);
-    }
+
+    return successResponse({ ...event, notifiedCount }, 201);
+  } catch (error) {
+    return handleApiError(error);
+  }
 }

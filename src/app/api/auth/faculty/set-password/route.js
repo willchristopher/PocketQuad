@@ -1,6 +1,8 @@
 import { assertRateLimit, withRateLimitHeaders } from '@/lib/api/rateLimit';
 import { prisma } from '@/lib/prisma';
 import { ApiError, handleApiError, successResponse } from '@/lib/api/utils';
+import { createRoleHintToken, setRoleHintCookie } from '@/lib/auth/roleHint';
+import { getHomeForRole } from '@/lib/auth/routing';
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server';
 import { facultySetPasswordSchema } from '@/lib/validations/auth';
 export const runtime = 'nodejs';
@@ -41,15 +43,37 @@ export async function POST(request) {
         if (updateError) {
             throw new ApiError(400, updateError.message || 'Unable to set password for this account');
         }
-        await prisma.user.update({
+        const profile = await prisma.user.update({
             where: { id: facultyUser.id },
             data: {
                 supabaseId: currentUser.user.id,
                 emailVerified: true,
                 lastLogin: new Date(),
             },
+            select: {
+                id: true,
+                universityId: true,
+                email: true,
+                displayName: true,
+                firstName: true,
+                lastName: true,
+                avatar: true,
+                role: true,
+                emailVerified: true,
+                onboardingComplete: true,
+                canPublishCampusAnnouncements: true,
+                adminAccessLevel: true,
+                portalPermissions: true,
+            },
         });
-        return withRateLimitHeaders(successResponse({ success: true }), rateLimit);
+        const response = successResponse({
+            profile,
+            needsOnboarding: !profile.onboardingComplete,
+            destination: getHomeForRole(profile),
+        });
+        const roleHintToken = await createRoleHintToken(currentUser.user.id, profile.role);
+        setRoleHintCookie(response, roleHintToken);
+        return withRateLimitHeaders(response, rateLimit);
     }
     catch (error) {
         return handleApiError(error);

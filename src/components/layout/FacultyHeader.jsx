@@ -5,7 +5,6 @@ import { Menu } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 import {
-  getCurrentDateLabel,
   getNextThemeMode,
   getThemeModeLabel,
   renderThemeModeIcon,
@@ -28,18 +27,16 @@ function getFacultyPageMeta(pathname) {
 
 export function FacultyHeader() {
   const pathname = usePathname();
-  const { themeMode, setThemeMode, universityColors, universityName } = useUniversityTheme();
+  const { themeMode, setThemeMode, universityName } = useUniversityTheme();
   const [mounted, setMounted] = React.useState(false);
   const page = getFacultyPageMeta(pathname);
-  const dateLabel = React.useMemo(() => getCurrentDateLabel(), []);
-
   React.useEffect(() => setMounted(true), []);
 
   const cycleTheme = () => {
-    setThemeMode(getNextThemeMode(themeMode, universityColors));
+    setThemeMode(getNextThemeMode(themeMode));
   };
 
-  const themeLabel = getThemeModeLabel({ mounted, themeMode, universityName });
+  const themeLabel = getThemeModeLabel({ mounted, themeMode });
 
   return (
     <header className="shell-header sticky top-0 z-30 px-4 py-4 sm:px-6 lg:px-8">
@@ -60,14 +57,11 @@ export function FacultyHeader() {
           </Sheet>
 
           <div className="min-w-0">
-            <p className="poster-label">{universityName ?? 'PocketQuad campus brief'}</p>
+            <p className="text-sm font-medium text-muted-foreground">{universityName ?? 'Murray State University'}</p>
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2 md:gap-3">
               <h1 className="truncate font-display text-[1.9rem] text-foreground sm:text-[2.15rem]">
                 {page.title}
               </h1>
-              <span className="hidden rounded-full border border-border/70 bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground md:inline-flex">
-                {dateLabel}
-              </span>
             </div>
           </div>
         </div>

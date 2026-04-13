@@ -1,5 +1,4 @@
 import { assertRateLimit, withRateLimitHeaders } from '@/lib/api/rateLimit';
-import { attachDashboardModules } from '@/lib/dashboardPreferences';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedUser, handleApiError, successResponse } from '@/lib/api/utils';
 import { updateProfileSchema } from '@/lib/validations';
@@ -8,29 +7,19 @@ export async function GET() {
         const { profile } = await getAuthenticatedUser({
             includePreferences: true,
             includeUniversity: true,
+            includeManagedClubs: true,
         });
-        const fullProfile = await prisma.user.findUnique({
-            where: { id: profile.id },
-            include: {
-                notificationPreferences: true,
-                university: {
-                    select: { id: true, name: true, domain: true, disabledStudentPages: true },
-                },
-                managedClubs: {
-                    select: {
-                        clubId: true,
-                        club: {
-                            select: {
-                                id: true,
-                                universityId: true,
-                                name: true,
-                            },
-                        },
-                    },
-                },
+        const unreadNotificationCount = await prisma.notification.count({
+            where: {
+                userId: profile.id,
+                read: false,
+                clearedAt: null,
             },
         });
-        return successResponse(await attachDashboardModules(fullProfile));
+        return successResponse({
+            ...profile,
+            unreadNotificationCount,
+        });
     }
     catch (error) {
         return handleApiError(error);

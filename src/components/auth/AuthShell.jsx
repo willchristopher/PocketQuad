@@ -9,11 +9,8 @@ export function AppBrand({ href = '/login', align = 'center', }) {
         <Image src="/transparentlogo.png" alt="PocketQuad logo" width={36} height={36} className="rounded-xl" priority/>
       </div>
       <div>
-        <p className="font-display text-3xl leading-none text-foreground">
-          Pocket<span className="gradient-text">Quad</span>
-        </p>
-        <p className="mt-1 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          Campus Hub
+        <p className="font-display text-3xl leading-none tracking-tight text-foreground">
+          PocketQuad
         </p>
       </div>
     </Link>);
@@ -49,16 +46,16 @@ export function AuthCard({ badge, title, description, children, footer, classNam
       </div>
     </section>);
 }
-export function AuthField({ label, error, hint, children, className, labelClassName, errorClassName, }) {
+export function AuthField({ label, error, hint, children, className, labelClassName, errorClassName, htmlFor, }) {
     return (<div className={cn('space-y-2', className)}>
       <div className="flex items-center justify-between gap-3">
-        <label className={cn('text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground', labelClassName)}>
+        <label htmlFor={htmlFor} className={cn('text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground', labelClassName)}>
           {label}
         </label>
         {hint}
       </div>
       {children}
-      {error ? <p className={cn('text-xs font-medium text-red-600 dark:text-red-400', errorClassName)}>{error}</p> : null}
+      {error ? <p role="alert" className={cn('text-xs font-medium text-red-600 dark:text-red-400', errorClassName)}>{error}</p> : null}
     </div>);
 }
 const fieldShellVariants = cva('group flex min-h-14 items-center gap-3 rounded-xl border border-border/70 bg-background px-4 shadow-sm transition-[border-color,box-shadow,background-color] duration-200 hover:border-primary/15 focus-within:border-primary/30 focus-within:bg-card focus-within:shadow-md focus-within:ring-2 focus-within:ring-primary/10', {

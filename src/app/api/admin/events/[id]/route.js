@@ -1,6 +1,29 @@
 import { prisma } from '@/lib/prisma';
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse } from '@/lib/api/utils';
 import { adminEventUpdateSchema } from '@/lib/validations/admin';
+const adminEventSelect = {
+    id: true,
+    universityId: true,
+    buildingId: true,
+    title: true,
+    description: true,
+    imageUrl: true,
+    date: true,
+    endDate: true,
+    time: true,
+    location: true,
+    category: true,
+    organizer: true,
+    organizerId: true,
+    maxAttendees: true,
+    isPublished: true,
+    isCancelled: true,
+    createdAt: true,
+    updatedAt: true,
+    university: {
+        select: { id: true, name: true, slug: true },
+    },
+};
 export async function PATCH(request, context) {
     try {
         await getAuthenticatedAdmin('ADMIN_TAB_EVENTS');
@@ -18,11 +41,7 @@ export async function PATCH(request, context) {
         const updated = await prisma.event.update({
             where: { id },
             data: payload,
-            include: {
-                university: {
-                    select: { id: true, name: true, slug: true },
-                },
-            },
+            select: adminEventSelect,
         });
         return successResponse(updated);
     }

@@ -2,7 +2,6 @@
 import React from 'react';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/lib/auth/context';
-import { apiRequest } from '@/lib/api/client';
 const UniversityThemeContext = React.createContext(undefined);
 const THEME_STORAGE_KEY = 'pocketquad-theme-mode';
 const UNI_COLORS_STORAGE_KEY = 'pocketquad-uni-colors';
@@ -176,7 +175,15 @@ export function UniversityThemeProvider({ children }) {
     const { setTheme: setNextTheme } = useTheme();
     const { profile } = useAuth();
     const profileId = profile?.id ?? null;
-    const universityId = profile?.universityId;
+    const liveUniversityColors = React.useMemo(() => {
+        if (!profile?.university?.themeMainColor || !profile?.university?.themeAccentColor) {
+            return null;
+        }
+        return {
+            mainColor: profile.university.themeMainColor,
+            accentColor: profile.university.themeAccentColor,
+        };
+    }, [profile?.university?.themeAccentColor, profile?.university?.themeMainColor]);
     const [themeMode, setThemeModeState] = React.useState('system');
     const [universityColors, setUniversityColors] = React.useState(null);
     const [universityName, setUniversityName] = React.useState(null);
@@ -195,48 +202,41 @@ export function UniversityThemeProvider({ children }) {
         const storedTheme = localStorage.getItem(getScopedStorageKey(THEME_STORAGE_KEY, profileId));
         const storedName = localStorage.getItem(getScopedStorageKey(UNI_NAME_STORAGE_KEY, profileId));
         setThemeModeState(storedTheme ?? profile?.notificationPreferences?.theme ?? 'system');
-        setUniversityName(storedName);
+        setUniversityName(profile?.university?.name ?? storedName);
         try {
             const cachedColors = localStorage.getItem(getScopedStorageKey(UNI_COLORS_STORAGE_KEY, profileId));
-            setUniversityColors(cachedColors ? JSON.parse(cachedColors) : null);
+            setUniversityColors(liveUniversityColors ?? (cachedColors ? JSON.parse(cachedColors) : null));
         }
         catch {
-            setUniversityColors(null);
+            setUniversityColors(liveUniversityColors);
         }
-    }, [profileId, profile?.notificationPreferences?.theme]);
-    // Fetch university colors
+    }, [liveUniversityColors, profile?.notificationPreferences?.theme, profile?.university?.name, profileId]);
     React.useEffect(() => {
         if (typeof window === 'undefined')
             return;
         if (!profileId) {
             return;
         }
-        if (!universityId) {
+        if (!profile?.universityId) {
             setUniversityColors(null);
             setUniversityName(null);
             localStorage.removeItem(getScopedStorageKey(UNI_COLORS_STORAGE_KEY, profileId));
             localStorage.removeItem(getScopedStorageKey(UNI_NAME_STORAGE_KEY, profileId));
             return;
         }
-        apiRequest(`/api/universities/${universityId}/theme`)
-            .then((data) => {
-            if (data.themeMainColor && data.themeAccentColor) {
-                const colors = { mainColor: data.themeMainColor, accentColor: data.themeAccentColor };
-                setUniversityColors(colors);
-                localStorage.setItem(getScopedStorageKey(UNI_COLORS_STORAGE_KEY, profileId), JSON.stringify(colors));
-            }
-            else {
-                setUniversityColors(null);
-                localStorage.removeItem(getScopedStorageKey(UNI_COLORS_STORAGE_KEY, profileId));
-            }
-            setUniversityName(data.name);
-            localStorage.setItem(getScopedStorageKey(UNI_NAME_STORAGE_KEY, profileId), data.name);
-        })
-            .catch(() => {
-            // If fetch fails, use cached colors
-        });
-    }, [profileId, universityId]);
-    // Apply the theme whenever mode or colors change
+        if (liveUniversityColors) {
+            setUniversityColors(liveUniversityColors);
+            localStorage.setItem(getScopedStorageKey(UNI_COLORS_STORAGE_KEY, profileId), JSON.stringify(liveUniversityColors));
+        }
+        else {
+            setUniversityColors(null);
+            localStorage.removeItem(getScopedStorageKey(UNI_COLORS_STORAGE_KEY, profileId));
+        }
+        if (profile?.university?.name) {
+            setUniversityName(profile.university.name);
+            localStorage.setItem(getScopedStorageKey(UNI_NAME_STORAGE_KEY, profileId), profile.university.name);
+        }
+    }, [liveUniversityColors, profile?.university?.name, profile?.universityId, profileId]);
     React.useEffect(() => {
         if (themeMode === 'university' && universityColors) {
             setNextTheme('light');
@@ -246,7 +246,7 @@ export function UniversityThemeProvider({ children }) {
             removeUniversityColors();
             setNextTheme(themeMode === 'university' ? 'system' : themeMode);
         }
-    }, [themeMode, universityColors, setNextTheme]);
+    }, [setNextTheme, themeMode, universityColors]);
     const setThemeMode = React.useCallback((mode) => {
         setThemeModeState(mode);
         if (profileId) {

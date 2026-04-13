@@ -8,6 +8,7 @@ import {
   MapPin,
   MessageCircle,
   CircleUser,
+  Ticket,
   Users,
 } from 'lucide-react'
 
@@ -28,16 +29,16 @@ const baseStudentNavigationSections = [
   {
     title: 'Campus',
     items: [
-      { icon: Users, label: 'Faculty', href: '/faculty-directory', pageKey: 'faculty-directory' },
-      { icon: Calendar, label: 'Events', href: '/events', pageKey: 'events' },
-      { icon: MapPin, label: 'Map & Services', href: '/campus-map', pageKey: 'campus-map' },
+      { icon: Users, label: 'Faculty Directory', href: '/faculty-directory', pageKey: 'faculty-directory' },
+      { icon: Ticket, label: 'Events', href: '/events', pageKey: 'events' },
+      { icon: MapPin, label: 'Campus Map', href: '/campus-map', pageKey: 'campus-map' },
       { icon: ExternalLink, label: 'Resources', href: '/links-directory', pageKey: 'links-directory' },
     ],
   },
   {
     title: 'Community',
     items: [
-      { icon: MessageCircle, label: 'Chat', href: '/chatroom', pageKey: 'chatroom' },
+      { icon: MessageCircle, label: 'Campus Chat', href: '/chatroom', pageKey: 'chatroom' },
       { icon: Flag, label: 'Clubs', href: '/clubs', pageKey: 'clubs' },
     ],
   },
@@ -49,18 +50,18 @@ const baseStudentSecondaryNavigationItems = [
 ]
 
 const baseStudentMobileNavigationItems = [
-  { icon: LayoutGrid, label: 'Home', href: '/dashboard', pageKey: 'dashboard' },
-  { icon: Calendar, label: 'Events', href: '/events', pageKey: 'events' },
-  { icon: MessageCircle, label: 'Chat', href: '/chatroom', pageKey: 'chatroom' },
+  { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard', pageKey: 'dashboard' },
+  { icon: Ticket, label: 'Events', href: '/events', pageKey: 'events' },
+  { icon: MessageCircle, label: 'Campus Chat', href: '/chatroom', pageKey: 'chatroom' },
   { icon: CircleUser, label: 'Profile', href: '/profile', pageKey: 'profile' },
 ]
 
 const baseStudentCommandNavigationItems = [
   { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard', pageKey: 'dashboard' },
-  { icon: Calendar, label: 'Events', href: '/events', pageKey: 'events' },
-  { icon: Users, label: 'Faculty', href: '/faculty-directory', pageKey: 'faculty-directory' },
-  { icon: MessageCircle, label: 'Chat', href: '/chatroom', pageKey: 'chatroom' },
-  { icon: MapPin, label: 'Map & Services', href: '/campus-map', pageKey: 'campus-map' },
+  { icon: Ticket, label: 'Events', href: '/events', pageKey: 'events' },
+  { icon: Users, label: 'Faculty Directory', href: '/faculty-directory', pageKey: 'faculty-directory' },
+  { icon: MessageCircle, label: 'Campus Chat', href: '/chatroom', pageKey: 'chatroom' },
+  { icon: MapPin, label: 'Campus Map', href: '/campus-map', pageKey: 'campus-map' },
   { icon: ExternalLink, label: 'Resources', href: '/links-directory', pageKey: 'links-directory' },
   { icon: BellRing, label: 'Notifications', href: '/notifications', pageKey: 'notifications' },
   { icon: CircleUser, label: 'Profile', href: '/profile', pageKey: 'profile' },
@@ -109,8 +110,8 @@ const studentPageMeta = {
     description: 'Join conversations, ask questions, and stay close to student activity.',
   },
   clubs: {
-    title: 'Clubs',
-    description: 'Explore the organizations and communities shaping campus life.',
+    title: 'Clubhouse',
+    description: 'Discover campus organizations, build your circle, and branch into new communities.',
   },
   dashboard: {
     title: 'Dashboard',

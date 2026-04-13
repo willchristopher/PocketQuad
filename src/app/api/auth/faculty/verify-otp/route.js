@@ -1,6 +1,7 @@
 import { assertRateLimit, withRateLimitHeaders } from '@/lib/api/rateLimit';
 import { prisma } from '@/lib/prisma';
 import { ApiError, handleApiError, successResponse } from '@/lib/api/utils';
+import { assertDormantAccountMatch } from '@/lib/auth/dormantAccounts';
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server';
 import { facultyVerifyOtpSchema } from '@/lib/validations/auth';
 export const runtime = 'nodejs';
@@ -27,6 +28,11 @@ export async function POST(request) {
         if (!facultyUser) {
             throw new ApiError(404, 'No faculty account was found for this email. Contact your university administrator.');
         }
+        await assertDormantAccountMatch({
+            email: payload.email,
+            requestedRole: 'FACULTY',
+            dormantAccountId: payload.dormantAccountId,
+        });
         const supabase = await createSupabaseRouteHandlerClient();
         const { data, error } = await supabase.auth.verifyOtp({
             email: payload.email,

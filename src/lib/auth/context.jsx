@@ -4,10 +4,10 @@ import { apiRequest } from '@/lib/api/client';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { hasSupabasePublicEnv } from '@/lib/supabase/config';
 const AuthContext = React.createContext(undefined);
-export function AuthProvider({ children }) {
-    const [user, setUser] = React.useState(null);
-    const [profile, setProfile] = React.useState(null);
-    const [loading, setLoading] = React.useState(true);
+export function AuthProvider({ children, initialSnapshot = null }) {
+    const [user, setUser] = React.useState(initialSnapshot?.user ?? null);
+    const [profile, setProfile] = React.useState(initialSnapshot?.profile ?? null);
+    const [loading, setLoading] = React.useState(false);
     const mountedRef = React.useRef(true);
     const syncRequestIdRef = React.useRef(0);
     const fetchSession = React.useCallback(async (options) => {
@@ -39,17 +39,21 @@ export function AuthProvider({ children }) {
     }, []);
     React.useEffect(() => {
         mountedRef.current = true;
-        const bootstrap = async () => {
-            await fetchSession({ showLoader: true });
-        };
-        void bootstrap();
         if (!hasSupabasePublicEnv()) {
             return () => {
                 mountedRef.current = false;
             };
         }
         const supabase = createSupabaseBrowserClient();
-        const { data } = supabase.auth.onAuthStateChange(() => {
+        const { data } = supabase.auth.onAuthStateChange((event) => {
+            if (event === 'SIGNED_OUT') {
+                if (mountedRef.current) {
+                    setUser(null);
+                    setProfile(null);
+                    setLoading(false);
+                }
+                return;
+            }
             void fetchSession({ showLoader: true });
         });
         return () => {
@@ -60,6 +64,7 @@ export function AuthProvider({ children }) {
     const refreshProfile = React.useCallback(async () => {
         const nextProfile = await apiRequest('/api/users/me');
         setProfile(nextProfile);
+        return nextProfile;
     }, []);
     const refreshSession = React.useCallback(async () => fetchSession({ showLoader: true }), [fetchSession]);
     const signOut = React.useCallback(async () => {

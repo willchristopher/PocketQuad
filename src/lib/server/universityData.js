@@ -13,7 +13,7 @@ export const UNIVERSITY_DATA_TAGS = {
     theme: 'university-theme',
 };
 export const ALL_UNIVERSITY_DATA_TAGS = Object.values(UNIVERSITY_DATA_TAGS);
-const UNIVERSITY_DATA_TTL_SECONDS = 30;
+const UNIVERSITY_DATA_TTL_SECONDS = 600;
 function normalizeSearchValue(value) {
     return value?.trim().toLowerCase() ?? '';
 }

@@ -3,13 +3,6 @@ import React from 'react';
 import { MapPin, Clock, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-const categoryColors = {
-    Entertainment: 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
-    Academic: 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
-    Career: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-    Sports: 'bg-orange-500/15 text-orange-700 dark:text-orange-300',
-    Social: 'bg-pink-500/15 text-pink-700 dark:text-pink-300',
-};
 export function EventList({ events, compact }) {
     if (events.length === 0) {
         return (<div className="text-center py-8 text-muted-foreground text-sm">
@@ -30,15 +23,15 @@ export function EventList({ events, compact }) {
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className={cn("pill-btn text-[10px] font-bold", categoryColors[event.category] || 'bg-muted')}>
-                    {event.category}
+                  <span className="pill-btn text-[10px] font-bold bg-muted text-muted-foreground">
+                    {event.sourceLabel ?? event.activityLabel ?? 'Campus event'}
                   </span>
                 </div>
                 <h3 className={cn("font-display font-bold group-hover:text-primary transition-colors line-clamp-1 mt-0.5", compact ? "text-xs" : "text-sm")}>{event.title}</h3>
                 {!compact && (<p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{event.description}</p>)}
                 <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground">
                   <span className="flex items-center gap-0.5"><Clock className="w-3 h-3"/>{event.time}</span>
-                  <span className="flex items-center gap-0.5"><MapPin className="w-3 h-3"/>{event.location}</span>
+                  <span className="flex items-center gap-0.5"><MapPin className="w-3 h-3"/>{event.location ?? 'Location TBA'}</span>
                 </div>
               </div>
 

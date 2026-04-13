@@ -56,8 +56,15 @@ function useNotificationSync(userId, onChange) {
 
 export function useUnreadNotificationCount() {
   const { profile } = useAuth()
-  const [unreadCount, setUnreadCount] = React.useState(0)
-  const [loading, setLoading] = React.useState(true)
+  const initialCount = profile?.unreadNotificationCount ?? 0
+  const hasHydratedUnreadCount = typeof profile?.unreadNotificationCount === 'number'
+  const [unreadCount, setUnreadCount] = React.useState(initialCount)
+  const [loading, setLoading] = React.useState(profile?.id ? !hasHydratedUnreadCount : false)
+
+  React.useEffect(() => {
+    setUnreadCount(profile?.unreadNotificationCount ?? 0)
+    setLoading(profile?.id ? typeof profile?.unreadNotificationCount !== 'number' : false)
+  }, [profile?.id, profile?.unreadNotificationCount])
 
   const refresh = React.useCallback(async () => {
     if (!profile?.id) {
@@ -77,8 +84,12 @@ export function useUnreadNotificationCount() {
   }, [profile?.id])
 
   React.useEffect(() => {
+    if (!profile?.id || hasHydratedUnreadCount) {
+      return
+    }
+
     void refresh()
-  }, [refresh])
+  }, [hasHydratedUnreadCount, profile?.id, refresh])
 
   useNotificationSubscription(profile?.id, refresh)
   useNotificationSync(profile?.id, refresh)
@@ -90,11 +101,11 @@ export function useUnreadNotificationCount() {
   }
 }
 
-export function useNotificationInbox({ limit = 20 } = {}) {
+export function useNotificationInbox({ limit = 20, initialData = null } = {}) {
   const { profile } = useAuth()
-  const [notifications, setNotifications] = React.useState([])
-  const [unreadCount, setUnreadCount] = React.useState(0)
-  const [loading, setLoading] = React.useState(true)
+  const [notifications, setNotifications] = React.useState(initialData?.items ?? [])
+  const [unreadCount, setUnreadCount] = React.useState(initialData?.unreadCount ?? profile?.unreadNotificationCount ?? 0)
+  const [loading, setLoading] = React.useState(initialData ? false : true)
   const [refreshing, setRefreshing] = React.useState(false)
   const [error, setError] = React.useState(null)
   const [updatingId, setUpdatingId] = React.useState(null)
@@ -119,13 +130,9 @@ export function useNotificationInbox({ limit = 20 } = {}) {
     setError(null)
 
     try {
-      const [itemsResult, countResult] = await Promise.all([
-        apiRequest(`/api/notifications?limit=${limit}`),
-        apiRequest('/api/notifications?unread=true&countOnly=true'),
-      ])
-
+      const itemsResult = await apiRequest(`/api/notifications?limit=${limit}`)
       setNotifications(itemsResult.items)
-      setUnreadCount(countResult.count)
+      setUnreadCount(itemsResult.unreadCount ?? 0)
     } catch (loadError) {
       setNotifications([])
       setUnreadCount(0)
@@ -137,8 +144,13 @@ export function useNotificationInbox({ limit = 20 } = {}) {
   }, [limit, profile?.id])
 
   React.useEffect(() => {
+    if (initialData) {
+      return undefined
+    }
+
     void refresh()
-  }, [refresh])
+    return undefined
+  }, [initialData, refresh])
 
   useNotificationSubscription(profile?.id, React.useCallback(async () => {
     await refresh({ silent: true })

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse, } from '@/lib/api/utils';
+import { getAccountStatus } from '@/lib/auth/dormantAccounts';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { adminUserUpdateSchema } from '@/lib/validations/admin';
 function isOwnerAccount(profile) {
@@ -78,6 +79,7 @@ export async function PATCH(request, context) {
                 displayName: true,
                 role: true,
                 adminAccessLevel: true,
+                portalPermissions: true,
                 major: true,
                 department: true,
                 year: true,
@@ -101,7 +103,10 @@ export async function PATCH(request, context) {
                 console.error('Supabase auth metadata sync failed after user update:', error.message);
             }
         }
-        return successResponse(updated);
+        return successResponse({
+            ...updated,
+            accountStatus: getAccountStatus(updated),
+        });
     }
     catch (error) {
         return handleApiError(error);

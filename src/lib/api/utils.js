@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
-import { attachDashboardModules } from '@/lib/dashboardPreferences';
 import { prisma } from '@/lib/prisma';
 import { canAccessAdminPortal, hasAnyPortalPermission, hasPortalPermission, resolvePortalPermissions, } from '@/lib/auth/portalPermissions';
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server';
@@ -18,38 +17,6 @@ export class ApiError extends Error {
         this.headers = headers;
     }
 }
-async function ensureFacultyProfile(profile) {
-    if (profile.role !== 'FACULTY') {
-        return;
-    }
-    const normalizedDisplayName = profile.displayName.trim();
-    const fallbackName = `${profile.firstName} ${profile.lastName}`.trim();
-    const name = normalizedDisplayName || fallbackName || profile.email;
-    await prisma.faculty.upsert({
-        where: {
-            userId: profile.id,
-        },
-        update: {
-            email: profile.email,
-            universityId: profile.universityId,
-            name,
-            department: profile.department ?? 'General',
-            tags: profile.facultyRoleTags,
-        },
-        create: {
-            userId: profile.id,
-            universityId: profile.universityId,
-            name,
-            title: 'Faculty Member',
-            department: profile.department ?? 'General',
-            email: profile.email,
-            officeLocation: 'TBD',
-            officeHours: 'TBD',
-            courses: [],
-            tags: profile.facultyRoleTags,
-        },
-    });
-}
 const BASE_PROFILE_SELECT = {
     id: true,
     supabaseId: true,
@@ -63,9 +30,12 @@ const BASE_PROFILE_SELECT = {
     emailVerified: true,
     canPublishCampusAnnouncements: true,
     adminAccessLevel: true,
+    major: true,
     portalPermissions: true,
     facultyRoleTags: true,
     department: true,
+    year: true,
+    onboardingComplete: true,
 };
 /**
  * @param {{
@@ -109,6 +79,7 @@ export async function getAuthenticatedUser(options = {}) {
                             buildingAlerts: true,
                             buildingIds: true,
                             clubInterestIds: true,
+                            dashboardModules: true,
                         },
                     },
                 }
@@ -121,6 +92,8 @@ export async function getAuthenticatedUser(options = {}) {
                             name: true,
                             domain: true,
                             disabledStudentPages: true,
+                            themeMainColor: true,
+                            themeAccentColor: true,
                         },
                     },
                 }
@@ -159,21 +132,13 @@ export async function getAuthenticatedUser(options = {}) {
                 : {}),
         },
     });
-    const profileWithDashboardModules = await attachDashboardModules(profile);
-    if (!profileWithDashboardModules) {
+    if (!profile) {
         throw new ApiError(404, 'User profile not found');
     }
-    if (!profileWithDashboardModules.supabaseId) {
-        await prisma.user.update({
-            where: { id: profileWithDashboardModules.id },
-            data: { supabaseId: data.user.id },
-        });
-    }
-    if (!options.allowUnverified && !profileWithDashboardModules.emailVerified) {
+    if (!options.allowUnverified && !profile.emailVerified) {
         throw new ApiError(403, 'Email verification required');
     }
-    await ensureFacultyProfile(profileWithDashboardModules);
-    return { supabaseUser: data.user, profile: profileWithDashboardModules };
+    return { supabaseUser: data.user, profile };
 }
 export async function getAuthenticatedAdmin(requiredPermission) {
     return getAuthenticatedPortalUser(requiredPermission);

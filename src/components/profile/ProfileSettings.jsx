@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import Link from 'next/link';
-import { Check, ChevronDown, GraduationCap, LayoutGrid, Mail, Moon, Monitor, Palette, Pencil, Sun } from 'lucide-react';
+import { Check, ChevronDown, GraduationCap, LayoutGrid, Mail, Moon, Monitor, Pencil, Sun } from 'lucide-react';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth/context';
 import { useStudentPageVisibility } from '@/hooks/useStudentPageVisibility';
@@ -15,7 +15,6 @@ const defaultPreferences = {
     newEvents: true,
     eventReminders: true,
     deadlineReminders: true,
-    emailDigest: true,
     pushEnabled: false,
     buildingAlerts: false,
     buildingIds: [],
@@ -27,7 +26,6 @@ const preferenceLabels = [
     { key: 'newEvents', label: 'Faculty Event Alerts' },
     { key: 'eventReminders', label: 'Event Reminders' },
     { key: 'deadlineReminders', label: 'Deadline Reminders' },
-    { key: 'emailDigest', label: 'Email Digest' },
     { key: 'pushEnabled', label: 'Push Notifications' },
     { key: 'buildingAlerts', label: 'Building Alerts' },
 ];
@@ -224,7 +222,7 @@ export function ProfileSettings() {
       </section>
 
       <section className="panel-card overflow-hidden rounded-xl animate-in-up stagger-1">
-        <button type="button" onClick={() => toggleSection('details')} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/60">
+        <button type="button" aria-expanded={openSections.details} onClick={() => toggleSection('details')} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/60">
           <div>
             <h2 className="text-base font-bold">Profile Details</h2>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -246,16 +244,16 @@ export function ProfileSettings() {
             </div>
 
             <div className="max-w-md">
-              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  <label htmlFor="profile-display-name" className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Name
               </label>
-              <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} disabled={!editingProfile || savingProfile} variant="soft"/>
+              <Input id="profile-display-name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} disabled={!editingProfile || savingProfile} variant="soft"/>
             </div>
           </div>)}
       </section>
 
       <section className="panel-card overflow-hidden rounded-xl animate-in-up stagger-2">
-        <button type="button" onClick={() => toggleSection('notifications')} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/60">
+        <button type="button" aria-expanded={openSections.notifications} onClick={() => toggleSection('notifications')} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/60">
           <div>
             <h2 className="text-base font-bold">Notification Preferences</h2>
             <p className="mt-1 text-xs text-muted-foreground">These settings are saved to your account.</p>
@@ -264,9 +262,9 @@ export function ProfileSettings() {
         </button>
 
         {openSections.notifications && (<div className="divide-y divide-border/40 border-t border-border/60">
-            {preferenceLabels.map((item, index) => (<button key={item.key} onClick={() => void handlePreferenceToggle(item.key)} className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-muted/50 animate-in-up" style={{ animationDelay: `${0.03 * (index + 1)}s` }} disabled={savingPrefs}>
+            {preferenceLabels.map((item, index) => (<button key={item.key} role="switch" aria-checked={!!preferences[item.key]} onClick={() => void handlePreferenceToggle(item.key)} className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-muted/50 animate-in-up" style={{ animationDelay: `${0.03 * (index + 1)}s` }} disabled={savingPrefs}>
                 <span className="text-sm font-medium">{item.label}</span>
-                <span className={cn('inline-flex h-6 w-11 items-center rounded-full p-1 transition-colors', preferences[item.key] ? 'bg-primary' : 'bg-muted')}>
+                <span aria-hidden="true" className={cn('inline-flex h-6 w-11 items-center rounded-full p-1 transition-colors', preferences[item.key] ? 'bg-primary' : 'bg-muted')}>
                   <span className={cn('h-4 w-4 rounded-full bg-white transition-transform', preferences[item.key] ? 'translate-x-5' : 'translate-x-0')}/>
                 </span>
               </button>))}
@@ -292,7 +290,7 @@ export function ProfileSettings() {
       </section>
 
       <section className="panel-card overflow-hidden rounded-xl animate-in-up stagger-3">
-        <button type="button" onClick={() => toggleSection('dashboard')} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/60">
+        <button type="button" aria-expanded={openSections.dashboard} onClick={() => toggleSection('dashboard')} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/60">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <LayoutGrid className="h-4 w-4 text-primary"/>
@@ -318,7 +316,7 @@ export function ProfileSettings() {
             <div className="grid gap-2 sm:grid-cols-2">
               {dashboardModuleConfig.map((module) => {
                 const enabled = dashboardPreferences[module.id];
-                return (<button key={module.id} type="button" onClick={() => void handleDashboardModuleToggle(module.id)} disabled={savingDashboardPrefs} className={cn('min-h-11 rounded-lg border px-4 py-3.5 text-left transition-colors disabled:opacity-60', enabled
+                return (<button key={module.id} type="button" aria-pressed={enabled} onClick={() => void handleDashboardModuleToggle(module.id)} disabled={savingDashboardPrefs} className={cn('min-h-11 rounded-lg border px-4 py-3.5 text-left transition-colors disabled:opacity-60', enabled
                         ? 'border-primary/35 bg-secondary text-foreground'
                         : 'border-border/60 bg-card text-muted-foreground hover:bg-muted')}>
                     <p className="text-sm font-semibold">{module.label}</p>
@@ -333,7 +331,7 @@ export function ProfileSettings() {
     </div>);
 }
 function ThemeSelector({ open, onToggle, }) {
-    const { themeMode, setThemeMode, universityName, universityColors } = useUniversityTheme();
+    const { themeMode, setThemeMode } = useUniversityTheme();
     const themeOptions = [
         {
             id: 'light',
@@ -354,52 +352,34 @@ function ThemeSelector({ open, onToggle, }) {
             icon: <Monitor className="h-5 w-5"/>,
         },
     ];
-    const hasUniversityColors = !!(universityColors?.mainColor && universityColors?.accentColor);
-    if (hasUniversityColors) {
-        themeOptions.push({
-            id: 'university',
-            label: universityName ? `${universityName} Colors` : 'University Colors',
-            description: 'Custom colors set by your admin',
-            icon: <Palette className="h-5 w-5"/>,
-        });
-    }
     return (<section className="panel-card overflow-hidden rounded-xl animate-in-up stagger-4">
-      <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/60">
+      <button type="button" aria-expanded={open} onClick={onToggle} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/60">
         <div>
           <h2 className="text-base font-bold">Appearance</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             Choose how PocketQuad looks for you. Your preference is saved across sessions.
           </p>
         </div>
-        <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')}/>
+        <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} aria-hidden="true"/>
       </button>
 
-      {open && (<>
+      {open && (
           <div className="grid grid-cols-2 gap-3 border-t border-border/60 p-4">
-            {themeOptions.map((option) => (<button key={option.id} onClick={() => setThemeMode(option.id)} className={cn('flex min-h-11 flex-col items-center gap-2 rounded-lg border p-4 text-center transition-colors hover:bg-card/55', themeMode === option.id
+            {themeOptions.map((option) => (<button key={option.id} type="button" aria-pressed={themeMode === option.id} onClick={() => setThemeMode(option.id)} className={cn('flex min-h-11 flex-col items-center gap-2 rounded-lg border p-4 text-center transition-colors hover:bg-card/55', themeMode === option.id
                     ? 'border-primary/35 bg-secondary ring-1 ring-primary/20'
                     : 'border-border/60 bg-card')}>
-                <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg transition-colors', themeMode === option.id ? 'bg-card text-primary' : 'bg-muted text-muted-foreground')}>
+                <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg transition-colors', themeMode === option.id ? 'bg-card text-primary' : 'bg-muted text-muted-foreground')} aria-hidden="true">
                   {option.icon}
                 </div>
                 <div>
                   <p className="text-sm font-semibold">{option.label}</p>
                   <p className="text-[11px] text-muted-foreground">{option.description}</p>
                 </div>
-                {themeMode === option.id && (<div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary">
+                {themeMode === option.id && (<div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary" aria-hidden="true">
                     <Check className="h-3 w-3 text-primary-foreground"/>
                   </div>)}
               </button>))}
           </div>
-
-          {hasUniversityColors && (<div className="border-t border-border/60 px-5 py-3">
-              <p className="text-xs text-muted-foreground">
-                University colors:{' '}
-                <span className="inline-block h-3 w-3 rounded-full border border-border/60 align-middle" style={{ backgroundColor: universityColors.mainColor }}/>{' '}
-                <span className="inline-block h-3 w-3 rounded-full border border-border/60 align-middle" style={{ backgroundColor: universityColors.accentColor }}/>{' '}
-                set by your admin.
-              </p>
-            </div>)}
-        </>)}
+      )}
     </section>);
 }

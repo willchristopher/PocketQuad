@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse } from '@/lib/api/utils';
+import { getAccountStatus } from '@/lib/auth/dormantAccounts';
 import { invalidateUniversityData, UNIVERSITY_DATA_TAGS } from '@/lib/server/universityData';
 import { adminFacultyUpdateSchema } from '@/lib/validations/admin';
 function splitName(name) {
@@ -95,6 +96,10 @@ export async function PATCH(request, context) {
                             id: true,
                             email: true,
                             role: true,
+                            lastLogin: true,
+                            onboardingComplete: true,
+                            adminAccessLevel: true,
+                            portalPermissions: true,
                             canPublishCampusAnnouncements: true,
                             managesAllClubs: true,
                             facultyRoleTags: true,
@@ -119,7 +124,15 @@ export async function PATCH(request, context) {
             });
         });
         invalidateUniversityData(UNIVERSITY_DATA_TAGS.faculty);
-        return successResponse(updated);
+        return successResponse({
+            ...updated,
+            user: updated.user
+                ? {
+                    ...updated.user,
+                    accountStatus: getAccountStatus(updated.user),
+                }
+                : null,
+        });
     }
     catch (error) {
         return handleApiError(error);

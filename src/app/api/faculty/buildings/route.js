@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { getActiveAnnouncementWhere, purgeExpiredAnnouncements } from '@/lib/server/announcements';
+import { getFacultyBuildingsData } from '@/lib/server/facultyWorkspace';
 import { facultyBuildingManagerSchema } from '@/lib/validations';
 import { ApiError, getAuthenticatedUser, handleApiError, successResponse, } from '@/lib/api/utils';
 export async function GET() {
@@ -16,102 +16,7 @@ export async function GET() {
                 managedBuildings: [],
             });
         }
-        const now = new Date();
-        const managedIds = new Set((profile.managedBuildings ?? []).map((assignment) => assignment.buildingId));
-        await purgeExpiredAnnouncements(profile.universityId);
-        const buildings = await prisma.campusBuilding.findMany({
-            where: {
-                universityId: profile.universityId,
-            },
-            select: {
-                id: true,
-                name: true,
-                type: true,
-                address: true,
-                operatingHours: true,
-                operationalStatus: true,
-                operationalNote: true,
-                operationalUpdatedAt: true,
-                accessibilityNotes: true,
-            },
-            orderBy: { name: 'asc' },
-        });
-        const buildingIds = buildings.map((building) => building.id);
-        const [announcements, events] = buildingIds.length
-            ? await Promise.all([
-                prisma.announcement.findMany({
-                    where: {
-                        universityId: profile.universityId,
-                        scope: 'BUILDING',
-                        buildingId: { in: buildingIds },
-                        ...getActiveAnnouncementWhere(now),
-                    },
-                    select: {
-                        id: true,
-                        buildingId: true,
-                        title: true,
-                        message: true,
-                        linkUrl: true,
-                        createdAt: true,
-                        expiresAt: true,
-                    },
-                    orderBy: { createdAt: 'desc' },
-                    take: 60,
-                }),
-                prisma.event.findMany({
-                    where: {
-                        universityId: profile.universityId,
-                        buildingId: { in: buildingIds },
-                        isPublished: true,
-                        isCancelled: false,
-                        date: { gte: now },
-                    },
-                    select: {
-                        id: true,
-                        buildingId: true,
-                        title: true,
-                        description: true,
-                        date: true,
-                        time: true,
-                        location: true,
-                        category: true,
-                        maxAttendees: true,
-                    },
-                    orderBy: { date: 'asc' },
-                    take: 60,
-                }),
-            ])
-            : [[], []];
-        const announcementsByBuilding = new Map();
-        for (const item of announcements) {
-            if (!item.buildingId)
-                continue;
-            const current = announcementsByBuilding.get(item.buildingId) ?? [];
-            if (current.length < 3) {
-                current.push(item);
-                announcementsByBuilding.set(item.buildingId, current);
-            }
-        }
-        const eventsByBuilding = new Map();
-        for (const item of events) {
-            if (!item.buildingId)
-                continue;
-            const current = eventsByBuilding.get(item.buildingId) ?? [];
-            if (current.length < 3) {
-                current.push(item);
-                eventsByBuilding.set(item.buildingId, current);
-            }
-        }
-        const allBuildings = buildings.map((building) => ({
-            ...building,
-            isManaged: managedIds.has(building.id),
-            announcements: announcementsByBuilding.get(building.id) ?? [],
-            upcomingEvents: eventsByBuilding.get(building.id) ?? [],
-        }));
-        return successResponse({
-            availableBuildings: allBuildings,
-            managedBuildings: allBuildings.filter((building) => building.isManaged),
-        });
+        return successResponse(await getFacultyBuildingsData(profile));
     }
     catch (error) {
         return handleApiError(error);

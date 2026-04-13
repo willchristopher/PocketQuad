@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, Check, Clock, Heart, MapPin, Monitor, Moon, Palette, Sparkles, Sun, Users, X, } from 'lucide-react';
+import { Building2, Check, Clock, Heart, MapPin, Monitor, Moon, Palette, Sparkles, Sun, Users, X } from 'lucide-react';
 import { ChoiceTile, DayChip, OnboardingShell, SearchField, SelectionRow, StatusPill, StepCard, StepFooter, StepHeader, StepToggle, } from '@/components/onboarding/OnboardingShell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input';
 import { apiRequest } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth/context';
 import { getHomeForRole } from '@/lib/auth/routing';
-import { useUniversityTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const THEME_OPTIONS = [
@@ -30,12 +29,6 @@ const THEME_OPTIONS = [
         label: 'System',
         description: 'Follow your device preference automatically.',
         icon: <Monitor className="h-5 w-5"/>,
-    },
-    {
-        value: 'university',
-        label: 'University',
-        description: 'Use your school colors when available.',
-        icon: <Palette className="h-5 w-5"/>,
     },
 ];
 export default function OnboardingPage() {
@@ -150,9 +143,9 @@ export default function OnboardingPage() {
         router.refresh();
     };
     if (loading || !profile) {
-        return (<div className="flex min-h-screen items-center justify-center bg-background">
+        return (<div role="status" aria-label="Loading" className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent"/>
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-hidden="true"/>
           <p className="text-sm text-muted-foreground">Preparing your setup...</p>
         </div>
       </div>);
@@ -173,28 +166,34 @@ function WelcomeStep({ name, role }) {
     const highlights = role === 'FACULTY'
         ? [
             {
+                icon: <Clock className="h-4 w-4"/>,
                 title: 'Set office hours',
                 description: 'Publish your weekly availability so students know where to find you.',
             },
             {
+                icon: <Sparkles className="h-4 w-4"/>,
                 title: 'Use campus tools',
                 description: 'Access faculty workflows, updates, and resource links from one place.',
             },
             {
+                icon: <Palette className="h-4 w-4"/>,
                 title: 'Keep your theme',
-                description: 'Choose a look that fits your day, including university colors as an option.',
+                description: 'Choose a look that fits your day — light, dark, or match your device.',
             },
         ]
         : [
             {
+                icon: <Heart className="h-4 w-4"/>,
                 title: 'Follow faculty',
                 description: 'Keep your most relevant professors easy to find as the term gets busy.',
             },
             {
+                icon: <Building2 className="h-4 w-4"/>,
                 title: 'Track important places',
                 description: 'Watch key buildings and get closure alerts when campus operations change.',
             },
             {
+                icon: <Users className="h-4 w-4"/>,
                 title: 'Personalize the app',
                 description: 'Choose clubs and a visual theme so PocketQuad feels tailored from day one.',
             },
@@ -204,10 +203,20 @@ function WelcomeStep({ name, role }) {
             ? 'We will get your faculty profile ready in a couple of quick steps.'
             : 'We will tune PocketQuad to the people, places, and communities you care about most.'}/>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        {highlights.map((highlight) => (<div key={highlight.title} className="rounded-xl border border-border/70 bg-card/80 p-5 shadow-sm">
-            <Badge variant="subtle">{highlight.title}</Badge>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">{highlight.description}</p>
+      <div className="space-y-3">
+        {highlights.map((highlight, index) => (<div key={highlight.title} className="flex items-start gap-4 rounded-2xl border border-border/70 bg-card/85 px-4 py-4 shadow-sm">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-msu-blue text-white shadow-sm">
+              {highlight.icon}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-msu-gold">
+                0{index + 1}
+              </p>
+              <h3 className="mt-1 font-display text-[1.15rem] leading-tight text-foreground">
+                {highlight.title}
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">{highlight.description}</p>
+            </div>
           </div>))}
       </div>
     </div>);
@@ -277,22 +286,13 @@ function ClubsStep({ clubs, selected, onToggle, searchQuery, onSearch, }) {
     </div>);
 }
 function ThemeStep({ selected, onSelect, }) {
-    const { universityColors, universityName } = useUniversityTheme();
     return (<div className="space-y-5">
       <StepHeader badge="Appearance" icon={<Palette className="h-5 w-5"/>} title="Choose your visual theme" description="Pick the presentation you want to use by default. You can always change this later in settings."/>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {THEME_OPTIONS.map((theme) => {
-            const isUniversity = theme.value === 'university';
-            const detail = isUniversity && universityColors ? (<span className="inline-flex items-center gap-2">
-              <span className="inline-flex items-center gap-1">
-                <span className="h-3 w-3 rounded-full border border-border/70" style={{ backgroundColor: universityColors.mainColor }}/>
-                <span className="h-3 w-3 rounded-full border border-border/70" style={{ backgroundColor: universityColors.accentColor }}/>
-              </span>
-              {universityName ? `${universityName} colors` : 'School palette ready'}
-            </span>) : isUniversity ? ('Uses your university palette when your school has configured one.') : undefined;
-            return (<ChoiceTile key={theme.value} selected={selected === theme.value} onClick={() => onSelect(theme.value)} icon={theme.icon} title={theme.label} description={theme.description} detail={detail}/>);
-        })}
+        {THEME_OPTIONS.map((theme) => (
+            <ChoiceTile key={theme.value} selected={selected === theme.value} onClick={() => onSelect(theme.value)} icon={theme.icon} title={theme.label} description={theme.description}/>
+        ))}
       </div>
     </div>);
 }
@@ -328,23 +328,23 @@ function OfficeHoursStep({ officeHours, onChange, }) {
                   <Badge variant="section">{DAYS[slot.dayOfWeek]}</Badge>
                   <StatusPill variant="granted">{slot.mode.replace('_', ' ')}</StatusPill>
                 </div>
-                <Button type="button" variant="ghost" size="sm" onClick={() => removeSlot(index)} className="text-muted-foreground hover:text-red-500">
-                  <X className="h-4 w-4"/>
+                <Button type="button" variant="ghost" size="sm" onClick={() => removeSlot(index)} className="text-muted-foreground hover:text-red-500" aria-label={`Remove ${DAYS[slot.dayOfWeek]} office hours`}>
+                  <X className="h-4 w-4" aria-hidden="true"/>
                 </Button>
               </div>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <Input type="time" value={slot.startTime} onChange={(event) => updateSlot(index, 'startTime', event.target.value)} variant="soft" inputSize="lg" className="[color-scheme:light] dark:[color-scheme:dark]"/>
-                <Input type="time" value={slot.endTime} onChange={(event) => updateSlot(index, 'endTime', event.target.value)} variant="soft" inputSize="lg" className="[color-scheme:light] dark:[color-scheme:dark]"/>
+                <Input type="time" aria-label="Start time" value={slot.startTime} onChange={(event) => updateSlot(index, 'startTime', event.target.value)} variant="soft" inputSize="lg" className="[color-scheme:light] dark:[color-scheme:dark]"/>
+                <Input type="time" aria-label="End time" value={slot.endTime} onChange={(event) => updateSlot(index, 'endTime', event.target.value)} variant="soft" inputSize="lg" className="[color-scheme:light] dark:[color-scheme:dark]"/>
               </div>
 
               <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
                 <div className="relative">
-                  <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"/>
-                  <Input type="text" value={slot.location} onChange={(event) => updateSlot(index, 'location', event.target.value)} placeholder="Location (optional)" variant="soft" inputSize="lg" className="pl-11"/>
+                  <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true"/>
+                  <Input type="text" aria-label="Office location" value={slot.location} onChange={(event) => updateSlot(index, 'location', event.target.value)} placeholder="Location (optional)" variant="soft" inputSize="lg" className="pl-11"/>
                 </div>
 
-                <select value={slot.mode} onChange={(event) => updateSlot(index, 'mode', event.target.value)} className="h-12 rounded-xl border border-border/70 bg-background/90 px-4 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-200 hover:border-primary/15 focus:border-primary/30 focus:ring-2 focus:ring-primary/10">
+                <select aria-label="Meeting mode" value={slot.mode} onChange={(event) => updateSlot(index, 'mode', event.target.value)} className="h-12 rounded-xl border border-border/70 bg-background/90 px-4 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-200 hover:border-primary/15 focus:border-primary/30 focus:ring-2 focus:ring-primary/10">
                   <option value="IN_PERSON">In Person</option>
                   <option value="VIRTUAL">Virtual</option>
                   <option value="HYBRID">Hybrid</option>

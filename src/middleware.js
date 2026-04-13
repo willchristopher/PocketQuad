@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createRoleHintToken, ROLE_HINT_COOKIE_NAME, setRoleHintCookie, verifyRoleHintToken, } from '@/lib/auth/roleHint';
-import { canAccessAdminPortal, } from '@/lib/auth/portalPermissions';
+import { ROLE_HINT_COOKIE_NAME, verifyRoleHintToken, } from '@/lib/auth/roleHint';
 import { createSupabaseMiddlewareClient, hasSupabaseEnv } from '@/lib/supabase/server';
 const PUBLIC_ROUTES = new Set([
     '/',
@@ -48,12 +47,6 @@ function redirectToLogin(request) {
     url.searchParams.set('redirect', request.nextUrl.pathname + request.nextUrl.search);
     return NextResponse.redirect(url);
 }
-function redirectToVerifyEmail(request) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/verify-email';
-    url.searchParams.set('redirect', request.nextUrl.pathname + request.nextUrl.search);
-    return NextResponse.redirect(url);
-}
 function redirectAuthenticatedUser(request, role) {
     const url = request.nextUrl.clone();
     if (role === 'ADMIN') {
@@ -67,12 +60,6 @@ function redirectAuthenticatedUser(request, role) {
     }
     return NextResponse.redirect(url);
 }
-function withRoleHint(response, roleHintToken) {
-    if (roleHintToken) {
-        setRoleHintCookie(response, roleHintToken);
-    }
-    return response;
-}
 function parseTestingRole(value) {
     if (!value)
         return null;
@@ -83,19 +70,6 @@ function parseTestingRole(value) {
     if (value === 'student')
         return 'STUDENT';
     return null;
-}
-async function fetchMiddlewareProfile(request) {
-    const endpoint = new URL('/api/auth/middleware-profile', request.url);
-    const cookie = request.headers.get('cookie');
-    const profileResponse = await fetch(endpoint, {
-        method: 'GET',
-        headers: cookie ? { cookie } : undefined,
-        cache: 'no-store',
-    });
-    if (!profileResponse.ok)
-        return null;
-    const payload = (await profileResponse.json());
-    return payload.data ?? null;
 }
 export async function middleware(request) {
     const pathname = request.nextUrl.pathname;
@@ -150,59 +124,14 @@ export async function middleware(request) {
             }
             return response;
         }
-        let role = 'STUDENT';
-        let roleHintToken = null;
         const hintedRole = await verifyRoleHintToken(request.cookies.get(ROLE_HINT_COOKIE_NAME)?.value, user.id);
-        let adminAccessLevel = null;
-        let portalPermissions = [];
-        let canPublishCampusAnnouncements = false;
-        if (hintedRole) {
-            role = hintedRole;
-        }
-        const dbUser = await fetchMiddlewareProfile(request);
-        if (dbUser?.role) {
-            role = dbUser.role;
-            adminAccessLevel = dbUser.adminAccessLevel;
-            portalPermissions = dbUser.portalPermissions;
-            canPublishCampusAnnouncements = dbUser.canPublishCampusAnnouncements;
-            if (!hintedRole || hintedRole !== role) {
-                roleHintToken = await createRoleHintToken(user.id, role);
-            }
-        }
-        const canAccessAdmin = canAccessAdminPortal({
-            role,
-            adminAccessLevel,
-            portalPermissions,
-            canPublishCampusAnnouncements,
-        });
-        if (dbUser && !dbUser.emailVerified && (needsAuth || authRoute)) {
-            return withRoleHint(redirectToVerifyEmail(request), roleHintToken);
+        if (!hintedRole && authRoute) {
+            return response;
         }
         if (authRoute) {
-            const redirectRole = canAccessAdmin ? 'ADMIN' : role;
-            return withRoleHint(redirectAuthenticatedUser(request, redirectRole), roleHintToken);
+            return redirectAuthenticatedUser(request, hintedRole);
         }
-        if (isFacultyRoute(pathname) && role !== 'FACULTY' && role !== 'ADMIN') {
-            const url = request.nextUrl.clone();
-            url.pathname = '/dashboard';
-            return withRoleHint(NextResponse.redirect(url), roleHintToken);
-        }
-        if (isAdminRoute(pathname) && !canAccessAdmin) {
-            const url = request.nextUrl.clone();
-            url.pathname = role === 'FACULTY' ? '/faculty/dashboard' : '/dashboard';
-            return withRoleHint(NextResponse.redirect(url), roleHintToken);
-        }
-        if (isStudentRoute(pathname) && role === 'FACULTY') {
-            const url = request.nextUrl.clone();
-            url.pathname = '/faculty/dashboard';
-            return withRoleHint(NextResponse.redirect(url), roleHintToken);
-        }
-        if (isStudentRoute(pathname) && role === 'ADMIN' && canAccessAdmin) {
-            const url = request.nextUrl.clone();
-            url.pathname = '/admin';
-            return withRoleHint(NextResponse.redirect(url), roleHintToken);
-        }
-        return withRoleHint(response, roleHintToken);
+        return response;
     }
     catch (error) {
         console.error('Middleware auth check failed:', error);

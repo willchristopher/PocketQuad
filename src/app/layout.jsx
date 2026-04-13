@@ -1,5 +1,6 @@
 import "./globals.css";
 import { Providers } from "./providers";
+import { getServerAuthSnapshot } from '@/lib/auth/snapshot';
 export const metadata = {
     title: "PocketQuad | Campus Hub",
     description: "Intelligent university campus hub application.",
@@ -17,10 +18,11 @@ export const viewport = {
     initialScale: 1,
     maximumScale: 1,
 };
-export default function RootLayout({ children, }) {
+export default async function RootLayout({ children, }) {
+    const initialAuthSnapshot = await getServerAuthSnapshot();
     return (<html lang="en" suppressHydrationWarning>
       <body className="font-body antialiased bg-background text-foreground">
-        <Providers>
+        <Providers initialAuthSnapshot={initialAuthSnapshot}>
            {children}
         </Providers>
       </body>

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse } from '@/lib/api/utils';
+import { invalidateUniversityData, UNIVERSITY_DATA_TAGS } from '@/lib/server/universityData';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 function isOwnerAccount(profile) {
     return (profile.adminAccessLevel === 'OWNER' ||
@@ -28,9 +29,6 @@ export async function DELETE(_request, context) {
         if (!isOwner && existing.universityId !== profile.universityId) {
             throw new ApiError(403, 'You can only remove faculty signup emails for your own university');
         }
-        if (existing.facultyProfile) {
-            throw new ApiError(409, 'This faculty email is already linked to a faculty profile and cannot be removed here');
-        }
         await prisma.user.delete({
             where: { id },
         });
@@ -38,6 +36,7 @@ export async function DELETE(_request, context) {
             const supabaseAdmin = createSupabaseAdminClient();
             await supabaseAdmin.auth.admin.deleteUser(existing.supabaseId).catch(() => undefined);
         }
+        invalidateUniversityData(UNIVERSITY_DATA_TAGS.faculty);
         return successResponse({ deleted: true });
     }
     catch (error) {

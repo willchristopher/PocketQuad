@@ -4,12 +4,24 @@ import { useRouter } from 'next/navigation';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, } from '@/components/ui/command';
 import { useStudentPageVisibility } from '@/hooks/useStudentPageVisibility';
 import { getStudentCommandNavigationItems } from '@/components/layout/studentNavigation';
-export function CommandPalette() {
-    const [open, setOpen] = React.useState(false);
+
+export function CommandPalette({ open: controlledOpen, defaultOpen = false, onOpenChange, listenForShortcut = true }) {
+    const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen);
     const router = useRouter();
     const { disabledStudentPages } = useStudentPageVisibility();
     const studentCommandNavigationItems = React.useMemo(() => getStudentCommandNavigationItems(disabledStudentPages), [disabledStudentPages]);
+    const open = controlledOpen ?? uncontrolledOpen;
+    const setOpen = React.useCallback((nextValue) => {
+        const resolvedValue = typeof nextValue === 'function' ? nextValue(open) : nextValue;
+        if (typeof controlledOpen === 'undefined') {
+            setUncontrolledOpen(resolvedValue);
+        }
+        onOpenChange?.(resolvedValue);
+    }, [controlledOpen, onOpenChange, open]);
     React.useEffect(() => {
+        if (!listenForShortcut) {
+            return undefined;
+        }
         const down = (event) => {
             if (event.key === 'k' && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();
@@ -18,11 +30,11 @@ export function CommandPalette() {
         };
         document.addEventListener('keydown', down);
         return () => document.removeEventListener('keydown', down);
-    }, []);
+    }, [listenForShortcut, setOpen]);
     const navigate = React.useCallback((href) => {
         setOpen(false);
         router.push(href);
-    }, [router]);
+    }, [router, setOpen]);
     return (<CommandDialog open={open} onOpenChange={setOpen}>
       <CommandInput placeholder="Search pages"/>
       <CommandList>

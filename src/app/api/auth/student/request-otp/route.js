@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { assertRateLimit, withRateLimitHeaders } from '@/lib/api/rateLimit';
 import { prisma } from '@/lib/prisma';
 import { ApiError, handleApiError, successResponse } from '@/lib/api/utils';
+import { ACTIVE_ACCOUNT_STATUS, assertDormantAccountMatch, getAccountStatus, isDormantUserRecord } from '@/lib/auth/dormantAccounts';
 import { createSupabaseAdminClient, createSupabaseRouteHandlerClient, } from '@/lib/supabase/server';
 import { extractEmailDomain } from '@/lib/university';
 import { studentRequestOtpSchema } from '@/lib/validations/auth';
@@ -49,17 +50,29 @@ export async function POST(request) {
         if (!matchedUniversity) {
             throw new ApiError(400, 'This email domain is not linked to a registered university in PocketQuad.');
         }
+        const dormantAccount = await assertDormantAccountMatch({
+            email,
+            requestedRole: 'STUDENT',
+            dormantAccountId: payload.dormantAccountId,
+        });
         const existingUser = await prisma.user.findUnique({
             where: { email },
-            select: { id: true },
+            select: {
+                id: true,
+                role: true,
+                lastLogin: true,
+                onboardingComplete: true,
+                adminAccessLevel: true,
+                portalPermissions: true,
+            },
         });
-        if (existingUser) {
+        if (existingUser && !isDormantUserRecord(existingUser)) {
             throw new ApiError(409, 'Email is already registered');
         }
         await ensureSupabaseStudentAuthUser({
             email,
-            firstName: payload.firstName,
-            lastName: payload.lastName,
+            firstName: dormantAccount?.firstName ?? payload.firstName,
+            lastName: dormantAccount?.lastName ?? payload.lastName,
         });
         const supabase = await createSupabaseRouteHandlerClient();
         const { error } = await supabase.auth.signInWithOtp({
@@ -75,6 +88,7 @@ export async function POST(request) {
             sent: true,
             universityId: matchedUniversity.id,
             universityName: matchedUniversity.name,
+            accountStatus: dormantAccount ? getAccountStatus(dormantAccount) : ACTIVE_ACCOUNT_STATUS,
         }), rateLimit);
     }
     catch (error) {

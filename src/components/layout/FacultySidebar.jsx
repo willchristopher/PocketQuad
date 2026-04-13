@@ -56,7 +56,7 @@ function FacultySidebarContent() {
             ) : null}
           </div>
           {!sidebarCollapsed ? (
-            <p className="mt-4 text-xs uppercase tracking-[0.18em] text-muted-foreground">{universityName ?? 'Campus tools'}</p>
+            <p className="mt-4 text-sm font-medium text-muted-foreground">{universityName ?? 'Murray State University'}</p>
           ) : null}
         </Link>
 

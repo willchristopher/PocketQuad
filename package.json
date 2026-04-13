@@ -6,6 +6,7 @@
     "dev": "next dev",
     "launch": "bash ./scripts/launch.sh",
     "stop-local": "bash ./scripts/stop.sh",
+    "import:faculty-contacts": "node scripts/import-dormant-faculty-contacts.mjs",
     "build": "prisma generate && prisma migrate deploy && next build",
     "postinstall": "prisma generate",
     "start": "next start",

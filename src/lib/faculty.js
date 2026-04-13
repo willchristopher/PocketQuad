@@ -1,5 +1,6 @@
 export const FACULTY_AVAILABILITY_STATES = ['AVAILABLE', 'LIMITED', 'AWAY'];
 const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const IMPORTED_DIRECTORY_AVAILABILITY_NOTE = 'imported directory contact. contact via email for current availability.';
 function formatTo12Hour(time24) {
     const [hoursRaw, minutes] = time24.split(':').map(Number);
     const isPm = hoursRaw >= 12;
@@ -33,6 +34,13 @@ export function formatFacultyAvailability(status, note) {
         return details ? `Limited availability: ${details}` : 'Limited availability';
     }
     return details ? `Available: ${details}` : 'Available';
+}
+function sanitizeStudentAvailabilityNote(note) {
+    const details = note?.trim();
+    if (!details) {
+        return '';
+    }
+    return details.toLowerCase() === IMPORTED_DIRECTORY_AVAILABILITY_NOTE ? '' : details;
 }
 export function parseLegacyFacultyAvailability(officeHours) {
     const value = officeHours?.trim() ?? '';
@@ -124,15 +132,16 @@ export function isWithinOfficeHours(slots, now = new Date()) {
         currentMinutes < toMinutes(slot.endTime)));
 }
 export function getStudentFacingFacultyAvailability(status, note, slots, now = new Date()) {
+    const studentFacingNote = sanitizeStudentAvailabilityNote(note);
     if (status === 'AWAY') {
         return {
-            label: formatFacultyAvailability(status, note),
+            label: formatFacultyAvailability(status, studentFacingNote),
             state: status,
         };
     }
     if (status === 'LIMITED') {
         return {
-            label: formatFacultyAvailability(status, note),
+            label: formatFacultyAvailability(status, studentFacingNote),
             state: status,
         };
     }
@@ -144,7 +153,7 @@ export function getStudentFacingFacultyAvailability(status, note, slots, now = n
     }
     if (isWithinOfficeHours(slots, now)) {
         return {
-            label: formatFacultyAvailability(status, note),
+            label: formatFacultyAvailability(status, studentFacingNote),
             state: status,
         };
     }

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse, } from '@/lib/api/utils';
+import { getAccountStatus } from '@/lib/auth/dormantAccounts';
 function isOwnerAccount(profile) {
     return (profile.adminAccessLevel === 'OWNER' ||
         (profile.role === 'ADMIN' && profile.adminAccessLevel == null));
@@ -57,6 +58,7 @@ export async function GET(request) {
                 displayName: true,
                 role: true,
                 adminAccessLevel: true,
+                portalPermissions: true,
                 major: true,
                 department: true,
                 year: true,
@@ -68,7 +70,10 @@ export async function GET(request) {
             },
             orderBy: [{ role: 'asc' }, { lastName: 'asc' }, { firstName: 'asc' }],
         });
-        return successResponse(users);
+        return successResponse(users.map((user) => ({
+            ...user,
+            accountStatus: getAccountStatus(user),
+        })));
     }
     catch (error) {
         return handleApiError(error);

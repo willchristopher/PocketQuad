@@ -46,8 +46,6 @@ export async function listUniversityAnnouncements(universityId, take = 10) {
         return [];
     }
 
-    await purgeExpiredAnnouncements(universityId);
-
     let announcements;
     try {
         announcements = await prisma.announcement.findMany({
