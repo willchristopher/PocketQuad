@@ -276,7 +276,7 @@ export const dashboardModuleConfig = [
     { id: 'news', label: 'Notifications' },
     { id: 'services', label: 'Services' },
     { id: 'links', label: 'Quick Links' },
-    { id: 'clubs', label: 'Clubs' },
+    { id: 'clubs', label: 'Clubhouse' },
 ];
 /** @type {DashboardPreferences} */
 export const defaultDashboardPreferences = {

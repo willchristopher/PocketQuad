@@ -12,10 +12,8 @@ import {
   authPanelInputClassName,
 } from '@/components/auth/AuthExperienceLayout';
 import { AuthField, AuthFieldShell, AuthMessage } from '@/components/auth/AuthShell';
-import { Button } from '@/components/ui/button';
 import { apiRequest, ApiClientError } from '@/lib/api/client';
-import { useAuth } from '@/lib/auth/context';
-import { getHomeForRole, getSafeRedirectTarget } from '@/lib/auth/routing';
+import { getSafeRedirectTarget } from '@/lib/auth/routing';
 
 export default function LoginPage() {
   return (
@@ -34,8 +32,6 @@ function LoginForm() {
   const [error, setError] = React.useState(null);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { refreshSession } = useAuth();
-
   React.useEffect(() => {
     const rememberedEmail = window.localStorage.getItem('pocketquad:last-login-email');
 
@@ -50,7 +46,7 @@ function LoginForm() {
     setSubmitting(true);
 
     try {
-      await apiRequest('/api/auth/login', {
+      const result = await apiRequest('/api/auth/login', {
         method: 'POST',
         body: { email, password, rememberMe },
       });
@@ -61,18 +57,15 @@ function LoginForm() {
         window.localStorage.removeItem('pocketquad:last-login-email');
       }
 
-      const session = (await refreshSession()) ?? (await apiRequest('/api/auth/session'));
       const redirectTarget = getSafeRedirectTarget(searchParams.get('redirect'));
 
-      if (session.profile && !session.profile.onboardingComplete) {
+      if (result.needsOnboarding) {
         router.push('/onboarding');
-        router.refresh();
         return;
       }
 
-      const destination = redirectTarget ?? getHomeForRole(session.profile);
+      const destination = redirectTarget ?? result.destination;
       router.push(destination);
-      router.refresh();
     } catch (err) {
       const message = err instanceof ApiClientError ? err.message : 'Unable to sign in right now';
       setError(message);
@@ -82,14 +75,12 @@ function LoginForm() {
   };
 
   return (
-    <AuthExperienceLayout
-      heroLead="Classes, office hours, campus updates — connected from the moment you get in."
-      heroDescription="PocketQuad organizes campus life for Murray State students and faculty into one daily workspace."
-    >
+    <AuthExperienceLayout>
       <AuthInteractionPanel
         eyebrow="Welcome back"
         title="Sign in"
-        description="Enter your university email and password."
+        description="Enter your university email and password to get back to your campus workspace."
+        mobileCentered
         footer={
           <p>
             New here?{' '}
@@ -100,9 +91,10 @@ function LoginForm() {
         }
       >
         <form className="space-y-6" onSubmit={onSubmit}>
-          <AuthField label="Email" labelClassName="!text-white/30">
+          <AuthField label="Email" htmlFor="login-email">
             <AuthFieldShell icon={<Mail className="h-4 w-4" />} className={authPanelFieldShellClassName}>
               <input
+                id="login-email"
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
@@ -117,11 +109,11 @@ function LoginForm() {
 
           <AuthField
             label="Password"
-            labelClassName="!text-white/30"
+            htmlFor="login-password"
             hint={
               <Link
                 href="/forgot-password"
-                className="text-[11px] font-medium text-white/25 transition-colors hover:text-white/50"
+                className="text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 Forgot?
               </Link>
@@ -132,17 +124,18 @@ function LoginForm() {
               className={authPanelFieldShellClassName}
               trailing={
                 <button
-                type="button"
-                onClick={() => setShowPassword((value) => !value)}
-                className="text-white/20 transition-colors hover:text-white/50"
-                disabled={submitting}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                  disabled={submitting}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               }
             >
               <input
+                id="login-password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -162,13 +155,13 @@ function LoginForm() {
           ) : null}
 
           <div className="flex items-center justify-between">
-            <label className="inline-flex cursor-pointer items-center gap-2.5 text-[13px] text-white/25">
+            <label className="inline-flex cursor-pointer items-center gap-2.5 text-[13px] text-muted-foreground">
               <input
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(event) => setRememberMe(event.target.checked)}
                 disabled={submitting}
-                className="h-3.5 w-3.5 rounded border-white/10 bg-white/[0.04] text-msu-gold focus:ring-white/10"
+                className="h-3.5 w-3.5 rounded border-border bg-background text-msu-gold focus:ring-primary/10"
               />
               <span>Remember me</span>
             </label>
@@ -177,7 +170,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={submitting}
-            className="group flex w-full items-center justify-center gap-2.5 rounded-xl bg-msu-gold px-6 py-3.5 text-[14px] font-semibold text-msu-blue shadow-sm transition-all duration-200 hover:shadow-md active:translate-y-px disabled:cursor-not-allowed"
+            className="group flex min-h-[48px] w-full items-center justify-center gap-2.5 rounded-xl bg-msu-gold px-6 py-3.5 text-[14px] font-semibold text-msu-blue shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-px disabled:cursor-not-allowed"
           >
             {submitting ? 'Signing in\u2026' : 'Sign in'}
             {submitting ? null : <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />}

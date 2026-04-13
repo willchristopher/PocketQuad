@@ -150,25 +150,25 @@ export default function ForgotPasswordPage() {
                 </AuthMessage>
 
                 <form className="space-y-5" onSubmit={onSubmit}>
-                  <AuthField label="University Email" error={fieldErrors.email?.[0]}>
+                  <AuthField label="University Email" htmlFor="fp-email" error={fieldErrors.email?.[0]}>
                     <AuthFieldShell icon={<Mail className="h-4 w-4"/>} invalid={!!fieldErrors.email?.[0]}>
-                      <input type="email" value={email} onChange={(event) => setEmail(event.target.value.toLowerCase())} placeholder="you@university.edu" className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/60" required autoComplete="email" disabled={submitting || resendingCode || step !== 'email'}/>
+                      <input id="fp-email" type="email" value={email} onChange={(event) => setEmail(event.target.value.toLowerCase())} placeholder="you@university.edu" className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/60" required autoComplete="email" disabled={submitting || resendingCode || step !== 'email'}/>
                     </AuthFieldShell>
                   </AuthField>
 
-                  {step === 'code' ? (<AuthField label="One-Time Passcode" error={fieldErrors.code?.[0]} hint={<button type="button" onClick={resendCode} className="text-xs font-medium text-primary transition-colors hover:text-primary/80 disabled:opacity-60" disabled={submitting || resendingCode}>
+                  {step === 'code' ? (<AuthField label="One-Time Passcode" htmlFor="fp-code" error={fieldErrors.code?.[0]} hint={<button type="button" onClick={resendCode} className="text-xs font-medium text-primary transition-colors hover:text-primary/80 disabled:opacity-60" disabled={submitting || resendingCode}>
                           {resendingCode ? 'Resending...' : 'Resend code'}
                         </button>}>
                       <AuthFieldShell invalid={!!fieldErrors.code?.[0]}>
-                        <input type="text" value={otpCode} onChange={(event) => setOtpCode(event.target.value.trim())} placeholder="Enter code" className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/60" required autoComplete="one-time-code" inputMode="numeric" disabled={submitting || resendingCode}/>
+                        <input id="fp-code" type="text" value={otpCode} onChange={(event) => setOtpCode(event.target.value.trim())} placeholder="Enter code" className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/60" required autoComplete="one-time-code" inputMode="numeric" disabled={submitting || resendingCode}/>
                       </AuthFieldShell>
                     </AuthField>) : null}
 
-                  {step === 'password' ? (<AuthField label="New Password" error={fieldErrors.password?.[0]}>
+                  {step === 'password' ? (<AuthField label="New Password" htmlFor="fp-password" error={fieldErrors.password?.[0]}>
                       <AuthFieldShell icon={<Lock className="h-4 w-4"/>} invalid={!!fieldErrors.password?.[0]} trailing={<button type="button" onClick={() => setShowPassword((value) => !value)} className="text-muted-foreground transition-colors hover:text-foreground" disabled={submitting} aria-label={showPassword ? 'Hide password' : 'Show password'}>
                             {showPassword ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
                           </button>}>
-                        <input type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Min 8 chars, 1 uppercase, 1 number" className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/60" required autoComplete="new-password" disabled={submitting}/>
+                        <input id="fp-password" type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Min 8 chars, 1 uppercase, 1 number" className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/60" required autoComplete="new-password" disabled={submitting}/>
                       </AuthFieldShell>
                     </AuthField>) : null}
 

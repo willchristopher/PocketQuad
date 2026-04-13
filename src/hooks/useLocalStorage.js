@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from 'react'
+import { useCallback, useMemo, useState, useSyncExternalStore } from 'react'
 
 const LOCAL_STORAGE_CHANGE_EVENT = 'pocketquad-local-storage-change'
 const NOOP = () => {}
@@ -9,19 +9,21 @@ function resolveInitialValue(initialValue) {
 
 function readStoredValue(key, initialValue) {
   if (typeof window === 'undefined') {
-    return resolveInitialValue(initialValue)
+    return JSON.stringify(resolveInitialValue(initialValue))
   }
 
   try {
     const item = window.localStorage.getItem(key)
-    return item ? JSON.parse(item) : resolveInitialValue(initialValue)
+    return item ?? JSON.stringify(resolveInitialValue(initialValue))
   } catch (error) {
     console.log(error)
-    return resolveInitialValue(initialValue)
+    return JSON.stringify(resolveInitialValue(initialValue))
   }
 }
 
 export function useLocalStorage(key, initialValue) {
+  const [stableInitialValue] = useState(() => resolveInitialValue(initialValue))
+
   const subscribe = useCallback(
     (onStoreChange) => {
       if (typeof window === 'undefined') {
@@ -51,17 +53,29 @@ export function useLocalStorage(key, initialValue) {
     [key],
   )
 
-  const getSnapshot = useCallback(() => readStoredValue(key, initialValue), [initialValue, key])
+  const getSnapshot = useCallback(
+    () => readStoredValue(key, stableInitialValue),
+    [key, stableInitialValue],
+  )
   const storedValue = useSyncExternalStore(
     subscribe,
     getSnapshot,
-    () => resolveInitialValue(initialValue),
+    () => JSON.stringify(stableInitialValue),
   )
+
+  const parsedValue = useMemo(() => {
+    try {
+      return JSON.parse(storedValue)
+    } catch (error) {
+      console.log(error)
+      return stableInitialValue
+    }
+  }, [stableInitialValue, storedValue])
 
   const setValue = useCallback(
     (value) => {
       try {
-        const valueToStore = value instanceof Function ? value(storedValue) : value
+        const valueToStore = value instanceof Function ? value(parsedValue) : value
 
         if (typeof window !== 'undefined') {
           window.localStorage.setItem(key, JSON.stringify(valueToStore))
@@ -75,8 +89,8 @@ export function useLocalStorage(key, initialValue) {
         console.log(error)
       }
     },
-    [key, storedValue],
+    [key, parsedValue],
   )
 
-  return [storedValue, setValue]
+  return [parsedValue, setValue]
 }

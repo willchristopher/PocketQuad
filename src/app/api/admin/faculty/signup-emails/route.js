@@ -1,5 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse } from '@/lib/api/utils';
+import { getAccountStatus, isDormantUserRecord } from '@/lib/auth/dormantAccounts';
+import { ensureDormantFacultyProfiles } from '@/lib/server/dormantFaculty';
+import { invalidateUniversityData, UNIVERSITY_DATA_TAGS } from '@/lib/server/universityData';
 import { adminFacultySignupEmailCreateSchema } from '@/lib/validations/admin';
 function isOwnerAccount(profile) {
     return (profile.adminAccessLevel === 'OWNER' ||
@@ -33,7 +36,6 @@ export async function GET(request) {
         const records = await prisma.user.findMany({
             where: {
                 role: 'FACULTY',
-                facultyProfile: null,
                 ...(scopedUniversityId ? { universityId: scopedUniversityId } : {}),
             },
             select: {
@@ -44,6 +46,10 @@ export async function GET(request) {
                 lastName: true,
                 displayName: true,
                 emailVerified: true,
+                lastLogin: true,
+                onboardingComplete: true,
+                adminAccessLevel: true,
+                portalPermissions: true,
                 createdAt: true,
                 canPublishCampusAnnouncements: true,
                 managesAllClubs: true,
@@ -66,7 +72,12 @@ export async function GET(request) {
             },
             orderBy: [{ createdAt: 'desc' }],
         });
-        return successResponse(records);
+        return successResponse(records
+            .filter((record) => isDormantUserRecord(record))
+            .map((record) => ({
+            ...record,
+            accountStatus: getAccountStatus(record),
+        })));
     }
     catch (error) {
         return handleApiError(error);
@@ -126,6 +137,10 @@ export async function POST(request) {
                         lastName: true,
                         displayName: true,
                         emailVerified: true,
+                        lastLogin: true,
+                        onboardingComplete: true,
+                        adminAccessLevel: true,
+                        portalPermissions: true,
                         createdAt: true,
                         canPublishCampusAnnouncements: true,
                         managesAllClubs: true,
@@ -151,7 +166,12 @@ export async function POST(request) {
                 }
                 return user;
             });
-            return successResponse(updated);
+            await ensureDormantFacultyProfiles({ universityId: payload.universityId });
+            invalidateUniversityData(UNIVERSITY_DATA_TAGS.faculty);
+            return successResponse({
+                ...updated,
+                accountStatus: getAccountStatus(updated),
+            });
         }
         const created = await prisma.$transaction(async (tx) => {
             const user = await tx.user.create({
@@ -174,6 +194,10 @@ export async function POST(request) {
                     lastName: true,
                     displayName: true,
                     emailVerified: true,
+                    lastLogin: true,
+                    onboardingComplete: true,
+                    adminAccessLevel: true,
+                    portalPermissions: true,
                     createdAt: true,
                     canPublishCampusAnnouncements: true,
                     managesAllClubs: true,
@@ -202,7 +226,12 @@ export async function POST(request) {
             }
             return user;
         });
-        return successResponse(created, 201);
+        await ensureDormantFacultyProfiles({ universityId: payload.universityId });
+        invalidateUniversityData(UNIVERSITY_DATA_TAGS.faculty);
+        return successResponse({
+            ...created,
+            accountStatus: getAccountStatus(created),
+        }, 201);
     }
     catch (error) {
         return handleApiError(error);

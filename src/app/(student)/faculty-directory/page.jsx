@@ -172,9 +172,6 @@ export default function FacultyDirectoryPage() {
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="font-display text-2xl font-bold tracking-tight">All faculty</h2>
-              <p className="text-sm text-muted-foreground">
-                {loading ? 'Loading directory...' : `${entries.length} match${entries.length === 1 ? '' : 'es'}`}
-              </p>
             </div>
           </div>
 

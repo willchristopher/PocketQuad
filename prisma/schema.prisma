@@ -161,6 +161,7 @@ model User {
   officeHours                   OfficeHour[]
   officeHourQueueEntries        OfficeHourQueue[]           @relation("QueueStudent")
   calendarEvents                CalendarEvent[]
+  eventCalendarExports          EventCalendarExport[]
   deadlines                     Deadline[]
   aiConversations               AIConversation[]
   aiMessages                    AIMessage[]
@@ -296,6 +297,10 @@ model Event {
   id           String          @id @default(cuid())
   universityId String?         @map("university_id")
   buildingId   String?         @map("building_id")
+  externalSource String?       @map("external_source")
+  externalId   String?         @map("external_id")
+  externalUrl  String?         @map("external_url")
+  importHash   String?         @map("import_hash")
   title        String
   description  String
   imageUrl     String?         @map("image_url")
@@ -303,6 +308,7 @@ model Event {
   endDate      DateTime?       @map("end_date")
   time         String
   location     String
+  tags         String[]        @default([])
   category     EventCategory
   organizer    String
   organizerId  String?         @map("organizer_id")
@@ -314,13 +320,17 @@ model Event {
   organizerRef User?           @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: SetNull)
   building     CampusBuilding? @relation(fields: [buildingId], references: [id], onDelete: SetNull)
   interests    EventInterest[]
+  calendarEntries CalendarEvent[]
+  calendarExports EventCalendarExport[]
   university   University?     @relation(fields: [universityId], references: [id], onDelete: SetNull)
 
   @@index([universityId, date])
   @@index([universityId, isPublished, isCancelled, date])
+  @@index([externalSource, externalId])
   @@index([buildingId, date])
   @@index([date])
   @@index([category])
+  @@unique([externalSource, externalId])
   @@map("events")
 }
 
@@ -559,6 +569,7 @@ model OfficeHourQueue {
 model CalendarEvent {
   id          String            @id @default(cuid())
   userId      String            @map("user_id")
+  campusEventId String?         @map("campus_event_id")
   title       String
   description String?
   start       DateTime
@@ -568,10 +579,37 @@ model CalendarEvent {
   location    String?
   createdAt   DateTime          @default(now()) @map("created_at")
   updatedAt   DateTime          @updatedAt @map("updated_at")
+  campusEvent Event?            @relation(fields: [campusEventId], references: [id], onDelete: SetNull)
   user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, start])
+  @@index([userId, campusEventId])
   @@map("calendar_events")
+}
+
+model EventCalendarExport {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  eventId   String   @map("event_id")
+  provider  String
+  createdAt DateTime @default(now()) @map("created_at")
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId, provider])
+  @@index([eventId, provider])
+  @@map("event_calendar_exports")
+}
+
+model EventFeedSync {
+  key             String   @id
+  sourceUrl       String   @map("source_url")
+  lastAttemptedAt DateTime? @map("last_attempted_at")
+  lastSucceededAt DateTime? @map("last_succeeded_at")
+  lastError       String?  @map("last_error")
+  lastChecksum    String?  @map("last_checksum")
+
+  @@map("event_feed_syncs")
 }
 
 model Deadline {

@@ -146,6 +146,7 @@ export const createCalendarEventSchema = z.object({
     end: z.coerce.date(),
     allDay: z.boolean().default(false),
     type: z.enum(['PERSONAL', 'CAMPUS', 'OFFICE_HOURS', 'DEADLINE']),
+    campusEventId: z.string().cuid().optional(),
     location: z.string().trim().max(120).optional(),
 });
 export const createDeadlineSchema = z.object({

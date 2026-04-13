@@ -6,19 +6,12 @@ import { ApiClientError, apiRequest } from '@/lib/api/client';
 import { getStudentFacingFacultyAvailabilityTone } from '@/lib/faculty';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const toneClasses = {
     emerald: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
     amber: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
     rose: 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300',
     slate: 'border-border/60 bg-muted/20 text-muted-foreground',
 };
-function formatTo12Hour(time24) {
-    const [hoursRaw, minutes] = time24.split(':').map(Number);
-    const isPm = hoursRaw >= 12;
-    const hours = hoursRaw % 12 || 12;
-    return `${hours}:${String(minutes).padStart(2, '0')} ${isPm ? 'PM' : 'AM'}`;
-}
 export default function FacultyDetailPage({ params }) {
     const { id } = React.use(params);
     const [faculty, setFaculty] = React.useState(null);
@@ -213,32 +206,5 @@ export default function FacultyDetailPage({ params }) {
         </div>
       </section>
 
-      <section className="rounded-xl border border-border/60 bg-card p-5 md:p-6">
-        <div className="mb-5">
-          <h2 className="font-display text-xl font-bold tracking-tight">Scheduled office-hour slots</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Review recurring meeting windows and whether a slot is actively live right now.
-          </p>
-        </div>
-
-        {faculty.officeHourSlots.length === 0 ? (<p className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
-            No detailed office-hour slots posted yet.
-          </p>) : (<div className="grid gap-3 md:grid-cols-2">
-            {faculty.officeHourSlots.map((slot) => (<div key={slot.id} className="rounded-xl border border-border/60 bg-background p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold">
-                    {weekdays[slot.dayOfWeek]} · {formatTo12Hour(slot.startTime)} - {formatTo12Hour(slot.endTime)}
-                  </p>
-                  <Badge variant={slot.isActive ? 'default' : 'outline'} className="rounded-full">
-                    {slot.isActive ? 'Live now' : 'Scheduled'}
-                  </Badge>
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">{slot.location}</p>
-                <p className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  {slot.mode.replace('_', ' ')}
-                </p>
-              </div>))}
-          </div>)}
-      </section>
     </div>);
 }

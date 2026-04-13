@@ -27,12 +27,22 @@ export async function GET(request) {
             }),
             prisma.notification.count({ where }),
         ]);
+        const unreadCount = unread
+            ? total
+            : await prisma.notification.count({
+                where: {
+                    userId: profile.id,
+                    clearedAt: null,
+                    read: false,
+                },
+            });
         return successResponse({
             items,
             page,
             limit,
             total,
             hasMore: page * limit < total,
+            unreadCount,
         });
     }
     catch (error) {

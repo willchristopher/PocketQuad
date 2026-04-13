@@ -8,11 +8,11 @@ import { useScrollDirection } from '@/hooks/useScrollDirection';
 import { useAuth } from '@/lib/auth/context';
 import { AIChatDialog } from './AIChatDialog';
 const MAX_PAYLOAD_MESSAGES = 12;
-export function AIChatWidget() {
+export function AIChatWidget({ initialOpen = false }) {
     const isMobile = useMediaQuery('(max-width: 768px)');
     const scrollingDown = useScrollDirection();
     const { profile } = useAuth();
-    const [open, setOpen] = React.useState(false);
+    const [open, setOpen] = React.useState(initialOpen);
     const [conversationId, setConversationId] = React.useState(undefined);
     const [messages, setMessages] = React.useState([]);
     const [input, setInput] = React.useState('');

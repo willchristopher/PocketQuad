@@ -1,6 +1,29 @@
 import { prisma } from '@/lib/prisma';
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse } from '@/lib/api/utils';
 import { adminEventCreateSchema } from '@/lib/validations/admin';
+const adminEventSelect = {
+    id: true,
+    universityId: true,
+    buildingId: true,
+    title: true,
+    description: true,
+    imageUrl: true,
+    date: true,
+    endDate: true,
+    time: true,
+    location: true,
+    category: true,
+    organizer: true,
+    organizerId: true,
+    maxAttendees: true,
+    isPublished: true,
+    isCancelled: true,
+    createdAt: true,
+    updatedAt: true,
+    university: {
+        select: { id: true, name: true, slug: true },
+    },
+};
 export async function GET(request) {
     try {
         await getAuthenticatedAdmin('ADMIN_TAB_EVENTS');
@@ -9,11 +32,7 @@ export async function GET(request) {
             where: {
                 ...(universityId ? { universityId } : {}),
             },
-            include: {
-                university: {
-                    select: { id: true, name: true, slug: true },
-                },
-            },
+            select: adminEventSelect,
             orderBy: [{ date: 'asc' }],
             take: 200,
         });
@@ -46,11 +65,7 @@ export async function POST(request) {
                 organizer: payload.organizer,
                 isPublished: payload.isPublished,
             },
-            include: {
-                university: {
-                    select: { id: true, name: true, slug: true },
-                },
-            },
+            select: adminEventSelect,
         });
         return successResponse(event, 201);
     }

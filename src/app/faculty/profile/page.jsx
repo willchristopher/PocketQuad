@@ -1,4 +1,5 @@
-import { FacultyProfileSettings } from '@/components/profile/FacultyProfileSettings';
+import { redirect } from 'next/navigation';
+
 export default function FacultyProfilePage() {
-    return <FacultyProfileSettings />;
+  redirect('/faculty/settings');
 }

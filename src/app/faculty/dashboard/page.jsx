@@ -1,5 +1,5 @@
-'use client';
-import { FacultyDashboard } from '@/components/dashboard/FacultyDashboard';
+import { redirect } from 'next/navigation';
+
 export default function FacultyDashboardPage() {
-    return <FacultyDashboard />;
+  redirect('/faculty');
 }

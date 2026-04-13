@@ -14,9 +14,7 @@ import {
   authPanelInputClassName,
 } from '@/components/auth/AuthExperienceLayout';
 import { AuthField, AuthFieldShell, AuthMessage } from '@/components/auth/AuthShell';
-import { Button } from '@/components/ui/button';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
-import { useAuth } from '@/lib/auth/context';
 
 const transitionEase = [0.16, 1, 0.3, 1];
 
@@ -65,15 +63,20 @@ function getProgressMeta(role, studentStep, facultyStep) {
   };
 }
 
-function getDarkFieldShellClassName(invalid) {
+function getAuthFieldShellClassName(invalid) {
   return [
     authPanelFieldShellClassName,
     invalid
-      ? 'border-red-400/50 bg-red-500/10 focus-within:border-red-300 focus-within:ring-red-400/20'
+      ? 'border-red-300 bg-red-50 focus-within:border-red-400 focus-within:ring-red-500/10'
       : '',
   ]
     .filter(Boolean)
     .join(' ');
+}
+
+function getDormantAccountSupportMessage(account) {
+  const name = account?.displayName ?? 'the account on file';
+  return `The name on file for ${name} does not match. Please contact support so we can update the account before signup.`;
 }
 
 export default function RegisterPage() {
@@ -91,9 +94,10 @@ export default function RegisterPage() {
   const [error, setError] = React.useState(null);
   const [fieldErrors, setFieldErrors] = React.useState({});
   const [detectedUniversity, setDetectedUniversity] = React.useState(null);
+  const [dormantAccountMatch, setDormantAccountMatch] = React.useState(null);
+  const [dormantAccountDecision, setDormantAccountDecision] = React.useState(null);
   const [checkingDomain, setCheckingDomain] = React.useState(false);
   const router = useRouter();
-  const { refreshSession } = useAuth();
   const domainCheckTimer = React.useRef(null);
   const deferredEmail = React.useDeferredValue(email.trim().toLowerCase());
   const isFaculty = role === 'FACULTY';
@@ -102,6 +106,21 @@ export default function RegisterPage() {
   const showPasswordField =
     (isStudent && studentStep === 'details') || (isFaculty && facultyStep === 'password');
   const canSwitchRoles = !submitting && !resendingCode;
+  const hasDormantAccountMatch = Boolean(dormantAccountMatch);
+  const hasDormantRoleMismatch = hasDormantAccountMatch && dormantAccountMatch.role !== role;
+  const requiresDormantConfirmation = hasDormantAccountMatch && !hasDormantRoleMismatch;
+  const dormantAccountConfirmed = dormantAccountDecision === 'yes';
+  const dormantAccountRejected = dormantAccountDecision === 'no';
+  const dormantAccountId = dormantAccountConfirmed ? dormantAccountMatch?.id : undefined;
+  const dormantAccountBlockingMessage = hasDormantRoleMismatch
+    ? dormantAccountMatch?.role === 'FACULTY'
+      ? 'This email is already on file for a faculty or staff account. Switch to Faculty or contact support.'
+      : 'This email is already on file for a student account. Switch to Student or contact support.'
+    : dormantAccountRejected
+      ? getDormantAccountSupportMessage(dormantAccountMatch)
+      : requiresDormantConfirmation && !dormantAccountConfirmed
+        ? 'Please confirm the name on file before continuing.'
+        : null;
 
   const handleRoleChange = (nextRole) => {
     if (nextRole === role) {
@@ -113,6 +132,7 @@ export default function RegisterPage() {
       setError(null);
       setFieldErrors({});
       setShowPassword(false);
+      setDormantAccountDecision(null);
 
       if (nextRole === 'FACULTY') {
         setFacultyStep('email');
@@ -135,6 +155,7 @@ export default function RegisterPage() {
 
     if (atIndex < 0 || atIndex === deferredEmail.length - 1) {
       setDetectedUniversity(null);
+      setDormantAccountMatch(null);
       setCheckingDomain(false);
       return;
     }
@@ -143,6 +164,7 @@ export default function RegisterPage() {
 
     if (!domain.includes('.') || domain.length < 4) {
       setDetectedUniversity(null);
+      setDormantAccountMatch(null);
       setCheckingDomain(false);
       return;
     }
@@ -150,10 +172,14 @@ export default function RegisterPage() {
     setCheckingDomain(true);
     domainCheckTimer.current = setTimeout(async () => {
       try {
-        const result = await apiRequest(`/api/auth/check-university?domain=${encodeURIComponent(domain)}`);
+        const result = await apiRequest(
+          `/api/auth/check-university?email=${encodeURIComponent(deferredEmail)}&role=${encodeURIComponent(role)}`
+        );
         setDetectedUniversity(result.university?.name ?? null);
+        setDormantAccountMatch(result.dormantAccount ?? null);
       } catch {
         setDetectedUniversity(null);
+        setDormantAccountMatch(null);
       } finally {
         setCheckingDomain(false);
       }
@@ -164,17 +190,29 @@ export default function RegisterPage() {
         clearTimeout(domainCheckTimer.current);
       }
     };
-  }, [deferredEmail]);
+  }, [deferredEmail, role]);
 
-  const redirectToSessionHome = async () => {
-    try {
-      await refreshSession();
-    } catch {
-      // Continue anyway so onboarding can load.
+  React.useEffect(() => {
+    setDormantAccountDecision(null);
+  }, [dormantAccountMatch?.id, role]);
+
+  React.useEffect(() => {
+    if (!dormantAccountMatch || dormantAccountMatch.role !== 'STUDENT') {
+      return;
     }
 
-    router.push('/onboarding');
-    router.refresh();
+    setFirstName(dormantAccountMatch.firstName ?? '');
+    setLastName(dormantAccountMatch.lastName ?? '');
+  }, [
+    dormantAccountMatch,
+    dormantAccountMatch?.firstName,
+    dormantAccountMatch?.id,
+    dormantAccountMatch?.lastName,
+    dormantAccountMatch?.role,
+  ]);
+
+  const redirectToSessionHome = (result) => {
+    router.push(result?.needsOnboarding ? '/onboarding' : result?.destination ?? '/dashboard');
   };
 
   const submitStudentDetails = async () => {
@@ -185,6 +223,7 @@ export default function RegisterPage() {
         lastName,
         email,
         password,
+        dormantAccountId,
       },
     });
 
@@ -194,7 +233,7 @@ export default function RegisterPage() {
   };
 
   const submitStudentCode = async () => {
-    await apiRequest('/api/auth/student/verify-otp', {
+    const result = await apiRequest('/api/auth/student/verify-otp', {
       method: 'POST',
       body: {
         firstName,
@@ -202,24 +241,16 @@ export default function RegisterPage() {
         email,
         password,
         code: otpCode,
+        dormantAccountId,
       },
     });
-
-    await apiRequest('/api/auth/login', {
-      method: 'POST',
-      body: {
-        email,
-        password,
-      },
-    });
-
-    await redirectToSessionHome();
+    redirectToSessionHome(result);
   };
 
   const submitFacultyEmail = async () => {
     await apiRequest('/api/auth/faculty/request-otp', {
       method: 'POST',
-      body: { email },
+      body: { email, dormantAccountId },
     });
 
     React.startTransition(() => {
@@ -233,6 +264,7 @@ export default function RegisterPage() {
       body: {
         email,
         code: otpCode,
+        dormantAccountId,
       },
     });
 
@@ -242,20 +274,25 @@ export default function RegisterPage() {
   };
 
   const submitFacultyPassword = async () => {
-    await apiRequest('/api/auth/faculty/set-password', {
+    const result = await apiRequest('/api/auth/faculty/set-password', {
       method: 'POST',
       body: {
         password,
       },
     });
-
-    await redirectToSessionHome();
+    redirectToSessionHome(result);
   };
 
   const onSubmit = async (event) => {
     event.preventDefault();
     setError(null);
     setFieldErrors({});
+
+    if (dormantAccountBlockingMessage) {
+      setError(dormantAccountBlockingMessage);
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -304,7 +341,7 @@ export default function RegisterPage() {
     try {
       await apiRequest('/api/auth/faculty/request-otp', {
         method: 'POST',
-        body: { email },
+        body: { email, dormantAccountId },
       });
     } catch (err) {
       const message = err instanceof ApiClientError ? err.message : 'Unable to resend code right now';
@@ -327,6 +364,7 @@ export default function RegisterPage() {
           lastName,
           email,
           password,
+          dormantAccountId,
         },
       });
     } catch (err) {
@@ -357,23 +395,20 @@ export default function RegisterPage() {
     return submitting ? 'Saving password...' : 'Set password';
   })();
 
-  const title = isFaculty ? 'Activate faculty access' : 'Create your campus account';
-  const description = isFaculty
-    ? 'Verify your university email, confirm the one-time code, and set the password you will use from now on.'
-    : 'Use your university email to create an account, then confirm it once with a one-time passcode.';
+  const title = isFaculty ? 'Activate access' : 'Create account';
   const progressMeta = getProgressMeta(role, studentStep, facultyStep);
 
   return (
     <AuthExperienceLayout
-      heroLead="Create or activate the access you use every day."
-      heroDescription="Set up your university account once, then keep your classes, office hours, and campus updates in one place."
+      panelClassName="max-w-[42rem]"
     >
       <AuthInteractionPanel
         eyebrow={isFaculty ? 'Faculty activation' : 'Student sign up'}
         title={title}
-        description={description}
+        description={isFaculty ? 'Confirm your university access, then set the password you will use going forward.' : 'Use your university email to create your account and verify it with a one-time passcode.'}
+        mobileCentered
         headerSlot={
-          <div className="relative grid grid-cols-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-1">
+          <div className="relative grid grid-cols-2 rounded-2xl border border-border/70 bg-muted/[0.55] p-1.5">
             {[
               { id: 'STUDENT', label: 'Student' },
               { id: 'FACULTY', label: 'Faculty' },
@@ -384,18 +419,19 @@ export default function RegisterPage() {
                 <button
                   key={option.id}
                   type="button"
+                  aria-pressed={role === option.id}
                   onClick={() => handleRoleChange(option.id)}
-                  className="relative min-h-[40px] overflow-hidden rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors"
+                  className="relative min-h-[44px] overflow-hidden rounded-xl px-4 py-2.5 text-[13px] font-semibold transition-colors"
                   disabled={!canSwitchRoles}
                 >
                   {active ? (
                     <motion.span
                       layoutId="auth-role-pill"
-                      className="absolute inset-0 rounded-lg bg-white/[0.06]"
+                      className="absolute inset-0 rounded-xl bg-card shadow-sm"
                       transition={{ duration: 0.3, ease: transitionEase }}
                     />
                   ) : null}
-                  <span className={active ? 'relative z-10 text-white' : 'relative z-10 text-white/30'}>
+                  <span className={active ? 'relative z-10 text-foreground' : 'relative z-10 text-muted-foreground'}>
                     {option.label}
                   </span>
                 </button>
@@ -413,12 +449,12 @@ export default function RegisterPage() {
         }
       >
         <div className="space-y-6">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.26em] text-muted-foreground">
+          <div className="space-y-3 rounded-2xl border border-border/70 bg-muted/[0.35] p-4 sm:p-5">
+            <div className="flex flex-col gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
               <span>{progressMeta.trackLabel}</span>
               <span>{progressMeta.stepLabel}</span>
             </div>
-            <div className="h-px rounded-full bg-white/[0.08]">
+            <div className="h-2 rounded-full bg-background">
               <motion.div
                 className="h-full rounded-full bg-msu-gold"
                 initial={false}
@@ -454,43 +490,47 @@ export default function RegisterPage() {
                   >
                     <AuthField
                       label="First Name"
+                      htmlFor="register-first-name"
                       error={fieldErrors.firstName?.[0]}
-                      errorClassName="text-red-700"
                     >
                       <AuthFieldShell
                         icon={<User className="h-4 w-4" />}
                         invalid={!!fieldErrors.firstName?.[0]}
-                        className={getDarkFieldShellClassName(!!fieldErrors.firstName?.[0])}
+                        className={getAuthFieldShellClassName(!!fieldErrors.firstName?.[0])}
                       >
                         <input
+                          id="register-first-name"
                           type="text"
                           value={firstName}
                           onChange={(event) => setFirstName(event.target.value)}
                           placeholder="Alex"
                           className={authPanelInputClassName}
                           required
-                          disabled={submitting}
+                          autoComplete="given-name"
+                          disabled={submitting || (dormantAccountMatch?.role === 'STUDENT' && !hasDormantRoleMismatch)}
                         />
                       </AuthFieldShell>
                     </AuthField>
 
                     <AuthField
                       label="Last Name"
+                      htmlFor="register-last-name"
                       error={fieldErrors.lastName?.[0]}
-                      errorClassName="text-red-700"
                     >
                       <AuthFieldShell
                         invalid={!!fieldErrors.lastName?.[0]}
-                        className={getDarkFieldShellClassName(!!fieldErrors.lastName?.[0])}
+                        className={getAuthFieldShellClassName(!!fieldErrors.lastName?.[0])}
                       >
                         <input
+                          id="register-last-name"
                           type="text"
                           value={lastName}
                           onChange={(event) => setLastName(event.target.value)}
                           placeholder="Johnson"
                           className={authPanelInputClassName}
                           required
-                          disabled={submitting}
+                          autoComplete="family-name"
+                          disabled={submitting || (dormantAccountMatch?.role === 'STUDENT' && !hasDormantRoleMismatch)}
                         />
                       </AuthFieldShell>
                     </AuthField>
@@ -498,13 +538,18 @@ export default function RegisterPage() {
                 ) : null}
               </AnimatePresence>
 
-              <AuthField label="University Email" error={fieldErrors.email?.[0]} errorClassName="text-red-700">
+              <AuthField
+                label="University Email"
+                htmlFor="register-email"
+                error={fieldErrors.email?.[0]}
+              >
                 <AuthFieldShell
                   icon={<Mail className="h-4 w-4" />}
                   invalid={!!fieldErrors.email?.[0]}
-                  className={getDarkFieldShellClassName(!!fieldErrors.email?.[0])}
+                  className={getAuthFieldShellClassName(!!fieldErrors.email?.[0])}
                 >
                   <input
+                    id="register-email"
                     type="email"
                     value={email}
                     onChange={(event) => setEmail(event.target.value.toLowerCase())}
@@ -529,10 +574,75 @@ export default function RegisterPage() {
                   transition={{ duration: 0.24, ease: transitionEase }}
                   className="text-sm text-muted-foreground"
                 >
-                  <span className="text-primary">
-                    {checkingDomain ? 'Checking your university domain...' : 'Joining'}
+                  <span className="text-msu-gold">
+                    {checkingDomain ? 'Checking domain...' : 'Joining'}
                   </span>{' '}
                   {checkingDomain ? null : <span className="font-semibold text-foreground">{detectedUniversity}</span>}
+                </motion.div>
+              ) : null}
+
+              {dormantAccountMatch ? (
+                <motion.div
+                  key={`dormant-account-${dormantAccountMatch.id}-${role}`}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.24, ease: transitionEase }}
+                  className="rounded-2xl border border-border/70 bg-muted/[0.45] px-4 py-4 text-sm text-foreground"
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    Account On File
+                  </p>
+                  <p className="mt-2 text-base font-semibold text-foreground">{dormantAccountMatch.displayName}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{dormantAccountMatch.email}</p>
+
+                  {hasDormantRoleMismatch ? (
+                    <p className="mt-3 leading-6 text-muted-foreground">
+                      {dormantAccountMatch.role === 'FACULTY'
+                        ? 'This email is already reserved for a faculty or staff activation. Switch to Faculty or contact support if this looks wrong.'
+                        : 'This email is already reserved for a student signup. Switch to Student or contact support if this looks wrong.'}
+                    </p>
+                  ) : (
+                    <>
+                      <p className="mt-3 leading-6">
+                        Does the name associated above match who you&apos;re signing up for?
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDormantAccountDecision('yes');
+                            setError(null);
+                          }}
+                          className={`min-h-[44px] rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                            dormantAccountConfirmed
+                              ? 'bg-msu-gold text-msu-blue'
+                              : 'border border-border/70 bg-card text-foreground hover:border-primary/20 hover:bg-background'
+                          }`}
+                        >
+                          Yes, that&apos;s me
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDormantAccountDecision('no');
+                            setError(getDormantAccountSupportMessage(dormantAccountMatch));
+                          }}
+                          className={`min-h-[44px] rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                            dormantAccountRejected
+                              ? 'bg-amber-100 text-amber-900'
+                              : 'border border-border/70 bg-card text-foreground hover:border-primary/20 hover:bg-background'
+                          }`}
+                        >
+                          No
+                        </button>
+                      </div>
+                      {dormantAccountRejected ? (
+                        <p className="mt-3 text-sm leading-6 text-amber-800">
+                          Please contact support so we can correct the name on file before signup.
+                        </p>
+                      ) : null}
+                    </>
+                  )}
                 </motion.div>
               ) : null}
 
@@ -547,13 +657,13 @@ export default function RegisterPage() {
                   >
                     <AuthField
                       label="One-Time Passcode"
+                      htmlFor="register-code"
                       error={fieldErrors.code?.[0]}
-                      errorClassName="text-red-700"
                       hint={
                         <button
                           type="button"
                           onClick={isFaculty ? resendFacultyCode : resendStudentCode}
-                          className="text-xs font-medium text-primary transition-colors hover:text-primary/80 disabled:opacity-60"
+                          className="text-xs font-medium text-msu-gold transition-colors hover:text-msu-gold/80 disabled:opacity-60"
                           disabled={submitting || resendingCode}
                         >
                           {resendingCode ? 'Resending...' : 'Resend code'}
@@ -562,9 +672,10 @@ export default function RegisterPage() {
                     >
                       <AuthFieldShell
                         invalid={!!fieldErrors.code?.[0]}
-                        className={getDarkFieldShellClassName(!!fieldErrors.code?.[0])}
+                        className={getAuthFieldShellClassName(!!fieldErrors.code?.[0])}
                       >
                         <input
+                          id="register-code"
                           type="text"
                           value={otpCode}
                           onChange={(event) => setOtpCode(event.target.value.trim())}
@@ -592,8 +703,8 @@ export default function RegisterPage() {
                   >
                     <AuthField
                       label="Password"
+                      htmlFor="register-password"
                       error={fieldErrors.password?.[0]}
-                      errorClassName="text-red-700"
                       hint={
                         <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
                           Minimum 8 characters
@@ -603,7 +714,7 @@ export default function RegisterPage() {
                       <AuthFieldShell
                         icon={<Lock className="h-4 w-4" />}
                         invalid={!!fieldErrors.password?.[0]}
-                        className={getDarkFieldShellClassName(!!fieldErrors.password?.[0])}
+                        className={getAuthFieldShellClassName(!!fieldErrors.password?.[0])}
                         trailing={
                           <button
                             type="button"
@@ -617,6 +728,7 @@ export default function RegisterPage() {
                         }
                       >
                         <input
+                          id="register-password"
                           type={showPassword ? 'text' : 'password'}
                           value={password}
                           onChange={(event) => setPassword(event.target.value)}
@@ -649,11 +761,11 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={submitting || resendingCode}
-              className="group flex w-full items-center justify-center gap-2.5 rounded-xl bg-msu-gold px-6 py-3.5 text-[14px] font-semibold text-msu-blue shadow-sm transition-all duration-200 hover:shadow-md active:translate-y-px disabled:cursor-not-allowed"
+              disabled={submitting || resendingCode || Boolean(dormantAccountBlockingMessage)}
+              className="group flex min-h-[48px] w-full items-center justify-center gap-2.5 rounded-xl bg-msu-gold px-6 py-3.5 text-[14px] font-semibold text-msu-blue shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-px disabled:cursor-not-allowed"
             >
               {submitLabel}
-              {submitting ? null : <ArrowRight className="h-4 w-4" />}
+              {submitting ? null : <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />}
             </button>
           </form>
         </div>

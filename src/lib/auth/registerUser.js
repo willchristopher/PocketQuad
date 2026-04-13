@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { registerSchema } from '@/lib/validations/auth';
 import { ApiError } from '@/lib/api/utils';
+import { isDormantUserRecord } from '@/lib/auth/dormantAccounts';
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server';
 import { extractEmailDomain } from '@/lib/university';
 async function ensureCampusRoomMembership(userId) {
@@ -62,8 +63,19 @@ export async function registerUser(rawPayload) {
     const emailDomain = extractEmailDomain(email);
     const existingUser = await prisma.user.findUnique({
         where: { email },
+        select: {
+            id: true,
+            role: true,
+            lastLogin: true,
+            onboardingComplete: true,
+            adminAccessLevel: true,
+            portalPermissions: true,
+        },
     });
     if (existingUser) {
+        if (isDormantUserRecord(existingUser)) {
+            throw new ApiError(409, 'We found a preloaded account for this email. Use the signup flow to confirm your name or contact support.');
+        }
         throw new ApiError(409, 'Email is already registered');
     }
     const supabase = await createSupabaseRouteHandlerClient();

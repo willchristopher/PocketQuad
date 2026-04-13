@@ -43,8 +43,8 @@ export const studentPageVisibilityOptions = [
     },
     {
         key: 'clubs',
-        label: 'Clubs',
-        description: 'Student clubs and organization discovery.',
+        label: 'Clubhouse',
+        description: 'Student club discovery, networking, and organization browsing.',
         href: '/clubs',
     },
     {

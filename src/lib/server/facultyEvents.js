@@ -1,14 +1,38 @@
 import { prisma } from '@/lib/prisma';
+import { combineEventDateTime, formatEventTimeLabel } from '@/lib/events';
 import { canManageBuilding } from '@/lib/facultyPermissions';
+import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
 import { ApiError } from '@/lib/api/utils';
+const facultyEventSelect = {
+    id: true,
+    universityId: true,
+    buildingId: true,
+    title: true,
+    description: true,
+    imageUrl: true,
+    date: true,
+    endDate: true,
+    time: true,
+    location: true,
+    category: true,
+    organizer: true,
+    organizerId: true,
+    maxAttendees: true,
+    isPublished: true,
+    isCancelled: true,
+    createdAt: true,
+    updatedAt: true,
+    building: {
+        select: {
+            id: true,
+            name: true,
+            address: true,
+            type: true,
+        },
+    },
+};
 export function formatFacultyEventTimeLabel(time24) {
-    if (/\bAM\b|\bPM\b/i.test(time24)) {
-        return time24.trim();
-    }
-    const [hoursRaw, minutesRaw] = time24.split(':').map(Number);
-    const period = hoursRaw >= 12 ? 'PM' : 'AM';
-    const hours = hoursRaw % 12 || 12;
-    return `${hours}:${String(minutesRaw).padStart(2, '0')} ${period}`;
+    return formatEventTimeLabel(time24);
 }
 function formatEventDate(date) {
     return new Intl.DateTimeFormat('en-US', {
@@ -137,32 +161,42 @@ export async function notifyFavoritedStudentsAboutFacultyEvent(options) {
 export async function createFacultyOwnedEvent(options) {
     const faculty = await getFacultyEventOwner(options.profile.id);
     const building = await resolveFacultyEventBuilding(options.profile, options.payload.buildingId);
-    const event = await prisma.event.create({
-        data: {
-            universityId: options.profile.universityId ?? faculty.universityId,
-            buildingId: building?.id ?? null,
-            title: options.payload.title,
-            description: options.payload.description,
-            date: new Date(`${options.payload.date}T00:00:00`),
-            time: formatFacultyEventTimeLabel(options.payload.time),
-            location: options.payload.location ||
-                (building ? `${building.name} · ${building.address}` : options.payload.location),
-            category: options.payload.category,
-            organizer: options.profile.displayName,
-            organizerId: options.profile.id,
-            maxAttendees: options.payload.maxAttendees ?? null,
-        },
-        include: {
-            building: {
-                select: {
-                    id: true,
-                    name: true,
-                    address: true,
-                    type: true,
-                },
-            },
-        },
-    });
+    const startsAt = combineEventDateTime(options.payload.date, options.payload.time);
+    if (!startsAt) {
+        throw new ApiError(400, 'Unable to parse the event date and time.');
+    }
+    const nextEventData = {
+        universityId: options.profile.universityId ?? faculty.universityId,
+        buildingId: building?.id ?? null,
+        title: options.payload.title,
+        description: options.payload.description,
+        date: startsAt,
+        time: formatFacultyEventTimeLabel(options.payload.time),
+        location: options.payload.location ||
+            (building ? `${building.name} · ${building.address}` : options.payload.location),
+        category: options.payload.category,
+        organizer: options.profile.displayName,
+        organizerId: options.profile.id,
+        maxAttendees: options.payload.maxAttendees ?? null,
+        tags: [options.payload.category],
+    };
+    let event;
+    try {
+        event = await prisma.event.create({
+            data: nextEventData,
+            select: facultyEventSelect,
+        });
+    }
+    catch (error) {
+        if (!isPrismaSchemaCompatibilityError(error)) {
+            throw error;
+        }
+        const { tags, ...legacyEventData } = nextEventData;
+        event = await prisma.event.create({
+            data: legacyEventData,
+            select: facultyEventSelect,
+        });
+    }
     const notifiedCount = await notifyFavoritedStudentsAboutFacultyEvent({
         facultyId: faculty.id,
         actorName: options.profile.displayName,

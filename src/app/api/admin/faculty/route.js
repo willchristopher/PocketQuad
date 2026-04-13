@@ -1,6 +1,7 @@
 import { UserRole } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse } from '@/lib/api/utils';
+import { getAccountStatus } from '@/lib/auth/dormantAccounts';
 import { invalidateUniversityData, UNIVERSITY_DATA_TAGS } from '@/lib/server/universityData';
 import { adminFacultyCreateSchema } from '@/lib/validations/admin';
 function splitName(name) {
@@ -34,6 +35,10 @@ export async function GET(request) {
                         id: true,
                         email: true,
                         role: true,
+                        lastLogin: true,
+                        onboardingComplete: true,
+                        adminAccessLevel: true,
+                        portalPermissions: true,
                         canPublishCampusAnnouncements: true,
                         managesAllClubs: true,
                         facultyRoleTags: true,
@@ -57,7 +62,15 @@ export async function GET(request) {
             },
             orderBy: [{ university: { name: 'asc' } }, { name: 'asc' }],
         });
-        return successResponse(faculty);
+        return successResponse(faculty.map((record) => ({
+            ...record,
+            user: record.user
+                ? {
+                    ...record.user,
+                    accountStatus: getAccountStatus(record.user),
+                }
+                : null,
+        })));
     }
     catch (error) {
         return handleApiError(error);
@@ -77,6 +90,10 @@ export async function POST(request) {
         const created = await prisma.$transaction(async (tx) => {
             const existingUser = await tx.user.findUnique({
                 where: { email: payload.email },
+                select: {
+                    id: true,
+                    role: true,
+                },
             });
             if (existingUser) {
                 const existingFaculty = await tx.faculty.findUnique({
@@ -143,6 +160,10 @@ export async function POST(request) {
                             id: true,
                             email: true,
                             role: true,
+                            lastLogin: true,
+                            onboardingComplete: true,
+                            adminAccessLevel: true,
+                            portalPermissions: true,
                             canPublishCampusAnnouncements: true,
                         },
                     },
@@ -153,7 +174,15 @@ export async function POST(request) {
             });
         });
         invalidateUniversityData(UNIVERSITY_DATA_TAGS.faculty);
-        return successResponse(created, 201);
+        return successResponse({
+            ...created,
+            user: created.user
+                ? {
+                    ...created.user,
+                    accountStatus: getAccountStatus(created.user),
+                }
+                : null,
+        }, 201);
     }
     catch (error) {
         return handleApiError(error);

@@ -1,7 +1,36 @@
 import { prisma } from '@/lib/prisma';
+import { combineEventDateTime } from '@/lib/events';
 import { didFacultyEventChange, formatFacultyEventTimeLabel, getFacultyEventOwner, notifyFavoritedStudentsAboutFacultyEvent, resolveFacultyEventBuilding, } from '@/lib/server/facultyEvents';
 import { updateFacultyEventSchema } from '@/lib/validations';
 import { ApiError, getAuthenticatedUser, handleApiError, resolveParams, successResponse, } from '@/lib/api/utils';
+const facultyManagedEventSelect = {
+    id: true,
+    universityId: true,
+    buildingId: true,
+    title: true,
+    description: true,
+    imageUrl: true,
+    date: true,
+    endDate: true,
+    time: true,
+    location: true,
+    category: true,
+    organizer: true,
+    organizerId: true,
+    maxAttendees: true,
+    isPublished: true,
+    isCancelled: true,
+    createdAt: true,
+    updatedAt: true,
+    building: {
+        select: {
+            id: true,
+            name: true,
+            address: true,
+            type: true,
+        },
+    },
+};
 export async function PATCH(request, context) {
     try {
         const { profile } = await getAuthenticatedUser({
@@ -37,12 +66,18 @@ export async function PATCH(request, context) {
         const building = payload.buildingId !== undefined
             ? await resolveFacultyEventBuilding(profile, payload.buildingId)
             : undefined;
+        const resolvedDate = payload.date ?? existing.date.toISOString().slice(0, 10);
+        const resolvedTime = payload.time ?? existing.time;
+        const startsAt = combineEventDateTime(resolvedDate, resolvedTime);
+        if (!startsAt) {
+            throw new ApiError(400, 'Unable to parse the updated event date and time.');
+        }
         const updated = await prisma.event.update({
             where: { id },
             data: {
                 ...(payload.title !== undefined ? { title: payload.title } : {}),
                 ...(payload.description !== undefined ? { description: payload.description } : {}),
-                ...(payload.date !== undefined ? { date: new Date(`${payload.date}T00:00:00`) } : {}),
+                ...(payload.date !== undefined || payload.time !== undefined ? { date: startsAt } : {}),
                 ...(payload.time !== undefined
                     ? {
                         time: formatFacultyEventTimeLabel(payload.time),
@@ -54,16 +89,7 @@ export async function PATCH(request, context) {
                 ...(payload.buildingId !== undefined ? { buildingId: building?.id ?? null } : {}),
                 ...(payload.isCancelled !== undefined ? { isCancelled: payload.isCancelled } : {}),
             },
-            include: {
-                building: {
-                    select: {
-                        id: true,
-                        name: true,
-                        address: true,
-                        type: true,
-                    },
-                },
-            },
+            select: facultyManagedEventSelect,
         });
         const change = didFacultyEventChange(existing, updated);
         let notifiedCount = 0;

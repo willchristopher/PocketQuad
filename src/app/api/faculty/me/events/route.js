@@ -2,6 +2,34 @@ import { prisma } from '@/lib/prisma';
 import { createFacultyOwnedEvent, getFacultyEventOwner } from '@/lib/server/facultyEvents';
 import { createEventSchema } from '@/lib/validations';
 import { ApiError, getAuthenticatedUser, handleApiError, successResponse, } from '@/lib/api/utils';
+const facultyManagedEventSelect = {
+    id: true,
+    universityId: true,
+    buildingId: true,
+    title: true,
+    description: true,
+    imageUrl: true,
+    date: true,
+    endDate: true,
+    time: true,
+    location: true,
+    category: true,
+    organizer: true,
+    organizerId: true,
+    maxAttendees: true,
+    isPublished: true,
+    isCancelled: true,
+    createdAt: true,
+    updatedAt: true,
+    building: {
+        select: {
+            id: true,
+            name: true,
+            address: true,
+            type: true,
+        },
+    },
+};
 export async function GET() {
     try {
         const { profile } = await getAuthenticatedUser({
@@ -15,16 +43,7 @@ export async function GET() {
             where: {
                 organizerId: profile.id,
             },
-            include: {
-                building: {
-                    select: {
-                        id: true,
-                        name: true,
-                        address: true,
-                        type: true,
-                    },
-                },
-            },
+            select: facultyManagedEventSelect,
             orderBy: [{ date: 'asc' }, { createdAt: 'desc' }],
             take: 100,
         });

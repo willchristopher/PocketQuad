@@ -66,6 +66,18 @@ const STATUS_CONFIG = {
     LIMITED: { label: 'Limited', className: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30', icon: <AlertCircle className="h-2.5 w-2.5"/> },
     CLOSED: { label: 'Closed', className: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30', icon: <X className="h-2.5 w-2.5"/> },
 };
+const ACCOUNT_STATUS_META = {
+    ACTIVE: {
+        label: 'Active',
+        variant: 'success',
+        helper: 'Can sign in normally',
+    },
+    DORMANT: {
+        label: 'Dormant',
+        variant: 'secondary',
+        helper: 'Waiting for signup claim',
+    },
+};
 const accessLevelOptions = [
     'OWNER',
     'IT_ADMIN',
@@ -182,7 +194,7 @@ function buildBuildingPayload(building, options = {}) {
         description: building.description || undefined,
     };
 }
-export function AdminDashboard() {
+export function AdminDashboard({ initialUniversities = null }) {
     const searchParams = useSearchParams();
     const router = useRouter();
     const { profile } = useAuth();
@@ -200,9 +212,9 @@ export function AdminDashboard() {
         ? requestedTab
         : fallbackTab;
     const [activeTab, setActiveTab] = React.useState(currentTab);
-    const [loading, setLoading] = React.useState(true);
+    const [loading, setLoading] = React.useState(!initialUniversities);
     const [saving, setSaving] = React.useState(false);
-    const [universities, setUniversities] = React.useState([]);
+    const [universities, setUniversities] = React.useState(initialUniversities ?? []);
     const [faculty, setFaculty] = React.useState([]);
     const [facultySignupEmails, setFacultySignupEmails] = React.useState([]);
     const [buildings, setBuildings] = React.useState([]);
@@ -300,6 +312,7 @@ export function AdminDashboard() {
         managedClubIds: [],
         password: '',
     });
+    const skippedInitialLoadRef = React.useRef(Boolean(initialUniversities));
     const canManageUniversities = !profile || hasPortalPermission(profile, 'ADMIN_TAB_UNIVERSITIES');
     const canManageStudentPages = !profile || hasPortalPermission(profile, 'ADMIN_TAB_STUDENT_PAGES');
     const canManageFaculty = !profile || hasPortalPermission(profile, 'ADMIN_TAB_FACULTY');
@@ -411,8 +424,13 @@ export function AdminDashboard() {
         setUniversitySelectionDraft(requestedUniversityId);
     }, [requestedUniversityId]);
     React.useEffect(() => {
+        if (skippedInitialLoadRef.current && !selectedUniversityId) {
+            skippedInitialLoadRef.current = false;
+            return;
+        }
+        skippedInitialLoadRef.current = false;
         void loadData();
-    }, [loadData]);
+    }, [loadData, selectedUniversityId]);
     React.useEffect(() => {
         setActiveTab(currentTab);
         if (requestedTab !== currentTab) {
@@ -972,8 +990,8 @@ export function AdminDashboard() {
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             {record.facultyRoleTags.slice(0, 2).map((tag) => (<Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>))}
-                            <Badge variant={record.emailVerified ? 'success' : 'secondary'} className="text-[10px] shrink-0">
-                              {record.emailVerified ? 'Activated' : 'Pending'}
+                            <Badge variant={ACCOUNT_STATUS_META[record.accountStatus ?? 'DORMANT']?.variant ?? 'secondary'} className="text-[10px] shrink-0">
+                              {ACCOUNT_STATUS_META[record.accountStatus ?? 'DORMANT']?.label ?? 'Dormant'}
                             </Badge>
                             {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground"/> : <ChevronDown className="h-4 w-4 text-muted-foreground"/>}
                           </div>
@@ -986,7 +1004,7 @@ export function AdminDashboard() {
                               </div>
                               <div>
                                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Status</p>
-                                <p>{record.emailVerified ? 'Account activated' : 'Awaiting signup'}</p>
+                                <p>{ACCOUNT_STATUS_META[record.accountStatus ?? 'DORMANT']?.helper ?? 'Awaiting signup claim'}</p>
                               </div>
                             </div>
                             {(record.canPublishCampusAnnouncements || record.managesAllClubs) && (<div className="flex flex-wrap gap-2">
@@ -1058,6 +1076,9 @@ export function AdminDashboard() {
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <span className="hidden text-xs text-muted-foreground md:block">{record.email}</span>
+                            <Badge variant={ACCOUNT_STATUS_META[record.user?.accountStatus ?? 'DORMANT']?.variant ?? 'secondary'} className="text-[10px]">
+                              {ACCOUNT_STATUS_META[record.user?.accountStatus ?? 'DORMANT']?.label ?? 'Dormant'}
+                            </Badge>
                             {record.user?.managesAllClubs && <Badge variant="outline" className="text-[10px]">All Clubs</Badge>}
                             {(record.user?.facultyRoleTags ?? []).slice(0, 1).map((tag) => (<Badge key={tag} variant="secondary" className="hidden text-[10px] md:inline-flex">{tag}</Badge>))}
                             {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground"/> : <ChevronDown className="h-4 w-4 text-muted-foreground"/>}
@@ -1067,6 +1088,14 @@ export function AdminDashboard() {
                         {isExpanded && (<div className="border-t border-border/40 bg-muted/20 px-6 py-5 space-y-5">
                             {/* Basic info */}
                             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Account Status</label>
+                                <div className="flex min-h-11 items-center">
+                                  <Badge variant={ACCOUNT_STATUS_META[record.user?.accountStatus ?? 'DORMANT']?.variant ?? 'secondary'}>
+                                    {ACCOUNT_STATUS_META[record.user?.accountStatus ?? 'DORMANT']?.helper ?? 'Waiting for signup claim'}
+                                  </Badge>
+                                </div>
+                              </div>
                               {[
                                 { label: 'Full Name', key: 'name' },
                                 { label: 'Email', key: 'email' },
@@ -1714,23 +1743,23 @@ export function AdminDashboard() {
         </TabsContent>
 
         <TabsContent value="it-accounts" className="mt-0 space-y-4">
-          {temporaryAccountPassword && (<Card className="rounded-xl border-emerald-500/30 bg-emerald-500/10">
+          {temporaryAccountPassword && (<Card className="rounded-2xl border-[#002144]/10 bg-card shadow-sm">
               <CardContent className="p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   Temporary Password
                 </p>
-                <p className="mt-1 font-mono text-sm text-emerald-900 dark:text-emerald-100">
+                <p className="mt-2 font-mono text-sm text-foreground">
                   {temporaryAccountPassword}
                 </p>
-                <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-300">
+                <p className="mt-2 text-sm text-muted-foreground">
                   Share this securely and require the user to reset it at first login.
                 </p>
               </CardContent>
             </Card>)}
 
-          <Card className="rounded-xl border-border/60">
+          <Card className="rounded-2xl border-[#002144]/10 shadow-sm">
             <CardHeader>
-              <CardTitle>Create IT / Portal Account</CardTitle>
+              <CardTitle className="font-display text-2xl text-[#002144]">Create IT / Portal Account</CardTitle>
               <CardDescription>
                 Provision IT admins and scoped portal users with tab-level access controls.
               </CardDescription>
@@ -1778,11 +1807,11 @@ export function AdminDashboard() {
               </div>
 
               <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   Portal Permissions
                 </p>
                 <div className="grid gap-2 md:grid-cols-3">
-                  {portalPermissionOptions.map((permission) => (<label key={permission} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-input px-3 py-2 text-xs">
+                  {portalPermissionOptions.map((permission) => (<label key={permission} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#002144]/10 bg-muted/20 px-3 py-2 text-xs text-foreground">
                       <input type="checkbox" checked={newPortalAccount.portalPermissions.includes(permission)} onChange={() => togglePermissionInDraftAccount(permission)}/>
                       {portalPermissionLabels[permission]}
                     </label>))}
@@ -1790,11 +1819,11 @@ export function AdminDashboard() {
               </div>
 
               <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   Managed Clubs (for club leadership roles)
                 </p>
                 <div className="grid gap-2 md:grid-cols-3">
-                  {withinSelectedUniversity(clubs).map((club) => (<label key={club.id} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-input px-3 py-2 text-xs">
+                  {withinSelectedUniversity(clubs).map((club) => (<label key={club.id} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#002144]/10 bg-muted/20 px-3 py-2 text-xs text-foreground">
                       <input type="checkbox" checked={newPortalAccount.managedClubIds.includes(club.id)} onChange={() => toggleManagedClubInDraftAccount(club.id)}/>
                       {club.name}
                     </label>))}
@@ -2195,7 +2224,7 @@ function CrudUsersTable({ records, searchQuery, roleFilter, saving, onChange, on
                 return 'secondary';
         }
     };
-    return (<CrudCard title="Manage Users" description="Edit user profiles, roles, and metadata directly.">
+    return (<CrudCard title="Manage Users" description="Edit active and dormant user records directly. Dormant users are preloaded accounts waiting to be claimed at signup.">
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -2258,10 +2287,16 @@ function CrudUsersTable({ records, searchQuery, roleFilter, saving, onChange, on
                 </TableCell>
                 <TableCell className="space-y-1.5 min-w-[140px]">
                   <Badge variant={roleBadgeVariant(record.role)}>{record.role}</Badge>
+                  <Badge variant={ACCOUNT_STATUS_META[record.accountStatus ?? 'ACTIVE']?.variant ?? 'secondary'}>
+                    {ACCOUNT_STATUS_META[record.accountStatus ?? 'ACTIVE']?.label ?? 'Active'}
+                  </Badge>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     {record.emailVerified ? (<CheckCircle2 className="h-3.5 w-3.5 text-emerald-500"/>) : (<AlertCircle className="h-3.5 w-3.5 text-amber-500"/>)}
                     {record.emailVerified ? 'Verified' : 'Unverified'}
                   </div>
+                  <p className="text-[10px] text-muted-foreground/70">
+                    {ACCOUNT_STATUS_META[record.accountStatus ?? 'ACTIVE']?.helper ?? 'Can sign in normally'}
+                  </p>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     {record.onboardingComplete ? (<CheckCircle2 className="h-3.5 w-3.5 text-emerald-500"/>) : (<Clock className="h-3.5 w-3.5 text-amber-500"/>)}
                     {record.onboardingComplete ? 'Onboarded' : 'Pending'}

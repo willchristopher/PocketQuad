@@ -9,7 +9,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { NotificationBadge } from '@/components/notifications/NotificationBadge';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
-  getCurrentDateLabel,
   getNextThemeMode,
   getThemeModeLabel,
   renderThemeModeIcon,
@@ -31,7 +30,7 @@ export function Header() {
   const router = useRouter();
   const { signOut } = useAuth();
   const { disabledStudentPages, isPageVisible } = useStudentPageVisibility();
-  const { themeMode, setThemeMode, universityColors, universityName } = useUniversityTheme();
+  const { themeMode, setThemeMode, universityName } = useUniversityTheme();
   const { unreadCount } = useUnreadNotificationCount();
   const [mounted, setMounted] = React.useState(false);
   const [sheetOpen, setSheetOpen] = React.useState(false);
@@ -41,12 +40,14 @@ export function Header() {
     () => getStudentNavigationSections(disabledStudentPages),
     [disabledStudentPages],
   );
+  const studentNavigationItems = React.useMemo(
+    () => studentNavigationSections.flatMap((section) => section.items),
+    [studentNavigationSections],
+  );
   const studentSecondaryNavigationItems = React.useMemo(
     () => getStudentSecondaryNavigationItems(disabledStudentPages),
     [disabledStudentPages],
   );
-  const dateLabel = React.useMemo(() => getCurrentDateLabel(), []);
-
   React.useEffect(() => setMounted(true), []);
 
   const handleSignOut = async () => {
@@ -56,10 +57,10 @@ export function Header() {
   };
 
   const cycleTheme = () => {
-    setThemeMode(getNextThemeMode(themeMode, universityColors));
+    setThemeMode(getNextThemeMode(themeMode));
   };
 
-  const themeLabel = getThemeModeLabel({ mounted, themeMode, universityName });
+  const themeLabel = getThemeModeLabel({ mounted, themeMode });
   const showDashboardBrand = pathname === '/' || pathname === '/dashboard';
 
   return (
@@ -70,7 +71,7 @@ export function Header() {
             <SheetTrigger asChild>
               <button
                 className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border/70 bg-card/70 text-muted-foreground transition-all hover:border-primary/25 hover:bg-card hover:text-foreground lg:hidden"
-                aria-label="Open navigation menu"
+                aria-label="Open navigation"
               >
                 <Menu className="h-[18px] w-[18px]" />
               </button>
@@ -78,44 +79,34 @@ export function Header() {
             <SheetContent side="left" className="w-[320px] border-r border-border/70 bg-background p-0">
               <div className="flex h-full flex-col">
                 <div className="border-b border-border/70 px-5 py-5">
-                  <p className="poster-label">{universityName ?? 'Campus workspace'}</p>
-                  <p className="mt-2 font-display text-3xl text-foreground">PocketQuad</p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Student tools, faculty access, events, and campus information in one place.
-                  </p>
+                  <p className="text-sm font-medium text-muted-foreground">{universityName ?? 'Murray State University'}</p>
+                  <p className="mt-2 font-display text-3xl leading-none text-foreground">Navigation</p>
                 </div>
 
                 <nav className="flex-1 overflow-y-auto px-4 py-4">
-                  {studentNavigationSections.map((section) => (
-                    <div key={section.title} className="mb-6">
-                      <p className="px-2 text-[11px] font-medium uppercase tracking-[0.26em] text-muted-foreground">
-                        {section.title}
-                      </p>
-                      <div className="mt-3 space-y-1.5">
-                        {section.items.map((item) => {
-                          const Icon = item.icon;
-                          const isActive = isStudentPathActive(pathname, item.href);
+                  <div className="space-y-1.5">
+                    {studentNavigationItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = isStudentPathActive(pathname, item.href);
 
-                          return (
-                            <Link
-                              key={item.href}
-                              href={item.href}
-                              onClick={() => setSheetOpen(false)}
-                              className={cn(
-                                'flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-all',
-                                isActive
-                                  ? 'border-primary/25 bg-secondary text-foreground shadow-surface'
-                                  : 'border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted hover:text-foreground',
-                              )}
-                            >
-                              <Icon className="h-[18px] w-[18px] shrink-0" />
-                              {item.label}
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setSheetOpen(false)}
+                          className={cn(
+                            'flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-all',
+                            isActive
+                              ? 'border-primary/25 bg-secondary text-foreground shadow-surface'
+                              : 'border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted hover:text-foreground',
+                          )}
+                        >
+                          <Icon className="h-[18px] w-[18px] shrink-0" />
+                          {item.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
                 </nav>
 
                 <div className="border-t border-border/70 px-4 py-4">
@@ -157,7 +148,7 @@ export function Header() {
           </Sheet>
 
           <div className="min-w-0">
-            <p className="poster-label">{universityName ?? 'PocketQuad campus brief'}</p>
+            <p className="text-sm font-medium text-muted-foreground">{universityName ?? 'Murray State University'}</p>
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2 md:gap-3">
               {showDashboardBrand ? (
                 <Link
@@ -178,9 +169,6 @@ export function Header() {
               <h1 className="truncate font-display text-[1.9rem] text-foreground sm:text-[2.15rem]">
                 {page.title}
               </h1>
-              <span className="hidden rounded-full border border-border/70 bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground md:inline-flex">
-                {dateLabel}
-              </span>
             </div>
           </div>
         </div>

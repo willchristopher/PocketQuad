@@ -1,6 +1,9 @@
 import { assertRateLimit, withRateLimitHeaders } from '@/lib/api/rateLimit';
 import { prisma } from '@/lib/prisma';
 import { ApiError, handleApiError, successResponse } from '@/lib/api/utils';
+import { assertDormantAccountMatch, isDormantUserRecord } from '@/lib/auth/dormantAccounts';
+import { createRoleHintToken, setRoleHintCookie } from '@/lib/auth/roleHint';
+import { getHomeForRole } from '@/lib/auth/routing';
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server';
 import { extractEmailDomain } from '@/lib/university';
 import { studentVerifyOtpSchema } from '@/lib/validations/auth';
@@ -74,11 +77,23 @@ export async function POST(request) {
         if (!matchedUniversity) {
             throw new ApiError(400, 'This email domain is not linked to a registered university in PocketQuad.');
         }
+        const dormantAccount = await assertDormantAccountMatch({
+            email,
+            requestedRole: 'STUDENT',
+            dormantAccountId: payload.dormantAccountId,
+        });
         const existingUser = await prisma.user.findUnique({
             where: { email },
-            select: { id: true },
+            select: {
+                id: true,
+                role: true,
+                lastLogin: true,
+                onboardingComplete: true,
+                adminAccessLevel: true,
+                portalPermissions: true,
+            },
         });
-        if (existingUser) {
+        if (existingUser && !isDormantUserRecord(existingUser)) {
             throw new ApiError(409, 'Email is already registered');
         }
         const supabase = await createSupabaseRouteHandlerClient();
@@ -99,14 +114,14 @@ export async function POST(request) {
             where: { supabaseId: verifiedAuthUser.id },
             select: { id: true },
         });
-        if (existingBySupabaseId) {
+        if (existingBySupabaseId && existingBySupabaseId.id !== dormantAccount?.id) {
             throw new ApiError(409, 'This verification session is already linked to an existing account.');
         }
         const { error: updateError } = await supabase.auth.updateUser({
             password: payload.password,
             data: {
-                firstName: payload.firstName,
-                lastName: payload.lastName,
+                firstName: dormantAccount?.firstName ?? payload.firstName,
+                lastName: dormantAccount?.lastName ?? payload.lastName,
                 role: 'STUDENT',
             },
         });
@@ -114,33 +129,72 @@ export async function POST(request) {
             throw new ApiError(400, updateError.message || 'Unable to finalize student credentials');
         }
         const createdUser = await prisma.$transaction(async (tx) => {
-            const user = await tx.user.create({
-                data: {
-                    supabaseId: verifiedAuthUser.id,
-                    email,
-                    displayName: `${payload.firstName} ${payload.lastName}`,
-                    firstName: payload.firstName,
-                    lastName: payload.lastName,
-                    role: 'STUDENT',
-                    universityId: matchedUniversity.id,
-                    emailVerified: true,
+            const user = dormantAccount
+                ? await tx.user.update({
+                    where: { id: dormantAccount.id },
+                    data: {
+                        supabaseId: verifiedAuthUser.id,
+                        email,
+                        displayName: dormantAccount.displayName,
+                        firstName: dormantAccount.firstName,
+                        lastName: dormantAccount.lastName,
+                        role: 'STUDENT',
+                        universityId: matchedUniversity.id,
+                        emailVerified: true,
+                        lastLogin: new Date(),
+                    },
+                })
+                : await tx.user.create({
+                    data: {
+                        supabaseId: verifiedAuthUser.id,
+                        email,
+                        displayName: `${payload.firstName} ${payload.lastName}`,
+                        firstName: payload.firstName,
+                        lastName: payload.lastName,
+                        role: 'STUDENT',
+                        universityId: matchedUniversity.id,
+                        emailVerified: true,
+                        lastLogin: new Date(),
+                    },
+                });
+            await tx.notificationPreferences.upsert({
+                where: {
+                    userId: user.id,
                 },
-            });
-            await tx.notificationPreferences.create({
-                data: {
+                update: {},
+                create: {
                     userId: user.id,
                 },
             });
             return user;
         });
         await ensureCampusRoomMembership(createdUser.id);
-        return withRateLimitHeaders(successResponse({
-            id: createdUser.id,
-            email: createdUser.email,
-            universityId: matchedUniversity.id,
-            universityName: matchedUniversity.name,
-            role: createdUser.role,
-        }), rateLimit);
+        const profile = await prisma.user.findUnique({
+            where: { id: createdUser.id },
+            select: {
+                id: true,
+                universityId: true,
+                email: true,
+                displayName: true,
+                firstName: true,
+                lastName: true,
+                avatar: true,
+                role: true,
+                emailVerified: true,
+                onboardingComplete: true,
+                canPublishCampusAnnouncements: true,
+                adminAccessLevel: true,
+                portalPermissions: true,
+            },
+        });
+        const response = successResponse({
+            profile,
+            needsOnboarding: !profile?.onboardingComplete,
+            destination: getHomeForRole(profile),
+        });
+        const roleHintToken = await createRoleHintToken(verifiedAuthUser.id, createdUser.role);
+        setRoleHintCookie(response, roleHintToken);
+        return withRateLimitHeaders(response, rateLimit);
     }
     catch (error) {
         return handleApiError(error);

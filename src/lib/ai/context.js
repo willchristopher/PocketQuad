@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { formatFacultyAvailability } from '@/lib/faculty';
-import { getActiveAnnouncementWhere, getAnnouncementAudienceLabel, purgeExpiredAnnouncements } from '@/lib/server/announcements';
+import { getActiveAnnouncementWhere, getAnnouncementAudienceLabel } from '@/lib/server/announcements';
+import { enrichEventsForAudience } from '@/lib/server/campusEvents';
 import { isMissingDatabaseFieldError } from '@/lib/server/dbCompatibility';
 import { getBuildingsCached, getCampusServicesCached, getClubsCached, getFacultyCached, getResourceLinksCached, } from '@/lib/server/universityData';
 
@@ -343,8 +344,48 @@ function renderResourceLinkLine(resourceLink) {
         ` — ${resourceLink.href}` +
         (resourceLink.description ? ` | ${truncateText(resourceLink.description, 180)}` : ''));
 }
+function renderEventLine(event) {
+    const sourceDetails = [event.sourceLabel, ...(event.matchedClubNames?.slice(0, 1) ?? [])].filter(Boolean).join(' • ');
+    const timing = event.timeTba ? event.date.toLocaleDateString() : `${event.date.toLocaleDateString()} at ${event.time}`;
+    return (`• "${event.title}" — ${timing}` +
+        (event.location ? `, ${event.location}` : '') +
+        ` [${event.activityLabel ?? event.category}]` +
+        (sourceDetails ? ` | ${sourceDetails}` : '') +
+        (event.description ? ` — ${truncateText(event.description, 120)}` : ''));
+}
+function resolveEventQueryRange(query, now) {
+    const normalized = query.toLowerCase();
+    if (/\btoday\b/.test(normalized)) {
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 1);
+        return { label: 'today', start, end };
+    }
+    if (/\btomorrow\b/.test(normalized)) {
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        start.setDate(start.getDate() + 1);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 1);
+        return { label: 'tomorrow', start, end };
+    }
+    if (/\bthis week\b|\bweekend\b/.test(normalized)) {
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 7);
+        return { label: 'this week', start, end };
+    }
+    return null;
+}
+function eventFallsWithinRange(event, range) {
+    if (!range) {
+        return true;
+    }
+    return event.date >= range.start && event.date < range.end;
+}
 async function loadAnnouncementContext(universityId, limit) {
-    await purgeExpiredAnnouncements(universityId);
     try {
         return await prisma.announcement.findMany({
             where: {
@@ -456,16 +497,25 @@ export async function gatherUniversityContext(universityId, userId, options) {
     const selectedSections = toSectionSet(options?.sections);
     const latestUserQuery = options?.userQuery?.trim() ?? '';
     const searchTerms = extractSearchTerms(latestUserQuery);
+    const eventQueryRange = resolveEventQueryRange(latestUserQuery, now);
     const isOverviewQuery = searchTerms.normalizedQuery.length > 0 &&
         includesPattern(searchTerms.normalizedQuery, BROAD_QUERY_PATTERNS);
     const shouldUseSearchMatches = searchTerms.tokens.length > 0 && !isOverviewQuery;
     const shouldInclude = (section) => selectedSections.has(section);
-    const [university, faculty, upcomingEvents, services, resourceLinks, buildings, clubs, officeHours, userDeadlines, announcements,] = await Promise.all([
+    const [university, userPreferences, faculty, upcomingEvents, services, resourceLinks, buildings, clubs, officeHours, userDeadlines, announcements,] = await Promise.all([
         // University info
         prisma.university.findUnique({
             where: { id: universityId },
             select: { name: true, slug: true, domain: true },
         }),
+        shouldInclude('events')
+            ? prisma.notificationPreferences.findUnique({
+                where: { userId },
+                select: {
+                    clubInterestIds: true,
+                },
+            })
+            : Promise.resolve(null),
         // Faculty directory — full university directory, filtered in-memory for prompt relevance
         shouldInclude('faculty')
             ? getFacultyCached(universityId, undefined, undefined, userId)
@@ -506,7 +556,7 @@ export async function gatherUniversityContext(universityId, userId, options) {
             ? getBuildingsCached(universityId, undefined)
             : Promise.resolve([]),
         // Clubs — full university directory, filtered in-memory for prompt relevance
-        shouldInclude('clubs')
+        shouldInclude('clubs') || shouldInclude('events')
             ? getClubsCached(universityId, undefined, undefined)
             : Promise.resolve([]),
         // Office hours — from faculty at this university, active slots
@@ -553,6 +603,16 @@ export async function gatherUniversityContext(universityId, userId, options) {
             ? loadAnnouncementContext(universityId, SECTION_LIMITS.announcements)
             : Promise.resolve([]),
     ]);
+    const followedClubIds = userPreferences?.clubInterestIds ?? [];
+    const enrichedUpcomingEvents = shouldInclude('events')
+        ? enrichEventsForAudience(upcomingEvents, {
+            clubs,
+            followedClubIds,
+        })
+        : [];
+    const scopedUpcomingEvents = eventQueryRange
+        ? enrichedUpcomingEvents.filter((item) => eventFallsWithinRange(item, eventQueryRange))
+        : enrichedUpcomingEvents;
     const universityName = university?.name ?? 'Unknown University';
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const facultyMatches = shouldInclude('faculty')
@@ -572,11 +632,14 @@ export async function gatherUniversityContext(universityId, userId, options) {
         : [];
     const eventMatches = shouldInclude('events')
         ? (shouldUseSearchMatches
-            ? rankRecords(upcomingEvents, searchTerms, (item) => ({
-                primary: [item.title, item.location, item.category],
-                secondary: [item.description ?? '', item.organizer ?? '', item.time ?? ''],
+            ? rankRecords(scopedUpcomingEvents, searchTerms, (item) => ({
+                primary: [item.title, item.location, item.category, item.activityLabel ?? ''],
+                secondary: [item.description ?? '', item.organizer ?? '', item.time ?? '', ...(item.matchedClubNames ?? []), item.sourceLabel ?? ''],
             }), MATCH_RESULT_LIMITS.events ?? 10)
-            : selectOverviewRecords(upcomingEvents, 'events'))
+            : selectOverviewRecords(scopedUpcomingEvents, 'events'))
+        : [];
+    const myClubEventMatches = shouldInclude('events') && followedClubIds.length > 0
+        ? scopedUpcomingEvents.filter((item) => item.myClubActivity).slice(0, MATCH_RESULT_LIMITS.events ?? 10)
         : [];
     const serviceMatches = shouldInclude('services')
         ? (shouldUseSearchMatches
@@ -693,14 +756,16 @@ export async function gatherUniversityContext(universityId, userId, options) {
     }
     // ----- Events -----
     if (shouldInclude('events') && eventMatches.length > 0) {
-        sections.push(`${shouldUseSearchMatches ? 'MATCHED EVENTS' : 'UPCOMING EVENTS'}:\n` +
-            eventMatches
-                .map((e) => `• "${e.title}" — ${e.date.toLocaleDateString()} at ${e.time}, ${e.location} [${e.category}]` +
-                (e.description ? ` — ${e.description.slice(0, 120)}` : ''))
-                .join('\n'));
+        sections.push(`${shouldUseSearchMatches ? 'MATCHED EVENTS' : eventQueryRange ? `UPCOMING EVENTS (${eventQueryRange.label.toUpperCase()})` : 'UPCOMING EVENTS'}:\n` +
+            eventMatches.map((e) => renderEventLine(e)).join('\n'));
     }
     else if (shouldInclude('events')) {
-        sections.push('UPCOMING EVENTS: None scheduled in the next 30 days.');
+        sections.push(eventQueryRange
+            ? `UPCOMING EVENTS (${eventQueryRange.label.toUpperCase()}): None scheduled.`
+            : 'UPCOMING EVENTS: None scheduled in the next 30 days.');
+    }
+    if (shouldInclude('events') && myClubEventMatches.length > 0) {
+        sections.push('YOUR CLUB EVENTS:\n' + myClubEventMatches.map((event) => renderEventLine(event)).join('\n'));
     }
     // ----- Faculty -----
     if (shouldInclude('faculty') && facultyMatches.length > 0) {

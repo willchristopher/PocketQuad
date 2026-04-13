@@ -150,6 +150,21 @@
     background: var(--msu-gold);
     color: var(--msu-blue);
   }
+
+  /* ── Keyboard Focus (WCAG 2.4.7 / 2.4.11 / 2.4.12) ─────────── */
+  /* Visible ring on keyboard/programmatic focus only (not mouse) */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    /* Ensure sticky header never fully obscures a focused element */
+    scroll-margin-top: 88px;
+    scroll-margin-bottom: 88px;
+  }
+
+  /* Elements that render their own focus indicator (e.g. field shells) */
+  [data-focus-hidden]:focus-visible {
+    outline: none;
+  }
 }
 
 @layer components {

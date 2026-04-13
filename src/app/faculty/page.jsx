@@ -1,4 +1,5 @@
-import { redirect } from 'next/navigation';
+import { FacultyHome } from '@/components/faculty/FacultyHome';
+
 export default function FacultyRootPage() {
-    redirect('/faculty/dashboard');
+  return <FacultyHome />;
 }

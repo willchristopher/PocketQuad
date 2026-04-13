@@ -44,10 +44,12 @@ export const resetPasswordSchema = z.object({
 });
 export const facultyRequestOtpSchema = z.object({
     email: z.string().trim().toLowerCase().email('Invalid email address'),
+    dormantAccountId: z.string().cuid().optional(),
 });
 export const facultyVerifyOtpSchema = z.object({
     email: z.string().trim().toLowerCase().email('Invalid email address'),
     code: z.string().trim().min(6, 'Code must be at least 6 characters').max(12, 'Code is too long'),
+    dormantAccountId: z.string().cuid().optional(),
 });
 export const facultySetPasswordSchema = z.object({
     password: passwordSchema,
@@ -58,6 +60,7 @@ export const studentRequestOtpSchema = z
     lastName: nameSchema,
     email: z.string().trim().toLowerCase().email('Invalid email address'),
     password: passwordSchema,
+    dormantAccountId: z.string().cuid().optional(),
 })
     .superRefine(({ email }, context) => {
     if (!email.endsWith('.edu')) {
