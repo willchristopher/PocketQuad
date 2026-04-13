@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { hasPortalPermission } from '@/lib/auth/portalPermissions';
 import { canPublishCampusAnnouncements } from '@/lib/facultyPermissions';
 import { composeFacultyOfficeHoursSummary, formatFacultyAvailability, parseLegacyFacultyAvailability } from '@/lib/faculty';
+import { listCampusBuildingsCompatible } from '@/lib/server/campusBuildings';
 import { getAnnouncementAudienceLabel, listUniversityAnnouncements, getActiveAnnouncementWhere } from '@/lib/server/announcements';
 import { getFacultyEventOwner } from '@/lib/server/facultyEvents';
 import { isMissingDatabaseFieldError } from '@/lib/server/dbCompatibility';
@@ -278,20 +279,9 @@ export async function getFacultyBuildingsData(profile) {
 
   const now = new Date();
   const managedIds = new Set((profile.managedBuildings ?? []).map((assignment) => assignment.buildingId));
-  const buildings = await prisma.campusBuilding.findMany({
+  const buildings = await listCampusBuildingsCompatible({
     where: {
       universityId: profile.universityId,
-    },
-    select: {
-      id: true,
-      name: true,
-      type: true,
-      address: true,
-      operatingHours: true,
-      operationalStatus: true,
-      operationalNote: true,
-      operationalUpdatedAt: true,
-      accessibilityNotes: true,
     },
     orderBy: { name: 'asc' },
   });

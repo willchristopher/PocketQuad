@@ -9,6 +9,14 @@ export const BUILDING_IMPORT_REQUIRED_HEADERS = [
 export const BUILDING_IMPORT_OPTIONAL_HEADERS = [
     'latitude',
     'longitude',
+    'monday_hours',
+    'tuesday_hours',
+    'wednesday_hours',
+    'thursday_hours',
+    'friday_hours',
+    'saturday_hours',
+    'sunday_hours',
+    'notes',
 ];
 export const BUILDING_IMPORT_ALLOWED_HEADERS = [
     ...BUILDING_IMPORT_REQUIRED_HEADERS,
@@ -32,6 +40,24 @@ export function validateBuildingImportHeaders(headers) {
         valid: missingHeaders.length === 0 &&
             unexpectedHeaders.length === 0 &&
             duplicateHeaders.length === 0,
+    };
+}
+export function isEmptyCsvRow(row) {
+    return !row || row.every((cell) => !cell?.trim());
+}
+export function extractBuildingImportRows(rows) {
+    const firstNonEmptyRowIndex = rows.findIndex((row) => !isEmptyCsvRow(row));
+    if (firstNonEmptyRowIndex === -1) {
+        return {
+            dataRows: [],
+            headerRow: [],
+            headerRowIndex: -1,
+        };
+    }
+    return {
+        headerRow: rows[firstNonEmptyRowIndex] ?? [],
+        headerRowIndex: firstNonEmptyRowIndex,
+        dataRows: rows.slice(firstNonEmptyRowIndex + 1).filter((row) => !isEmptyCsvRow(row)),
     };
 }
 export function parseBuildingListCell(value) {

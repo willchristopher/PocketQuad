@@ -1,6 +1,7 @@
 import { ApiError } from '@/lib/api/utils';
+import { MURRAY_STATE_BUILDING_COORDINATES } from '@/lib/data/murrayStateBuildingCoordinates.mjs';
 import { prisma } from '@/lib/prisma';
-import { isMissingDatabaseFieldError } from '@/lib/server/dbCompatibility';
+import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
 
 const universitySelect = {
     select: {
@@ -10,6 +11,31 @@ const universitySelect = {
     },
 };
 const campusBuildingSelect = {
+    id: true,
+    universityId: true,
+    name: true,
+    code: true,
+    type: true,
+    address: true,
+    mapQuery: true,
+    latitude: true,
+    longitude: true,
+    purpose: true,
+    description: true,
+    accessibilityNotes: true,
+    operatingHours: true,
+    operatingHoursSchedule: true,
+    operationalStatus: true,
+    operationalNote: true,
+    operationalUpdatedAt: true,
+    categories: true,
+    services: true,
+    departments: true,
+    createdAt: true,
+    updatedAt: true,
+    university: universitySelect,
+};
+const legacyCampusBuildingSelect = {
     id: true,
     universityId: true,
     name: true,
@@ -33,41 +59,25 @@ const campusBuildingSelect = {
     updatedAt: true,
     university: universitySelect,
 };
-const legacyCampusBuildingSelect = {
-    id: true,
-    universityId: true,
-    name: true,
-    code: true,
-    type: true,
-    address: true,
-    mapQuery: true,
-    purpose: true,
-    description: true,
-    accessibilityNotes: true,
-    operatingHours: true,
-    operationalStatus: true,
-    operationalNote: true,
-    operationalUpdatedAt: true,
-    categories: true,
-    services: true,
-    departments: true,
-    createdAt: true,
-    updatedAt: true,
-    university: universitySelect,
-};
 /**
  * @template {Record<string, unknown>} T
  * @param {T} record
- * @returns {T & { latitude: number | null, longitude: number | null }}
+ * @returns {T & { latitude: number | null, longitude: number | null, operatingHoursSchedule: Record<string, unknown> | null }}
  */
 function withLocationDefaults(record) {
+    const fallbackCoordinates = record.university?.slug === 'murray-state-university'
+        ? MURRAY_STATE_BUILDING_COORDINATES[record.name] ?? null
+        : null;
     return {
         ...record,
         latitude: 'latitude' in record && typeof record.latitude !== 'undefined'
-            ? (record.latitude ?? null)
-            : null,
+            ? (record.latitude ?? fallbackCoordinates?.lat ?? null)
+            : (fallbackCoordinates?.lat ?? null),
         longitude: 'longitude' in record && typeof record.longitude !== 'undefined'
-            ? (record.longitude ?? null)
+            ? (record.longitude ?? fallbackCoordinates?.lng ?? null)
+            : (fallbackCoordinates?.lng ?? null),
+        operatingHoursSchedule: 'operatingHoursSchedule' in record && typeof record.operatingHoursSchedule !== 'undefined'
+            ? (record.operatingHoursSchedule ?? null)
             : null,
     };
 }
@@ -82,12 +92,12 @@ function ensureLegacyDatabaseCanSkipCoordinates(data) {
     }
 }
 /**
- * @template {{ latitude?: unknown, longitude?: unknown }} T
+ * @template {{ latitude?: unknown, longitude?: unknown, operatingHoursSchedule?: unknown }} T
  * @param {T} data
- * @returns {Omit<T, 'latitude' | 'longitude'>}
+ * @returns {Omit<T, 'latitude' | 'longitude' | 'operatingHoursSchedule'>}
  */
 function withoutCoordinates(data) {
-    const { latitude: _latitude, longitude: _longitude, ...legacyData } = data;
+    const { latitude: _latitude, longitude: _longitude, operatingHoursSchedule: _operatingHoursSchedule, ...legacyData } = data;
     return legacyData;
 }
 /**
@@ -106,7 +116,7 @@ export async function listCampusBuildingsCompatible({ where, orderBy, }) {
         return records.map((record) => withLocationDefaults(record));
     }
     catch (error) {
-        if (!isMissingDatabaseFieldError(error)) {
+        if (!isPrismaSchemaCompatibilityError(error)) {
             throw error;
         }
         const records = await prisma.campusBuilding.findMany({
@@ -132,7 +142,7 @@ export async function createCampusBuildingCompatible(data) {
         return withLocationDefaults(record);
     }
     catch (error) {
-        if (!isMissingDatabaseFieldError(error)) {
+        if (!isPrismaSchemaCompatibilityError(error)) {
             throw error;
         }
         ensureLegacyDatabaseCanSkipCoordinates(data);
@@ -161,7 +171,7 @@ export async function updateCampusBuildingCompatible(id, data) {
         return withLocationDefaults(record);
     }
     catch (error) {
-        if (!isMissingDatabaseFieldError(error)) {
+        if (!isPrismaSchemaCompatibilityError(error)) {
             throw error;
         }
         ensureLegacyDatabaseCanSkipCoordinates(data);

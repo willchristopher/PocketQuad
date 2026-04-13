@@ -63,7 +63,9 @@ export function AuthProvider({ children, initialSnapshot = null }) {
     }, [fetchSession]);
     const refreshProfile = React.useCallback(async () => {
         const nextProfile = await apiRequest('/api/users/me');
-        setProfile(nextProfile);
+        if (mountedRef.current) {
+            setProfile(nextProfile);
+        }
         return nextProfile;
     }, []);
     const refreshSession = React.useCallback(async () => fetchSession({ showLoader: true }), [fetchSession]);
@@ -76,6 +78,28 @@ export function AuthProvider({ children, initialSnapshot = null }) {
             setProfile(null);
         }
     }, []);
+    React.useEffect(() => {
+        if (typeof window === 'undefined' || !user) {
+            return undefined;
+        }
+        const syncProfile = () => {
+            void refreshProfile().catch(() => {});
+        };
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                syncProfile();
+            }
+        };
+        syncProfile();
+        window.addEventListener('focus', syncProfile);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        const intervalId = window.setInterval(syncProfile, 60_000);
+        return () => {
+            window.removeEventListener('focus', syncProfile);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.clearInterval(intervalId);
+        };
+    }, [refreshProfile, user]);
     const value = React.useMemo(() => ({
         user,
         profile,

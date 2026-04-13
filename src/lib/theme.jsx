@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { useTheme } from 'next-themes';
+import { apiRequest } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth/context';
 const UniversityThemeContext = React.createContext(undefined);
 const THEME_STORAGE_KEY = 'pocketquad-theme-mode';
@@ -175,15 +176,17 @@ export function UniversityThemeProvider({ children }) {
     const { setTheme: setNextTheme } = useTheme();
     const { profile } = useAuth();
     const profileId = profile?.id ?? null;
+    const universityThemeMainColor = profile?.university?.themeMainColor ?? null;
+    const universityThemeAccentColor = profile?.university?.themeAccentColor ?? null;
     const liveUniversityColors = React.useMemo(() => {
-        if (!profile?.university?.themeMainColor || !profile?.university?.themeAccentColor) {
+        if (!universityThemeMainColor || !universityThemeAccentColor) {
             return null;
         }
         return {
-            mainColor: profile.university.themeMainColor,
-            accentColor: profile.university.themeAccentColor,
+            mainColor: universityThemeMainColor,
+            accentColor: universityThemeAccentColor,
         };
-    }, [profile?.university?.themeAccentColor, profile?.university?.themeMainColor]);
+    }, [universityThemeAccentColor, universityThemeMainColor]);
     const [themeMode, setThemeModeState] = React.useState('system');
     const [universityColors, setUniversityColors] = React.useState(null);
     const [universityName, setUniversityName] = React.useState(null);

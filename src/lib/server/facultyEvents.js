@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { combineEventDateTime, formatEventTimeLabel } from '@/lib/events';
-import { canManageBuilding } from '@/lib/facultyPermissions';
+import { canCreateDeadlineEvents, canManageBuilding } from '@/lib/facultyPermissions';
 import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
 import { ApiError } from '@/lib/api/utils';
 const facultyEventSelect = {
@@ -15,6 +15,7 @@ const facultyEventSelect = {
     time: true,
     location: true,
     category: true,
+    audience: true,
     organizer: true,
     organizerId: true,
     maxAttendees: true,
@@ -106,6 +107,7 @@ function hasFacultyEventDetailsChanged(previous, next) {
         previous.time !== next.time ||
         previous.location !== next.location ||
         previous.category !== next.category ||
+        previous.audience !== next.audience ||
         previous.buildingId !== next.buildingId);
 }
 function buildUpdatedEventMessage(previous, next) {
@@ -161,6 +163,9 @@ export async function notifyFavoritedStudentsAboutFacultyEvent(options) {
 export async function createFacultyOwnedEvent(options) {
     const faculty = await getFacultyEventOwner(options.profile.id);
     const building = await resolveFacultyEventBuilding(options.profile, options.payload.buildingId);
+    if (options.payload.audience === 'DEADLINE' && !canCreateDeadlineEvents(options.profile)) {
+        throw new ApiError(403, 'You do not have permission to create deadline events');
+    }
     const startsAt = combineEventDateTime(options.payload.date, options.payload.time);
     if (!startsAt) {
         throw new ApiError(400, 'Unable to parse the event date and time.');
@@ -175,6 +180,7 @@ export async function createFacultyOwnedEvent(options) {
         location: options.payload.location ||
             (building ? `${building.name} · ${building.address}` : options.payload.location),
         category: options.payload.category,
+        audience: options.payload.audience,
         organizer: options.profile.displayName,
         organizerId: options.profile.id,
         maxAttendees: options.payload.maxAttendees ?? null,
@@ -191,18 +197,20 @@ export async function createFacultyOwnedEvent(options) {
         if (!isPrismaSchemaCompatibilityError(error)) {
             throw error;
         }
-        const { tags, ...legacyEventData } = nextEventData;
+        const { tags, audience, ...legacyEventData } = nextEventData;
         event = await prisma.event.create({
             data: legacyEventData,
             select: facultyEventSelect,
         });
     }
-    const notifiedCount = await notifyFavoritedStudentsAboutFacultyEvent({
-        facultyId: faculty.id,
-        actorName: options.profile.displayName,
-        event,
-        type: 'NEW_EVENT',
-    });
+    const notifiedCount = event.audience === 'DEADLINE'
+        ? 0
+        : await notifyFavoritedStudentsAboutFacultyEvent({
+            facultyId: faculty.id,
+            actorName: options.profile.displayName,
+            event,
+            type: 'NEW_EVENT',
+        });
     return {
         event,
         faculty,

@@ -2,7 +2,9 @@ import { revalidateTag, unstable_cache } from 'next/cache';
 import { getStudentFacingFacultyAvailability, parseLegacyFacultyAvailability, } from '@/lib/faculty';
 import { prisma } from '@/lib/prisma';
 import { listCampusBuildingsCompatible } from '@/lib/server/campusBuildings';
-import { isMissingDatabaseFieldError } from '@/lib/server/dbCompatibility';
+import { isMissingDatabaseFieldError, isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
+import { ensureMurrayStateOrganizationsLoaded } from '@/lib/server/murrayStateClubSync';
+import { enrichMurrayStateOrganizationRecord } from '@/lib/data/murrayStateOrganizations';
 export const UNIVERSITY_DATA_TAGS = {
     buildings: 'university-buildings',
     clubs: 'university-clubs',
@@ -14,6 +16,88 @@ export const UNIVERSITY_DATA_TAGS = {
 };
 export const ALL_UNIVERSITY_DATA_TAGS = Object.values(UNIVERSITY_DATA_TAGS);
 const UNIVERSITY_DATA_TTL_SECONDS = 600;
+function isMurrayStateClubRecord(record) {
+    return Boolean(record?.university?.name?.toLowerCase().includes('murray state') ||
+        record?.university?.slug?.toLowerCase().includes('murray'));
+}
+function enrichClubRecord(record) {
+    if (!isMurrayStateClubRecord(record)) {
+        return record;
+    }
+    return enrichMurrayStateOrganizationRecord(record);
+}
+async function findClubs(universityId, category, query) {
+    try {
+        return (await prisma.clubOrganization.findMany({
+            where: {
+                ...(universityId ? { universityId } : {}),
+                ...(category ? { category } : {}),
+                ...(query
+                    ? {
+                        OR: [
+                            { name: { contains: query, mode: 'insensitive' } },
+                            { category: { contains: query, mode: 'insensitive' } },
+                            { description: { contains: query, mode: 'insensitive' } },
+                            { contactEmail: { contains: query, mode: 'insensitive' } },
+                            { presidentName: { contains: query, mode: 'insensitive' } },
+                            { presidentEmail: { contains: query, mode: 'insensitive' } },
+                            { advisorName: { contains: query, mode: 'insensitive' } },
+                            { advisorEmail: { contains: query, mode: 'insensitive' } },
+                            { publicContactInfo: { contains: query, mode: 'insensitive' } },
+                            { sourceUrls: { contains: query, mode: 'insensitive' } },
+                            { importNotes: { contains: query, mode: 'insensitive' } },
+                            { meetingInfo: { contains: query, mode: 'insensitive' } },
+                        ],
+                    }
+                    : {}),
+            },
+            include: {
+                university: {
+                    select: { id: true, name: true, slug: true },
+                },
+            },
+            orderBy: [{ name: 'asc' }],
+        })).map(enrichClubRecord);
+    }
+    catch (error) {
+        if (!isPrismaSchemaCompatibilityError(error)) {
+            throw error;
+        }
+        const records = await prisma.clubOrganization.findMany({
+            where: {
+                ...(universityId ? { universityId } : {}),
+                ...(category ? { category } : {}),
+                ...(query
+                    ? {
+                        OR: [
+                            { name: { contains: query, mode: 'insensitive' } },
+                            { category: { contains: query, mode: 'insensitive' } },
+                            { description: { contains: query, mode: 'insensitive' } },
+                            { contactEmail: { contains: query, mode: 'insensitive' } },
+                            { meetingInfo: { contains: query, mode: 'insensitive' } },
+                        ],
+                    }
+                    : {}),
+            },
+            include: {
+                university: {
+                    select: { id: true, name: true, slug: true },
+                },
+            },
+            orderBy: [{ name: 'asc' }],
+        });
+        return records.map((record) => enrichClubRecord({
+            ...record,
+            presidentName: null,
+            presidentEmail: null,
+            advisorName: null,
+            advisorEmail: null,
+            publicContactInfo: null,
+            sourceUrls: null,
+            importNotes: null,
+        }));
+    }
+}
 function normalizeSearchValue(value) {
     return value?.trim().toLowerCase() ?? '';
 }
@@ -69,26 +153,7 @@ const getResourceLinksCachedInternal = unstable_cache(async (universityId, categ
     });
 }, ['campus-resource-links'], { revalidate: UNIVERSITY_DATA_TTL_SECONDS, tags: [UNIVERSITY_DATA_TAGS.resourceLinks] });
 const getClubsCachedInternal = unstable_cache(async (universityId, category, query) => {
-    return prisma.clubOrganization.findMany({
-        where: {
-            ...(universityId ? { universityId } : {}),
-            ...(category ? { category } : {}),
-            ...(query
-                ? {
-                    OR: [
-                        { name: { contains: query, mode: 'insensitive' } },
-                        { description: { contains: query, mode: 'insensitive' } },
-                    ],
-                }
-                : {}),
-        },
-        include: {
-            university: {
-                select: { id: true, name: true, slug: true },
-            },
-        },
-        orderBy: [{ name: 'asc' }],
-    });
+    return findClubs(universityId, category, query);
 }, ['club-organizations'], { revalidate: UNIVERSITY_DATA_TTL_SECONDS, tags: [UNIVERSITY_DATA_TAGS.clubs] });
 const getBuildingsCachedInternal = unstable_cache(async (universityId, query) => {
     const records = await listCampusBuildingsCompatible({
@@ -255,8 +320,15 @@ export function getCampusServicesCached(universityId, status) {
 export function getResourceLinksCached(universityId, category, query) {
     return getResourceLinksCachedInternal(universityId ?? null, category ?? null, query ?? null);
 }
-export function getClubsCached(universityId, category, query) {
-    return getClubsCachedInternal(universityId ?? null, category ?? null, query ?? null);
+export async function getClubsCached(universityId, category, query) {
+    const normalizedUniversityId = universityId ?? null;
+    const normalizedCategory = category ?? null;
+    const normalizedQuery = query ?? null;
+    const syncResult = await ensureMurrayStateOrganizationsLoaded(normalizedUniversityId);
+    if (syncResult.synced) {
+        return findClubs(normalizedUniversityId, normalizedCategory, normalizedQuery);
+    }
+    return getClubsCachedInternal(normalizedUniversityId, normalizedCategory, normalizedQuery);
 }
 export function getBuildingsCached(universityId, query) {
     return getBuildingsCachedInternal(universityId ?? null, query ?? null);

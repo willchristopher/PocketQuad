@@ -1,7 +1,8 @@
-import { canManageBuilding } from '@/lib/facultyPermissions';
+import { canCreateDeadlineEvents, canManageBuilding } from '@/lib/facultyPermissions';
 import { combineEventDateTime, formatEventTimeLabel } from '@/lib/events';
 import { prisma } from '@/lib/prisma';
 import { getEventsCatalogData } from '@/lib/server/eventsCatalog';
+import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
 import { createEventSchema, eventQuerySchema } from '@/lib/validations';
 import {
   ApiError,
@@ -22,6 +23,7 @@ const eventWriteSelect = {
   time: true,
   location: true,
   category: true,
+  audience: true,
   organizer: true,
   organizerId: true,
   maxAttendees: true,
@@ -70,6 +72,9 @@ export async function POST(request) {
     }
 
     const payload = createEventSchema.parse(await request.json());
+    if (payload.audience === 'DEADLINE' && !canCreateDeadlineEvents(profile)) {
+      throw new ApiError(403, 'You do not have permission to create deadline events');
+    }
     let building = null;
     if (payload.buildingId) {
       if (!canManageBuilding(profile, payload.buildingId)) {
@@ -105,6 +110,7 @@ export async function POST(request) {
       time: formatEventTimeLabel(payload.time),
       location: payload.location || (building ? `${building.name} · ${building.address}` : payload.location),
       category: payload.category,
+      audience: payload.audience,
       organizer: profile.displayName,
       organizerId: profile.id,
       maxAttendees: payload.maxAttendees,
@@ -121,7 +127,7 @@ export async function POST(request) {
       if (!isPrismaSchemaCompatibilityError(error)) {
         throw error;
       }
-      const { tags, ...legacyEventData } = nextEventData;
+      const { tags, audience, ...legacyEventData } = nextEventData;
       event = await prisma.event.create({
         data: legacyEventData,
         select: eventWriteSelect,
@@ -133,7 +139,7 @@ export async function POST(request) {
       where: { userId: profile.id },
       select: { id: true },
     });
-    if (faculty) {
+    if (faculty && event.audience !== 'DEADLINE') {
       const subscribers = await prisma.facultyFavorite.findMany({
         where: {
           facultyId: faculty.id,

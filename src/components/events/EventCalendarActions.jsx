@@ -30,6 +30,7 @@ export function EventCalendarActions({
 }) {
   const addBusy = busyAction === `${event.id}:app:add`;
   const removeBusy = busyAction === `${event.id}:app:remove`;
+  const autoAddedToCalendar = event.autoAddedToCalendar || event.audience === 'DEADLINE';
 
   return (
     <div
@@ -39,7 +40,18 @@ export function EventCalendarActions({
         mobileStack ? 'flex-col items-stretch sm:flex-row sm:flex-wrap sm:items-center' : 'flex-wrap items-center',
       )}
     >
-      {event.isInCalendar ? (
+      {autoAddedToCalendar ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size={compact ? 'sm' : 'default'}
+          className={cn('gap-2', mobileStack && 'w-full justify-center sm:w-auto')}
+          disabled
+        >
+          <CalendarCheck2 className="h-4 w-4" />
+          On every PocketQuad calendar
+        </Button>
+      ) : event.isInCalendar ? (
         <Button
           type="button"
           variant="secondary"

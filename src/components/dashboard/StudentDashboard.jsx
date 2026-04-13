@@ -7,7 +7,6 @@ import { BentoGrid, BentoWidget } from '@/components/dashboard/BentoGrid';
 import { NotificationWidget } from '@/components/dashboard/NotificationWidget';
 import { dashboardModulesToPreferences } from '@/lib/studentData';
 import { getStudentFacingFacultyAvailabilityTone } from '@/lib/faculty';
-import { readFavorites } from '@/lib/favorites';
 import { useStudentPageVisibility } from '@/hooks/useStudentPageVisibility';
 import { useAuth } from '@/lib/auth/context';
 import { cn } from '@/lib/utils';
@@ -43,12 +42,15 @@ function formatBuildingStatusLabel(status) {
 }
 
 function getPinnedBuildingSubtitle(building) {
-  const statusLabel = formatBuildingStatusLabel(building.operationalStatus);
+  const statusLabel = building.currentOperationalLabel || formatBuildingStatusLabel(building.operationalStatus);
   if (building.latestAnnouncement?.title) {
     return `${statusLabel} · ${building.latestAnnouncement.title}`;
   }
   if (building.operationalNote) {
     return `${statusLabel} · ${building.operationalNote}`;
+  }
+  if (building.operatingHours) {
+    return `${statusLabel} · ${building.operatingHours}`;
   }
   return `${building.type} · ${statusLabel}`;
 }
@@ -80,27 +82,15 @@ const emptyStateClassName =
 export function StudentDashboard({ initialOverview }) {
   const { profile } = useAuth();
   const { isHrefVisible, isPageVisible } = useStudentPageVisibility();
-  const [pinnedResources, setPinnedResources] = React.useState([]);
   const dashboardPreferences = React.useMemo(
     () => dashboardModulesToPreferences(profile?.notificationPreferences?.dashboardModules),
     [profile?.notificationPreferences?.dashboardModules],
   );
 
-  React.useEffect(() => {
-    const syncPinnedResources = () => {
-      const resourcePins = readFavorites().filter((item) => item.kind === 'resource');
-      setPinnedResources(resourcePins);
-    };
-
-    syncPinnedResources();
-    window.addEventListener('focus', syncPinnedResources);
-    window.addEventListener('storage', syncPinnedResources);
-
-    return () => {
-      window.removeEventListener('focus', syncPinnedResources);
-      window.removeEventListener('storage', syncPinnedResources);
-    };
-  }, []);
+  const pinnedResources = React.useMemo(
+    () => initialOverview.pinnedResourceLinks ?? [],
+    [initialOverview.pinnedResourceLinks],
+  );
 
   const pinnedItems = [
     ...initialOverview.pinnedBuildings.map((item) => ({
@@ -130,10 +120,10 @@ export function StudentDashboard({ initialOverview }) {
           <div className="grid gap-4 md:grid-cols-2">
             {dashboardPreferences.events ? (
               <div>
-                <p className="mb-3 poster-label">Interested Events</p>
+                <p className="mb-3 poster-label">Saved Events</p>
                 <div className="space-y-2">
                   {initialOverview.upcomingEvents.length === 0 ? (
-                    <p className={emptyStateClassName}>No interested events yet</p>
+                    <p className={emptyStateClassName}>No saved events yet</p>
                   ) : (
                     initialOverview.upcomingEvents.map((event) => {
                       const eventContent = (
@@ -248,7 +238,10 @@ export function StudentDashboard({ initialOverview }) {
                       </p>
                     </div>
                     <span
-                      className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${facultyAvailabilityColors[getStudentFacingFacultyAvailabilityTone(faculty.studentAvailabilityState)]}`}
+                      className={cn(
+                        'inline-flex shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-[10px] font-semibold leading-none',
+                        facultyAvailabilityColors[getStudentFacingFacultyAvailabilityTone(faculty.studentAvailabilityState)],
+                      )}
                     >
                       {faculty.studentAvailabilityLabel}
                     </span>
@@ -339,7 +332,9 @@ export function StudentDashboard({ initialOverview }) {
                   className={cn('block', listItemClassName)}
                 >
                   <p className="line-clamp-1 text-sm font-semibold">{item.label}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{item.subtitle}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {item.category.replaceAll('_', ' ')}
+                  </p>
                 </a>
               ))
             )}

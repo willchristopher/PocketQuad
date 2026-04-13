@@ -12,6 +12,8 @@ import {
   Save,
 } from 'lucide-react';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
+import { BuildingHoursEditor } from '@/components/buildings/BuildingHoursEditor';
+import { hasMeaningfulBuildingHoursSchedule, summarizeBuildingHoursSchedule } from '@/lib/buildingHours';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 const emptyDraft = {
   operatingHours: '',
+  operatingHoursSchedule: null,
   operationalStatus: 'OPEN',
   operationalNote: '',
   accessibilityNotes: '',
@@ -110,6 +113,7 @@ export function FacultyBuildings({ initialData = null }) {
     }
     setDraft({
       operatingHours: selected.operatingHours ?? '',
+      operatingHoursSchedule: selected.operatingHoursSchedule ?? null,
       operationalStatus: selected.operationalStatus,
       operationalNote: selected.operationalNote ?? '',
       accessibilityNotes: selected.accessibilityNotes ?? '',
@@ -117,16 +121,16 @@ export function FacultyBuildings({ initialData = null }) {
   }, [selected]);
 
   const managed = data?.managedBuildings ?? [];
-  const available = data?.availableBuildings ?? [];
   const showAvailable = showAll || search.trim().length > 0;
 
   const filtered = React.useMemo(() => {
+    const available = data?.availableBuildings ?? [];
     const q = search.trim().toLowerCase();
     if (!q) return available;
     return available.filter((b) =>
       `${b.name} ${b.type} ${b.address}`.toLowerCase().includes(q),
     );
-  }, [available, search]);
+  }, [data?.availableBuildings, search]);
 
   const claim = async (id) => {
     setClaiming(id);
@@ -252,13 +256,30 @@ export function FacultyBuildings({ initialData = null }) {
 
           <form onSubmit={saveBuilding} className="space-y-4">
             <label className="block space-y-2 text-sm font-medium">
-              <span>Operating hours</span>
+              <span>
+                {hasMeaningfulBuildingHoursSchedule(draft.operatingHoursSchedule)
+                  ? 'Hours summary'
+                  : 'Hours summary / fallback'}
+              </span>
               <Input
-                value={draft.operatingHours}
+                value={
+                  hasMeaningfulBuildingHoursSchedule(draft.operatingHoursSchedule)
+                    ? summarizeBuildingHoursSchedule(draft.operatingHoursSchedule, draft.operatingHours) ?? ''
+                    : draft.operatingHours
+                }
                 onChange={(e) => setDraft((c) => ({ ...c, operatingHours: e.target.value }))}
                 placeholder="Mon-Fri 7:00 AM – 9:00 PM"
+                readOnly={hasMeaningfulBuildingHoursSchedule(draft.operatingHoursSchedule)}
               />
             </label>
+
+            <BuildingHoursEditor
+              value={draft.operatingHoursSchedule}
+              fallbackSummary={draft.operatingHours}
+              onChange={(operatingHoursSchedule) =>
+                setDraft((current) => ({ ...current, operatingHoursSchedule }))
+              }
+            />
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="space-y-2 text-sm font-medium">
@@ -326,7 +347,9 @@ export function FacultyBuildings({ initialData = null }) {
             </p>
             <p className="flex items-start gap-2 text-sm text-muted-foreground">
               <Clock3 className="mt-0.5 h-4 w-4 shrink-0" />
-              {draft.operatingHours || 'No operating hours posted.'}
+              {hasMeaningfulBuildingHoursSchedule(draft.operatingHoursSchedule)
+                ? summarizeBuildingHoursSchedule(draft.operatingHoursSchedule, draft.operatingHours)
+                : draft.operatingHours || 'No operating hours posted.'}
             </p>
             <p className="flex items-start gap-2 text-sm text-muted-foreground">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
@@ -419,7 +442,7 @@ export function FacultyBuildings({ initialData = null }) {
           )
         ) : (
           <p className="text-sm text-muted-foreground">
-            Search or browse to find buildings. {available.length} building{available.length === 1 ? '' : 's'} available.
+            Search or browse to find buildings. {(data?.availableBuildings?.length ?? 0)} building{(data?.availableBuildings?.length ?? 0) === 1 ? '' : 's'} available.
           </p>
         )}
       </section>

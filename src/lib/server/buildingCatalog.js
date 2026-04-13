@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
+import { getCurrentBuildingAvailability } from '@/lib/buildingHours';
 import { listCampusBuildingsCompatible } from '@/lib/server/campusBuildings';
 import { getActiveAnnouncementWhere } from '@/lib/server/announcements';
-import { getBuildingsCached } from '@/lib/server/universityData';
 
 function normalizeSearchValue(value) {
   return value?.trim().toLowerCase() ?? '';
@@ -24,32 +24,26 @@ function listMatchesQuery(values, query) {
 }
 
 async function getBuildingsForRequest(universityId, query) {
-  try {
-    return await getBuildingsCached(universityId, query);
-  } catch (error) {
-    console.error('Falling back to uncached buildings query', error);
+  const records = await listCampusBuildingsCompatible({
+    where: {
+      ...(universityId ? { universityId } : {}),
+    },
+    orderBy: [{ name: 'asc' }],
+  });
 
-    const records = await listCampusBuildingsCompatible({
-      where: {
-        ...(universityId ? { universityId } : {}),
-      },
-      orderBy: [{ name: 'asc' }],
-    });
-
-    const normalizedQuery = normalizeSearchValue(query);
-    if (!normalizedQuery) {
-      return records;
-    }
-
-    return records.filter((record) =>
-      [record.name, record.code, record.type, record.address, record.description, record.purpose, record.mapQuery].some(
-        (value) => fieldMatchesQuery(value, normalizedQuery),
-      ) ||
-      listMatchesQuery(record.categories, normalizedQuery) ||
-      listMatchesQuery(record.services, normalizedQuery) ||
-      listMatchesQuery(record.departments, normalizedQuery),
-    );
+  const normalizedQuery = normalizeSearchValue(query);
+  if (!normalizedQuery) {
+    return records;
   }
+
+  return records.filter((record) =>
+    [record.name, record.code, record.type, record.address, record.description, record.purpose, record.mapQuery].some(
+      (value) => fieldMatchesQuery(value, normalizedQuery),
+    ) ||
+    listMatchesQuery(record.categories, normalizedQuery) ||
+    listMatchesQuery(record.services, normalizedQuery) ||
+    listMatchesQuery(record.departments, normalizedQuery),
+  );
 }
 
 export async function getBuildingCatalogData(profile, { query, requestedUniversityId } = {}) {
@@ -155,10 +149,15 @@ export async function getBuildingCatalogData(profile, { query, requestedUniversi
     }
   }
 
-  return buildings.map((building) => ({
-    ...building,
-    isFavorited: favoritedBuildingIds.has(building.id),
-    announcements: announcementsByBuilding.get(building.id) ?? [],
-    upcomingEvents: eventsByBuilding.get(building.id) ?? [],
-  }));
+  return buildings.map((building) => {
+    const hours = getCurrentBuildingAvailability(building);
+    return {
+      ...building,
+      ...hours,
+      operationalStatus: hours.currentOperationalStatus,
+      isFavorited: favoritedBuildingIds.has(building.id),
+      announcements: announcementsByBuilding.get(building.id) ?? [],
+      upcomingEvents: eventsByBuilding.get(building.id) ?? [],
+    };
+  });
 }

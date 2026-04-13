@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   ArrowRight,
   Check,
+  ChevronDown,
   ExternalLink,
   Mail,
   MapPin,
@@ -17,6 +18,12 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth/context';
@@ -51,15 +58,129 @@ function getClubInitials(name) {
     .join('');
 }
 
+function getSingleEmail(value) {
+  const normalized = value?.trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const matches = normalized.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [];
+
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function parseSourceLinks(value) {
+  return String(value ?? '')
+    .split(';')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function ContactLine({ label, name, email, text }) {
+  if (!name && !email && !text) {
+    return null;
+  }
+
+  const singleEmail = getSingleEmail(email ?? text);
+
+  return (
+    <div className="grid gap-1 sm:grid-cols-[112px_minmax(0,1fr)] sm:gap-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        {label}
+      </p>
+      <div className="min-w-0 space-y-1 text-sm text-foreground">
+        {name ? <p>{name}</p> : null}
+        {email ? (
+          singleEmail ? (
+            <a
+              href={`mailto:${singleEmail}`}
+              className="inline-flex max-w-full items-center gap-1.5 text-primary underline-offset-4 hover:underline"
+            >
+              <Mail className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{email}</span>
+            </a>
+          ) : (
+            <p className="break-words text-muted-foreground">{email}</p>
+          )
+        ) : null}
+        {text && text !== email ? (
+          <p className="break-words text-muted-foreground">{text}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ClubContactDetails({ club }) {
+  if (
+    !club.presidentName &&
+    !club.presidentEmail &&
+    !club.advisorName &&
+    !club.advisorEmail &&
+    !club.publicContactInfo &&
+    !club.contactEmail &&
+    !club.sourceUrls &&
+    !club.importNotes
+  ) {
+    return null;
+  }
+
+  const sourceLinks = parseSourceLinks(club.sourceUrls);
+
+  return (
+    <div className="mt-4 space-y-3 rounded-xl border border-border/60 bg-muted/15 p-4">
+      <ContactLine
+        label="President"
+        name={club.presidentName}
+        email={club.presidentEmail}
+      />
+      <ContactLine
+        label="Advisor"
+        name={club.advisorName}
+        email={club.advisorEmail}
+      />
+      <ContactLine
+        label="General contact"
+        email={club.publicContactInfo ? null : club.contactEmail}
+        text={club.publicContactInfo}
+      />
+      {sourceLinks.length > 0 ? (
+        <div className="grid gap-1 sm:grid-cols-[112px_minmax(0,1fr)] sm:gap-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Sources
+          </p>
+          <div className="space-y-1 text-sm">
+            {sourceLinks.map((href) => (
+              <a
+                key={href}
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex max-w-full items-center gap-1.5 text-primary underline-offset-4 hover:underline"
+              >
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{href}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {club.importNotes ? (
+        <div className="grid gap-1 sm:grid-cols-[112px_minmax(0,1fr)] sm:gap-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Notes
+          </p>
+          <p className="text-sm leading-6 text-muted-foreground">{club.importNotes}</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function DirectoryRow({ club, isFollowed, onToggleInterest, saving }) {
   return (
-    <article className="flex flex-col gap-4 px-5 py-5 md:flex-row md:items-start md:gap-5">
-      <Avatar className="h-12 w-12 rounded-xl border border-primary/15 bg-muted">
-        <AvatarFallback className="rounded-xl bg-muted font-semibold text-primary">
-          {getClubInitials(club.name)}
-        </AvatarFallback>
-      </Avatar>
-
+    <article className="flex flex-col gap-4 px-5 py-5 md:flex-row md:items-start md:justify-between md:gap-5">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-lg font-semibold text-foreground">{club.name}</h3>
@@ -95,6 +216,8 @@ function DirectoryRow({ club, isFollowed, onToggleInterest, saving }) {
             </a>
           ) : null}
         </div>
+
+        <ClubContactDetails club={club} />
       </div>
 
       <div className="flex flex-wrap gap-2 md:justify-end">
@@ -369,7 +492,20 @@ export default function ClubhousePage({ initialClubs = null }) {
           return true;
         }
 
-        return [club.name, club.category, club.description, club.meetingInfo, club.contactEmail]
+        return [
+          club.name,
+          club.category,
+          club.description,
+          club.meetingInfo,
+          club.contactEmail,
+          club.presidentName,
+          club.presidentEmail,
+          club.advisorName,
+          club.advisorEmail,
+          club.publicContactInfo,
+          club.sourceUrls,
+          club.importNotes,
+        ]
           .filter(Boolean)
           .some((value) => value.toLowerCase().includes(normalizedQuery));
       })
@@ -498,22 +634,38 @@ export default function ClubhousePage({ initialClubs = null }) {
               </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  onClick={() => setActiveCategory(category)}
-                  className={cn(
-                    'inline-flex items-center rounded-full border px-3.5 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-colors',
-                    activeCategory === category
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border/70 bg-card text-muted-foreground hover:border-primary/20 hover:text-foreground',
-                  )}
-                >
-                  {category}
-                </button>
-              ))}
+            <div className="mt-4">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-full border-border/70 bg-card text-xs font-semibold uppercase tracking-[0.16em] text-foreground"
+                  >
+                    {activeCategory === ALL_CLUBS_FILTER ? 'All tags' : activeCategory}
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-60">
+                  {categories.map((category) => (
+                    <DropdownMenuItem
+                      key={category}
+                      onClick={() => setActiveCategory(category)}
+                      className={cn(
+                        'flex items-center justify-between gap-3',
+                        activeCategory === category ? 'bg-accent text-accent-foreground' : '',
+                      )}
+                    >
+                      <span>{category === ALL_CLUBS_FILTER ? 'All tags' : category}</span>
+                      {category !== ALL_CLUBS_FILTER ? (
+                        <span className="text-xs text-muted-foreground">
+                          {categorySummary.find((item) => item.label === category)?.count ?? 0}
+                        </span>
+                      ) : null}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
@@ -673,6 +825,8 @@ export default function ClubhousePage({ initialClubs = null }) {
                           </a>
                         ) : null}
                       </div>
+
+                      <ClubContactDetails club={activeMatchCard.club} />
                     </div>
                   </div>
 

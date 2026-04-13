@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import {
+  attachCalendarInterestCounts,
   buildEventCatalogMeta,
   enrichEventsForAudience,
   serializeEventForViewer,
@@ -56,11 +57,6 @@ export async function getEventsCatalogData(profile, options = {}) {
       prisma.event.findMany({
         where,
         include: {
-          _count: { select: { interests: true } },
-          interests: {
-            where: { userId: profile.id },
-            select: { id: true },
-          },
           calendarEntries: {
             where: { userId: profile.id },
             select: { id: true, campusEventId: true },
@@ -106,14 +102,15 @@ export async function getEventsCatalogData(profile, options = {}) {
           time: true,
           location: true,
           category: true,
+          audience: true,
           organizer: true,
           maxAttendees: true,
           isPublished: true,
           isCancelled: true,
-          _count: { select: { interests: true } },
-          interests: {
+          calendarEntries: {
             where: { userId: profile.id },
-            select: { id: true },
+            select: { id: true, campusEventId: true },
+            take: 1,
           },
         },
         orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
@@ -142,7 +139,7 @@ export async function getEventsCatalogData(profile, options = {}) {
       )?.clubInterestIds ?? [];
 
   const items = enrichEventsForAudience(
-    events.map((event) => serializeEventForViewer(event)),
+    (await attachCalendarInterestCounts(events)).map((event) => serializeEventForViewer(event)),
     {
       clubs,
       followedClubIds,

@@ -1,6 +1,8 @@
 import { hasPortalPermission } from '@/lib/auth/portalPermissions';
 import { canManageBuilding } from '@/lib/facultyPermissions';
 import { prisma } from '@/lib/prisma';
+import { buildBuildingHoursPayload } from '@/lib/buildingHours';
+import { listCampusBuildingsCompatible, updateCampusBuildingCompatible } from '@/lib/server/campusBuildings';
 import { invalidateUniversityData, UNIVERSITY_DATA_TAGS, } from '@/lib/server/universityData';
 import { updateManagedBuildingSchema } from '@/lib/validations';
 import { ApiError, getAuthenticatedUser, handleApiError, successResponse, } from '@/lib/api/utils';
@@ -17,51 +19,32 @@ export async function PATCH(request, context) {
         if (!canManageBuilding(profile, id)) {
             throw new ApiError(403, 'You do not manage that building');
         }
-        const building = await prisma.campusBuilding.findFirst({
+        const [building] = await listCampusBuildingsCompatible({
             where: {
                 id,
                 ...(profile.universityId ? { universityId: profile.universityId } : {}),
-            },
-            select: {
-                id: true,
-                name: true,
-                operatingHours: true,
-                operationalStatus: true,
-                operationalNote: true,
             },
         });
         if (!building) {
             throw new ApiError(404, 'Building not found');
         }
-        const operatingHours = payload.operatingHours?.trim() || null;
+        const { operatingHours, operatingHoursSchedule } = buildBuildingHoursPayload(payload);
         const operationalNote = payload.operationalNote?.trim() || null;
         const accessibilityNotes = payload.accessibilityNotes?.trim() || null;
-        const updated = await prisma.campusBuilding.update({
-            where: { id },
-            data: {
-                operatingHours,
-                operationalStatus: payload.operationalStatus,
-                operationalNote,
-                accessibilityNotes,
-                operationalUpdatedAt: new Date(),
-            },
-            select: {
-                id: true,
-                name: true,
-                type: true,
-                address: true,
-                operatingHours: true,
-                operationalStatus: true,
-                operationalNote: true,
-                operationalUpdatedAt: true,
-                accessibilityNotes: true,
-            },
+        const updated = await updateCampusBuildingCompatible(id, {
+            operatingHours,
+            operatingHoursSchedule,
+            operationalStatus: payload.operationalStatus,
+            operationalNote,
+            accessibilityNotes,
+            operationalUpdatedAt: new Date(),
         });
         invalidateUniversityData(UNIVERSITY_DATA_TAGS.buildings);
         const statusChanged = building.operationalStatus !== updated.operationalStatus;
         const snapshotChanged = statusChanged ||
             (building.operationalNote ?? null) !== updated.operationalNote ||
-            (building.operatingHours ?? null) !== updated.operatingHours;
+            (building.operatingHours ?? null) !== updated.operatingHours ||
+            JSON.stringify(building.operatingHoursSchedule ?? null) !== JSON.stringify(updated.operatingHoursSchedule ?? null);
         let notifiedCount = 0;
         if (snapshotChanged && profile.universityId) {
             const recipients = await prisma.user.findMany({

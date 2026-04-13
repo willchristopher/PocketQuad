@@ -1,6 +1,7 @@
 import { assertRateLimit, withRateLimitHeaders } from '@/lib/api/rateLimit';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedUser, handleApiError, successResponse } from '@/lib/api/utils';
+import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
 import { updateProfileSchema } from '@/lib/validations';
 export async function GET() {
     try {
@@ -9,13 +10,27 @@ export async function GET() {
             includeUniversity: true,
             includeManagedClubs: true,
         });
-        const unreadNotificationCount = await prisma.notification.count({
-            where: {
-                userId: profile.id,
-                read: false,
-                clearedAt: null,
-            },
-        });
+        let unreadNotificationCount;
+        try {
+            unreadNotificationCount = await prisma.notification.count({
+                where: {
+                    userId: profile.id,
+                    read: false,
+                    clearedAt: null,
+                },
+            });
+        }
+        catch (error) {
+            if (!isPrismaSchemaCompatibilityError(error)) {
+                throw error;
+            }
+            unreadNotificationCount = await prisma.notification.count({
+                where: {
+                    userId: profile.id,
+                    read: false,
+                },
+            });
+        }
         return successResponse({
             ...profile,
             unreadNotificationCount,

@@ -3,6 +3,7 @@ import React from 'react';
 import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, isToday, startOfMonth, startOfWeek, subMonths, } from 'date-fns';
 import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { apiRequest, ApiClientError } from '@/lib/api/client';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 const entryColor = {
@@ -10,6 +11,14 @@ const entryColor = {
     Deadline: 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300',
     Personal: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
 };
+function matchesFilter(entry, filter) {
+    if (filter === 'All')
+        return true;
+    if (filter === 'Event' || filter === 'Deadline' || filter === 'Personal') {
+        return entry.kind === filter;
+    }
+    return entry.category === filter;
+}
 export function UnifiedCalendar() {
     const [currentMonth, setCurrentMonth] = React.useState(new Date());
     const [selectedDate, setSelectedDate] = React.useState(null);
@@ -18,10 +27,12 @@ export function UnifiedCalendar() {
     const [loading, setLoading] = React.useState(true);
     const [deletingEntryId, setDeletingEntryId] = React.useState(null);
     const [error, setError] = React.useState(null);
+    const isMobile = useMediaQuery('(max-width: 767px)');
     const monthDays = eachDayOfInterval({
         start: startOfWeek(startOfMonth(currentMonth)),
         end: endOfWeek(endOfMonth(currentMonth)),
     });
+    const currentMonthDays = React.useMemo(() => monthDays.filter((day) => isSameMonth(day, currentMonth)), [currentMonth, monthDays]);
     const loadEntries = React.useCallback(async () => {
       let active = true;
       const run = async () => {
@@ -92,13 +103,9 @@ export function UnifiedCalendar() {
         const categories = Array.from(new Set(entries.map((entry) => entry.category))).sort();
         return ['All', 'Event', 'Deadline', 'Personal', ...categories];
     }, [entries]);
+    const getOptionCount = React.useCallback((option) => entries.filter((entry) => matchesFilter(entry, option)).length, [entries]);
     const filteredEntries = entries.filter((entry) => {
-        if (activeFilter === 'All')
-            return true;
-        if (activeFilter === 'Event' || activeFilter === 'Deadline' || activeFilter === 'Personal') {
-            return entry.kind === activeFilter;
-        }
-        return entry.category === activeFilter;
+        return matchesFilter(entry, activeFilter);
     });
     const selectedEntries = selectedDate
         ? filteredEntries.filter((entry) => isSameDay(new Date(entry.dateISO), selectedDate))
@@ -129,8 +136,8 @@ export function UnifiedCalendar() {
     };
     return (<section className="overflow-hidden rounded-xl border border-border/60 bg-card animate-in-up">
       <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/10 p-4 md:flex-row md:items-center md:justify-between md:p-5">
-        <div className="flex items-center gap-2">
-          <h2 className="font-display text-lg font-extrabold tracking-tight min-w-[160px]">{format(currentMonth, 'MMMM yyyy')}</h2>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <h2 className="min-w-0 font-display text-lg font-extrabold tracking-tight sm:min-w-[160px]">{format(currentMonth, 'MMMM yyyy')}</h2>
           <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/80 p-1">
             <button 
               onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} 
@@ -161,13 +168,7 @@ export function UnifiedCalendar() {
         <div className="flex gap-1 overflow-x-auto pb-2 scrollbar-hide">
           {filterOptions.map((option) => {
             const isActive = activeFilter === option;
-            const eventCount = entries.filter((entry) => {
-              if (option === 'All') return true;
-              if (option === 'Event' || option === 'Deadline' || option === 'Personal') {
-                return entry.kind === option;
-              }
-              return entry.category === option;
-            }).length;
+            const eventCount = getOptionCount(option);
             
             return (
               <button 
@@ -202,62 +203,121 @@ export function UnifiedCalendar() {
           </p>
         </div>)}
 
-      <div className="grid grid-cols-7 border-b border-border/60 bg-muted/10 mt-3">
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (<div key={day} className="p-2 text-center text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-            {day}
-          </div>))}
-      </div>
-
-      <div className="grid min-h-[520px] grid-cols-7 auto-rows-fr gap-px bg-border/30">
-        {monthDays.map((day) => {
+      {isMobile ? (<div className="grid gap-3 p-3 min-[460px]:grid-cols-2">
+          {currentMonthDays.map((day) => {
             const dayEntries = filteredEntries.filter((entry) => isSameDay(new Date(entry.dateISO), day));
-            const currentMonthDay = isSameMonth(day, currentMonth);
             const isTodayDate = isToday(day);
-            return (
-              <button 
+            const isSelectedDate = selectedDate ? isSameDay(day, selectedDate) : false;
+            return (<button 
                 key={day.toISOString()} 
                 onClick={() => setSelectedDate(day)}
                 className={cn(
-                  'relative min-h-[100px] p-2 text-left transition-all duration-200 hover:bg-muted/40',
-                  !currentMonthDay && 'bg-muted/10 opacity-40',
-                  isTodayDate && 'bg-primary/[0.08]'
+                  'rounded-2xl border p-4 text-left transition-all duration-200',
+                  isSelectedDate
+                    ? 'border-primary/40 bg-primary/[0.08] shadow-sm'
+                    : 'border-border/60 bg-card hover:border-primary/20 hover:bg-muted/20',
+                  isTodayDate && !isSelectedDate && 'border-primary/20'
                 )}
               >
-                <span className={cn(
-                  'mb-1.5 inline-flex h-6 w-6 items-center justify-center rounded-lg text-xs font-bold',
-                  isTodayDate 
-                    ? 'bg-primary text-primary-foreground shadow-md shadow-primary/30' 
-                    : 'text-foreground'
-                )}>
-                  {format(day, 'd')}
-                </span>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">{format(day, 'EEE')}</p>
+                    <div className="mt-2 flex items-end gap-2">
+                      <span className={cn(
+                        'font-display text-3xl font-extrabold tracking-tight',
+                        isTodayDate ? 'text-primary' : 'text-foreground'
+                      )}>
+                        {format(day, 'd')}
+                      </span>
+                      <span className="pb-1 text-sm font-medium text-muted-foreground">{format(day, 'MMM')}</span>
+                    </div>
+                  </div>
+                  <span className={cn(
+                    'rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]',
+                    dayEntries.length > 0
+                      ? 'border-primary/20 bg-primary/10 text-primary'
+                      : 'border-border/60 bg-muted/20 text-muted-foreground'
+                  )}>
+                    {dayEntries.length > 0 ? `${dayEntries.length} item${dayEntries.length === 1 ? '' : 's'}` : 'Open'}
+                  </span>
+                </div>
 
-                <div className="space-y-0.5 text-[10px]">
-                  {loading ? (
-                    <p className="text-muted-foreground">…</p>
-                  ) : dayEntries.length > 0 ? (
+                <div className="mt-4 space-y-2">
+                  {loading ? (<p className="text-sm text-muted-foreground">Loading entries...</p>) : dayEntries.length > 0 ? (
                     <>
-                      {dayEntries.slice(0, 2).map((entry) => (
-                        <div 
+                      {dayEntries.slice(0, 3).map((entry) => (<div 
                           key={entry.id} 
-                          className={cn('truncate rounded px-1.5 py-0.5 font-semibold animate-in-up', entryColor[entry.kind])}
+                          className={cn('truncate rounded-xl px-3 py-2 text-xs font-semibold', entryColor[entry.kind])}
                           title={entry.title}
                         >
                           {entry.title}
-                        </div>
-                      ))}
-                      {dayEntries.length > 2 && (
-                        <p className="px-1 font-medium text-muted-foreground">
-                          +{dayEntries.length - 2} more
-                        </p>
-                      )}
+                        </div>))}
+                      {dayEntries.length > 3 ? (<p className="text-xs font-medium text-muted-foreground">
+                          +{dayEntries.length - 3} more scheduled
+                        </p>) : null}
                     </>
-                  ) : null}
+                  ) : (<p className="text-sm text-muted-foreground">Nothing scheduled yet for this day.</p>)}
                 </div>
-              </button>
-            );
+              </button>);
         })}
-      </div>
+        </div>) : (<>
+          <div className="mt-3 grid grid-cols-7 border-b border-border/60 bg-muted/10">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (<div key={day} className="p-2 text-center text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                {day}
+              </div>))}
+          </div>
+
+          <div className="grid min-h-[520px] grid-cols-7 auto-rows-fr gap-px bg-border/30">
+            {monthDays.map((day) => {
+                const dayEntries = filteredEntries.filter((entry) => isSameDay(new Date(entry.dateISO), day));
+                const currentMonthDay = isSameMonth(day, currentMonth);
+                const isTodayDate = isToday(day);
+                return (
+                  <button 
+                    key={day.toISOString()} 
+                    onClick={() => setSelectedDate(day)}
+                    className={cn(
+                      'relative min-h-[100px] p-2 text-left transition-all duration-200 hover:bg-muted/40',
+                      !currentMonthDay && 'bg-muted/10 opacity-40',
+                      isTodayDate && 'bg-primary/[0.08]'
+                    )}
+                  >
+                    <span className={cn(
+                      'mb-1.5 inline-flex h-6 w-6 items-center justify-center rounded-lg text-xs font-bold',
+                      isTodayDate 
+                        ? 'bg-primary text-primary-foreground shadow-md shadow-primary/30' 
+                        : 'text-foreground'
+                    )}>
+                      {format(day, 'd')}
+                    </span>
+
+                    <div className="space-y-0.5 text-[10px]">
+                      {loading ? (
+                        <p className="text-muted-foreground">…</p>
+                      ) : dayEntries.length > 0 ? (
+                        <>
+                          {dayEntries.slice(0, 2).map((entry) => (
+                            <div 
+                              key={entry.id} 
+                              className={cn('truncate rounded px-1.5 py-0.5 font-semibold animate-in-up', entryColor[entry.kind])}
+                              title={entry.title}
+                            >
+                              {entry.title}
+                            </div>
+                          ))}
+                          {dayEntries.length > 2 && (
+                            <p className="px-1 font-medium text-muted-foreground">
+                              +{dayEntries.length - 2} more
+                            </p>
+                          )}
+                        </>
+                      ) : null}
+                    </div>
+                  </button>
+                );
+            })}
+          </div>
+        </>)}
 
       {selectedDate && (<Dialog open={Boolean(selectedDate)} onOpenChange={() => setSelectedDate(null)}>
           <DialogContent className="rounded-xl max-w-md">

@@ -55,10 +55,20 @@ const EVENT_RECOMMENDATION_SCHEMA = z.object({
 
 const LEGACY_FEED_ORGANIZER = 'Murray State Calendar';
 const CLUB_TOKEN_STOPWORDS = new Set([
+  'and',
+  'at',
+  'by',
   'club',
   'clubs',
+  'for',
+  'from',
+  'in',
+  'of',
+  'on',
   'organization',
   'organizations',
+  'the',
+  'to',
   'student',
   'students',
   'association',
@@ -66,6 +76,7 @@ const CLUB_TOKEN_STOPWORDS = new Set([
   'society',
   'team',
   'university',
+  'with',
   'murray',
   'state',
 ]);
@@ -338,7 +349,7 @@ function normalizeEventString(value) {
 function tokenizeClubName(name) {
   return normalizeEventString(name)
     .split(' ')
-    .filter((token) => token.length >= 3 && !CLUB_TOKEN_STOPWORDS.has(token));
+    .filter((token) => token.length >= 4 && !CLUB_TOKEN_STOPWORDS.has(token));
 }
 
 function detectEventSourceType(event) {
@@ -361,18 +372,28 @@ function buildEventHaystack(event) {
   ].join(' '));
 }
 
+function buildEventTokenSet(eventHaystack) {
+  return new Set(
+    eventHaystack
+      .split(' ')
+      .map((token) => token.trim())
+      .filter(Boolean),
+  );
+}
+
 function scoreClubMatch(eventHaystack, club) {
   const normalizedName = normalizeEventString(club.name);
   if (!normalizedName) {
     return 0;
   }
 
+  const eventTokens = buildEventTokenSet(eventHaystack);
   let score = 0;
   if (eventHaystack.includes(normalizedName)) {
     score += 8;
   }
 
-  const matchedTokens = tokenizeClubName(club.name).filter((token) => eventHaystack.includes(token));
+  const matchedTokens = tokenizeClubName(club.name).filter((token) => eventTokens.has(token));
   if (matchedTokens.length > 0) {
     score += matchedTokens.length * 2;
   }
@@ -403,6 +424,12 @@ function pickActivityLabel(event, matchedClubs) {
   return CATEGORY_LABELS[event.category] ?? 'Campus event';
 }
 
+function getAudienceLabel(audience) {
+  if (audience === 'DEADLINE') return 'Deadline';
+  if (audience === 'ORGANIZATION') return 'Organization';
+  return 'All campus';
+}
+
 export function enrichEventsForAudience(events, options = {}) {
   const clubs = options.clubs ?? [];
   const followedClubIds = new Set(options.followedClubIds ?? []);
@@ -410,6 +437,7 @@ export function enrichEventsForAudience(events, options = {}) {
   return events.map((event) => {
     const sourceType = detectEventSourceType(event);
     const haystack = buildEventHaystack(event);
+    const clubSignalHaystack = normalizeEventString([event.title, event.organizer].join(' '));
     const matchedClubs = clubs
       .map((club) => ({
         id: club.id,
@@ -422,11 +450,13 @@ export function enrichEventsForAudience(events, options = {}) {
 
     const clubKeywordSignal =
       event.category === 'CLUBS'
-      || /\bclub\b|\bclubs\b|\bstudent org\b|\borganization\b|\borganizations\b/.test(haystack);
+      || /\bclub\b|\bclubs\b|\bstudent org\b|\bstudent organization\b|\bassociation\b|\bcouncil\b|\bfraternity\b|\bsorority\b/.test(clubSignalHaystack);
     const clubActivity = matchedClubs.length > 0 || clubKeywordSignal;
     const myClubActivity = matchedClubs.some((club) => followedClubIds.has(club.id));
     const originGroup = sourceType === 'FEED'
       ? 'MAIN_CAMPUS'
+      : event.audience === 'DEADLINE'
+        ? 'DEADLINE'
       : clubActivity
         ? 'CLUB'
         : 'FACULTY';
@@ -435,8 +465,14 @@ export function enrichEventsForAudience(events, options = {}) {
       ...event,
       sourceType,
       sourceLabel:
-        sourceType === 'FEED'
+        event.audience === 'DEADLINE'
+          ? 'Deadline'
+          : sourceType === 'FEED'
           ? 'Main campus'
+          : event.audience === 'ORGANIZATION'
+            ? 'Organization'
+            : event.audience === 'ALL_CAMPUS'
+              ? 'All campus'
           : clubActivity
             ? 'Club activity'
             : 'Faculty & department',
@@ -565,6 +601,38 @@ function buildLegacyFeedEventFallbackKey(event) {
   return `${slugifyEventToken(event.title)}:${slugifyEventToken(event.location ?? '')}`;
 }
 
+function buildLegacyFeedEventDuplicateKey(event) {
+  const startKey =
+    event.date instanceof Date
+      ? event.date.toISOString()
+      : new Date(event.date).toISOString();
+  const endKey = event.endDate
+    ? (event.endDate instanceof Date ? event.endDate.toISOString() : new Date(event.endDate).toISOString())
+    : '';
+
+  return [
+    slugifyEventToken(event.title ?? ''),
+    startKey,
+    endKey,
+    slugifyEventToken(event.location ?? ''),
+    normalizeEventString(event.description ?? '').slice(0, 160),
+  ].join('|');
+}
+
+function pickPreferredLegacyFeedEvent(events) {
+  return [...events].sort((left, right) => {
+    const leftScore = left.organizer === LEGACY_FEED_ORGANIZER ? 1 : 0;
+    const rightScore = right.organizer === LEGACY_FEED_ORGANIZER ? 1 : 0;
+    if (leftScore !== rightScore) {
+      return rightScore - leftScore;
+    }
+
+    const leftCreatedAt = left.createdAt ? new Date(left.createdAt).getTime() : 0;
+    const rightCreatedAt = right.createdAt ? new Date(right.createdAt).getTime() : 0;
+    return leftCreatedAt - rightCreatedAt;
+  })[0] ?? null;
+}
+
 async function fetchCampusEventsFeed() {
   const response = await fetch(MURRAY_STATE_EVENTS_FEED_URL, {
     cache: 'no-store',
@@ -599,21 +667,28 @@ async function syncCampusEventsFeedLegacy(feedUniversityId) {
       const existingFeedEvents = await tx.event.findMany({
         where: {
           universityId: feedUniversityId,
-          organizer: LEGACY_FEED_ORGANIZER,
           organizerId: null,
         },
         select: {
           id: true,
           title: true,
+          description: true,
           date: true,
+          endDate: true,
           time: true,
           location: true,
+          organizer: true,
+          createdAt: true,
         },
       });
 
-      const existingByKey = new Map(
-        existingFeedEvents.map((event) => [buildLegacyFeedEventKey(event), event]),
-      );
+      const existingByKey = new Map();
+      existingFeedEvents.forEach((event) => {
+        const key = buildLegacyFeedEventKey(event);
+        const matches = existingByKey.get(key) ?? [];
+        matches.push(event);
+        existingByKey.set(key, matches);
+      });
       const existingByFallbackKey = new Map();
       existingFeedEvents.forEach((event) => {
         const fallbackKey = buildLegacyFeedEventFallbackKey(event);
@@ -627,8 +702,8 @@ async function syncCampusEventsFeedLegacy(feedUniversityId) {
         const eventKey = buildLegacyFeedEventKey(event);
         const fallbackMatches = existingByFallbackKey.get(buildLegacyFeedEventFallbackKey(event)) ?? [];
         const existingEvent =
-          existingByKey.get(eventKey) ??
-          (fallbackMatches.length === 1 ? fallbackMatches[0] : null);
+          pickPreferredLegacyFeedEvent(existingByKey.get(eventKey) ?? []) ??
+          pickPreferredLegacyFeedEvent(fallbackMatches);
 
         const legacyEventData = {
           universityId: feedUniversityId,
@@ -661,8 +736,69 @@ async function syncCampusEventsFeedLegacy(feedUniversityId) {
         });
       }
 
+      const refreshedFeedEvents = await tx.event.findMany({
+        where: {
+          universityId: feedUniversityId,
+          organizerId: null,
+          isPublished: true,
+        },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          date: true,
+          endDate: true,
+          location: true,
+          organizer: true,
+          createdAt: true,
+        },
+      });
+
+      const duplicateGroups = new Map();
+      refreshedFeedEvents.forEach((event) => {
+        const duplicateKey = buildLegacyFeedEventDuplicateKey(event);
+        const matches = duplicateGroups.get(duplicateKey) ?? [];
+        matches.push(event);
+        duplicateGroups.set(duplicateKey, matches);
+      });
+
+      const duplicateIdsToHide = new Set();
+
+      for (const group of duplicateGroups.values()) {
+        if (group.length < 2) {
+          continue;
+        }
+
+        const preferredEvent =
+          pickPreferredLegacyFeedEvent(group.filter((event) => seenEventIds.has(event.id))) ??
+          pickPreferredLegacyFeedEvent(group);
+
+        if (!preferredEvent) {
+          continue;
+        }
+
+        const duplicateGroupIds = group
+          .filter((event) => event.id !== preferredEvent.id)
+          .map((event) => event.id);
+
+        duplicateGroupIds.forEach((id) => duplicateIdsToHide.add(id));
+
+        if (duplicateGroupIds.length > 0) {
+          await tx.calendarEvent.updateMany({
+            where: {
+              campusEventId: {
+                in: duplicateGroupIds,
+              },
+            },
+            data: {
+              campusEventId: preferredEvent.id,
+            },
+          });
+        }
+      }
+
       const removedEventIds = existingFeedEvents
-        .filter((event) => !seenEventIds.has(event.id))
+        .filter((event) => !seenEventIds.has(event.id) || duplicateIdsToHide.has(event.id))
         .map((event) => event.id);
 
       if (removedEventIds.length > 0) {
@@ -895,6 +1031,8 @@ export function serializeEventForViewer(event) {
     12,
   );
   const calendarEntry = event.calendarEntries?.[0] ?? null;
+  const audience = event.audience ?? 'ALL_CAMPUS';
+  const autoAddedToCalendar = audience === 'DEADLINE';
 
   const sourceType = detectEventSourceType(event);
 
@@ -910,19 +1048,84 @@ export function serializeEventForViewer(event) {
     timeTba: isTimeTbaLabel(event.time),
     location: event.location ?? null,
     category: event.category,
+    audience,
+    audienceLabel: getAudienceLabel(audience),
     organizer: event.organizer ?? null,
     maxAttendees: event.maxAttendees,
     isCancelled: event.isCancelled,
     isPublished: event.isPublished,
-    interestedCount: event._count?.interests ?? 0,
-    isInterested: Boolean(event.interests?.length),
-    isInCalendar: Boolean(calendarEntry),
+    interestedCount: autoAddedToCalendar ? 0 : event.calendarAddCount ?? event._count?.calendarEntries ?? event._count?.interests ?? 0,
+    isInterested: autoAddedToCalendar || Boolean(calendarEntry),
+    isInCalendar: autoAddedToCalendar || Boolean(calendarEntry),
     calendarEntryId: calendarEntry?.id ?? null,
+    autoAddedToCalendar,
+    canEditCalendarSubscription: !autoAddedToCalendar,
     exportedProviders,
     externalUrl: event.externalUrl ?? null,
     sourceType,
     syncSource: event.externalSource ?? null,
   };
+}
+
+export async function attachCalendarInterestCounts(events) {
+  if (!events?.length) {
+    return events ?? [];
+  }
+
+  const eventIds = [...new Set(events.map((event) => event.id).filter(Boolean))];
+  if (eventIds.length === 0) {
+    return events;
+  }
+
+  let countRows = [];
+  try {
+    countRows = await prisma.calendarEvent.groupBy({
+      by: ['campusEventId'],
+      where: {
+        campusEventId: {
+          in: eventIds,
+        },
+      },
+      _count: {
+        _all: true,
+      },
+    });
+  } catch {
+    const calendarLinks = await prisma.calendarEvent.findMany({
+      where: {
+        campusEventId: {
+          in: eventIds,
+        },
+      },
+      select: {
+        campusEventId: true,
+      },
+    });
+
+    const fallbackCounts = new Map();
+    calendarLinks.forEach((record) => {
+      if (!record.campusEventId) {
+        return;
+      }
+      fallbackCounts.set(record.campusEventId, (fallbackCounts.get(record.campusEventId) ?? 0) + 1);
+    });
+
+    return events.map((event) => ({
+      ...event,
+      calendarAddCount: fallbackCounts.get(event.id) ?? 0,
+    }));
+  }
+
+  const countsByEventId = new Map(
+    countRows
+      .filter((row) => row.campusEventId)
+      .map((row) => [row.campusEventId, row._count?._all ?? 0]),
+  );
+
+  return events.map((event) => ({
+    ...event,
+    calendarAddCount: countsByEventId.get(event.id) ?? 0,
+  }));
 }
 
 function createDigest(items) {
@@ -933,7 +1136,7 @@ function createDigest(items) {
   return {
     todayCount: items.filter((item) => item.date.slice(0, 10) === todayKey).length,
     nextSevenDaysCount: items.filter((item) => item.date <= nextWeek.toISOString()).length,
-    savedCount: items.filter((item) => item.isInterested).length,
+    savedCount: items.filter((item) => item.isInCalendar).length,
     inCalendarCount: items.filter((item) => item.isInCalendar).length,
   };
 }
@@ -1069,7 +1272,7 @@ function buildFallbackRecommendations({ items, followedClubNames, profile, perso
         }
       });
 
-      if (event.isInterested) fitScore += 10;
+      if (event.isInCalendar) fitScore += 10;
       if (!event.isInCalendar) fitScore += 6;
       if (event.category === 'CAREER' && profile.major) fitScore += 8;
       if (event.category === 'CLUBS' && followedClubNames.length > 0) fitScore += 10;
@@ -1120,7 +1323,6 @@ async function generateRecommendationsWithAi({ items, followedClubNames, profile
         `time=${event.time}`,
         `location=${event.location}`,
         `isInCalendar=${event.isInCalendar}`,
-        `isInterested=${event.isInterested}`,
         `source=${event.sourceLabel ?? event.sourceType ?? 'unknown'}`,
       ];
       return pieces.join(' | ');

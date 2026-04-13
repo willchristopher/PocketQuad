@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { serializeEventForViewer } from '@/lib/server/campusEvents';
+import { attachCalendarInterestCounts, serializeEventForViewer } from '@/lib/server/campusEvents';
 import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
 import {
   ApiError,
@@ -27,15 +27,11 @@ export async function GET(_request, context) {
           time: true,
           location: true,
           category: true,
+          audience: true,
           organizer: true,
           maxAttendees: true,
           isPublished: true,
           isCancelled: true,
-          _count: { select: { interests: true } },
-          interests: {
-            where: { userId: profile.id },
-            select: { id: true },
-          },
           calendarEntries: {
             where: { userId: profile.id },
             select: { id: true, campusEventId: true },
@@ -63,14 +59,15 @@ export async function GET(_request, context) {
           time: true,
           location: true,
           category: true,
+          audience: true,
           organizer: true,
           maxAttendees: true,
           isPublished: true,
           isCancelled: true,
-          _count: { select: { interests: true } },
-          interests: {
+          calendarEntries: {
             where: { userId: profile.id },
-            select: { id: true },
+            select: { id: true, campusEventId: true },
+            take: 1,
           },
         },
       });
@@ -80,7 +77,8 @@ export async function GET(_request, context) {
       throw new ApiError(404, 'Event not found');
     }
 
-    return successResponse(serializeEventForViewer(event));
+    const [eventWithCounts] = await attachCalendarInterestCounts([event]);
+    return successResponse(serializeEventForViewer(eventWithCounts));
   } catch (error) {
     return handleApiError(error);
   }

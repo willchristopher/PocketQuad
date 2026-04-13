@@ -288,7 +288,7 @@ export function FacultyOfficeHours({ initialStatusState = null, initialOfficeHou
         </h2>
         <form onSubmit={submitSlot} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="space-y-2 text-sm font-medium">
+            <label className="min-w-0 space-y-2 text-sm font-medium">
               <span>Day</span>
               <select
                 value={form.dayOfWeek}
@@ -300,7 +300,7 @@ export function FacultyOfficeHours({ initialStatusState = null, initialOfficeHou
                 ))}
               </select>
             </label>
-            <label className="space-y-2 text-sm font-medium">
+            <label className="min-w-0 space-y-2 text-sm font-medium">
               <span>Mode</span>
               <select
                 value={form.mode}
@@ -312,27 +312,31 @@ export function FacultyOfficeHours({ initialStatusState = null, initialOfficeHou
                 <option value="HYBRID">Hybrid</option>
               </select>
             </label>
-            <label className="space-y-2 text-sm font-medium">
-              <span>Start time</span>
-              <Input
-                type="time"
-                value={form.startTime}
-                onChange={(e) => setForm((c) => ({ ...c, startTime: e.target.value }))}
-                required
-              />
-            </label>
-            <label className="space-y-2 text-sm font-medium">
-              <span>End time</span>
-              <Input
-                type="time"
-                value={form.endTime}
-                onChange={(e) => setForm((c) => ({ ...c, endTime: e.target.value }))}
-                required
-              />
-            </label>
+            <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
+              <label className="min-w-0 space-y-2 text-sm font-medium">
+                <span>Start time</span>
+                <Input
+                  type="time"
+                  value={form.startTime}
+                  onChange={(e) => setForm((c) => ({ ...c, startTime: e.target.value }))}
+                  className="min-w-0 [color-scheme:light] dark:[color-scheme:dark]"
+                  required
+                />
+              </label>
+              <label className="min-w-0 space-y-2 text-sm font-medium">
+                <span>End time</span>
+                <Input
+                  type="time"
+                  value={form.endTime}
+                  onChange={(e) => setForm((c) => ({ ...c, endTime: e.target.value }))}
+                  className="min-w-0 [color-scheme:light] dark:[color-scheme:dark]"
+                  required
+                />
+              </label>
+            </div>
           </div>
 
-          <label className="block space-y-2 text-sm font-medium">
+          <label className="block min-w-0 space-y-2 text-sm font-medium">
             <span>Location</span>
             <Input
               value={form.location}

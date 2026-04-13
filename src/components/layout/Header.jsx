@@ -153,7 +153,7 @@ export function Header() {
               {showDashboardBrand ? (
                 <Link
                   href="/dashboard"
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-card/70 p-1.5 shadow-surface transition-all hover:border-primary/25 hover:bg-card"
+                  className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-card/70 p-1.5 shadow-surface transition-all hover:border-primary/25 hover:bg-card sm:inline-flex"
                   aria-label="PocketQuad dashboard"
                 >
                   <Image
@@ -166,7 +166,7 @@ export function Header() {
                   />
                 </Link>
               ) : null}
-              <h1 className="truncate font-display text-[1.9rem] text-foreground sm:text-[2.15rem]">
+              <h1 className="break-words font-display text-[clamp(1.35rem,5.8vw,2.15rem)] leading-[0.95] text-foreground sm:truncate">
                 {page.title}
               </h1>
             </div>

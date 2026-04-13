@@ -2,11 +2,10 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Heart, MapPin } from 'lucide-react';
+import { ArrowLeft, MapPin } from 'lucide-react';
 import { EventCalendarActions } from '@/components/events/EventCalendarActions';
 import { Button } from '@/components/ui/button';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
-import { cn } from '@/lib/utils';
 
 function formatLongDate(isoString) {
   return new Intl.DateTimeFormat(undefined, {
@@ -19,10 +18,10 @@ function formatLongDate(isoString) {
 
 function formatInterestedCount(count) {
   if (count === 1) {
-    return '1 student marked this event as interested.';
+    return '1 student added this event to a calendar.';
   }
 
-  return `${count} students marked this event as interested.`;
+  return `${count} students added this event to a calendar.`;
 }
 
 function formatCalendarProvider(provider) {
@@ -61,30 +60,6 @@ export default function EventDetailPage({ params }) {
     setEvent((current) => (current ? updater(current) : current));
   }, []);
 
-  const handleToggleInterest = React.useCallback(async () => {
-    if (!event) {
-      return;
-    }
-
-    setBusyAction(`${event.id}:interest`);
-    setError(null);
-    try {
-      const result = await apiRequest(`/api/events/${event.id}/interest`, {
-        method: 'POST',
-      });
-      syncEvent((current) => ({
-        ...current,
-        isInterested: result.isInterested,
-        interestedCount: result.interestedCount,
-      }));
-    } catch (err) {
-      const message = err instanceof ApiClientError ? err.message : 'Unable to update your interest.';
-      setError(message);
-    } finally {
-      setBusyAction(null);
-    }
-  }, [event, syncEvent]);
-
   const handleAddToAppCalendar = React.useCallback(async (currentEvent) => {
     setBusyAction(`${currentEvent.id}:app:add`);
     setError(null);
@@ -107,6 +82,7 @@ export default function EventDetailPage({ params }) {
         ...previous,
         isInCalendar: true,
         calendarEntryId: created.id,
+        interestedCount: (previous.interestedCount ?? 0) + (previous.isInCalendar ? 0 : 1),
       }));
     } catch (err) {
       if (err instanceof ApiClientError && err.status === 409) {
@@ -135,6 +111,7 @@ export default function EventDetailPage({ params }) {
         ...previous,
         isInCalendar: false,
         calendarEntryId: null,
+        interestedCount: Math.max(0, (previous.interestedCount ?? 0) - 1),
       }));
     } catch (err) {
       const message = err instanceof ApiClientError ? err.message : 'Unable to remove this event from your app calendar.';
@@ -203,7 +180,7 @@ export default function EventDetailPage({ params }) {
           <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-                {event.sourceLabel ?? event.activityLabel ?? 'Campus event'}
+                {event.sourceLabel ?? event.audienceLabel ?? event.activityLabel ?? 'Campus event'}
               </span>
               {event.myClubActivity ? (
                 <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
@@ -254,7 +231,11 @@ export default function EventDetailPage({ params }) {
               <p className="mt-3 text-sm leading-6 text-foreground">
                 Save this event, open directions, or add it to a calendar.
               </p>
-              <p className="mt-2 text-sm text-muted-foreground">{formatInterestedCount(event.interestedCount)}</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {event.autoAddedToCalendar
+                  ? 'This deadline event appears automatically on every PocketQuad calendar.'
+                  : formatInterestedCount(event.interestedCount)}
+              </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {event.exportedProviders?.map((provider) => (
                   <span key={provider} className="rounded-full border border-border/60 px-3 py-1 text-xs text-muted-foreground">
@@ -265,16 +246,6 @@ export default function EventDetailPage({ params }) {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <Button
-                type="button"
-                variant={event.isInterested ? 'secondary' : 'outline'}
-                onClick={() => void handleToggleInterest()}
-                disabled={busyAction === `${event.id}:interest` || event.isCancelled}
-                className={cn('w-full justify-center', event.isInterested && 'text-rose-700 dark:text-rose-200')}
-              >
-                <Heart className={cn('mr-2 h-4 w-4', event.isInterested && 'fill-current')} />
-                {event.isInterested ? 'Interested' : 'Mark interested'}
-              </Button>
               {mapUrl ? (
                 <Button asChild variant="outline" className="w-full justify-center">
                   <a href={mapUrl} target="_blank" rel="noreferrer">

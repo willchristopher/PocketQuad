@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { getCurrentBuildingAvailability, summarizeBuildingHoursSchedule } from '@/lib/buildingHours';
 import { formatFacultyAvailability } from '@/lib/faculty';
 import { getActiveAnnouncementWhere, getAnnouncementAudienceLabel } from '@/lib/server/announcements';
 import { enrichEventsForAudience } from '@/lib/server/campusEvents';
@@ -72,6 +73,10 @@ const SECTION_PATTERNS = {
     ],
     buildings: [
         /\bbuilding(s)?\b/,
+        /\bhour(s)?\b/,
+        /\bopen\b/,
+        /\bclosed\b/,
+        /\boperating\b/,
         /\bmap(s)?\b/,
         /\blocation(s)?\b/,
         /\blocated\b/,
@@ -316,22 +321,38 @@ function renderFacultyLine(faculty) {
         (faculty.bio ? `, Bio: ${truncateText(faculty.bio, 180)}` : ''));
 }
 function renderBuildingLine(building) {
+    const hours = getCurrentBuildingAvailability(building);
+    const weeklyHours = summarizeBuildingHoursSchedule(building.operatingHoursSchedule, building.operatingHours);
+    const todayHours = hours.todayHoursLabel;
+    const noteLabel = building.operationalNote && building.operationalNote !== hours.currentOperationalDetail
+        ? ` (${building.operationalNote})`
+        : '';
     return (`• ${building.name}${building.code ? ` (${building.code})` : ''} — ${building.type}, ${building.address}` +
         (building.purpose ? ` | Purpose: ${building.purpose}` : '') +
         (building.description ? ` | About: ${truncateText(building.description, 180)}` : '') +
-        (building.operatingHours ? ` | Hours: ${building.operatingHours}` : '') +
-        ` | Status: ${building.operationalStatus}` +
-        (building.operationalNote ? ` (${building.operationalNote})` : '') +
+        (weeklyHours ? ` | Weekly hours: ${weeklyHours}` : '') +
+        (todayHours ? ` | Today: ${todayHours.replace(/^[A-Za-z]+:\s*/, '')}` : '') +
+        ` | Status: ${hours.currentOperationalStatus}` +
+        ` | Current availability: ${hours.currentOperationalLabel}` +
+        (hours.currentOperationalDetail ? ` (${hours.currentOperationalDetail})` : '') +
+        noteLabel +
         (building.accessibilityNotes ? ` | Accessibility: ${truncateText(building.accessibilityNotes, 140)}` : '') +
         (building.categories.length > 0 ? ` | Categories: ${building.categories.join(', ')}` : '') +
         (building.services.length > 0 ? ` | Services: ${building.services.join(', ')}` : '') +
         (building.departments.length > 0 ? ` | Departments: ${building.departments.join(', ')}` : ''));
 }
 function renderClubLine(club) {
+    const presidentDetail = [club.presidentName, club.presidentEmail].filter(Boolean).join(' — ');
+    const advisorDetail = [club.advisorName, club.advisorEmail].filter(Boolean).join(' — ');
     return (`• ${club.name} (${club.category})` +
         ` — ${truncateText(club.description, 180)}` +
         (club.meetingInfo ? ` | Meetings: ${club.meetingInfo}` : '') +
         (club.contactEmail ? ` | Contact: ${club.contactEmail}` : '') +
+        (presidentDetail ? ` | President: ${presidentDetail}` : '') +
+        (advisorDetail ? ` | Advisor: ${advisorDetail}` : '') +
+        (club.publicContactInfo ? ` | Public contact listing: ${truncateText(club.publicContactInfo, 180)}` : '') +
+        (club.sourceUrls ? ` | Sources: ${truncateText(club.sourceUrls, 180)}` : '') +
+        (club.importNotes ? ` | Notes: ${truncateText(club.importNotes, 180)}` : '') +
         (club.websiteUrl ? ` | Website: ${club.websiteUrl}` : ''));
 }
 function renderServiceLine(service) {
@@ -665,7 +686,7 @@ export async function gatherUniversityContext(universityId, userId, options) {
                     item.purpose ?? '',
                     item.description ?? '',
                     item.accessibilityNotes ?? '',
-                    item.operatingHours ?? '',
+                    summarizeBuildingHoursSchedule(item.operatingHoursSchedule, item.operatingHours) ?? '',
                     item.operationalNote ?? '',
                     item.categories.join(' '),
                     item.services.join(' '),
@@ -682,6 +703,13 @@ export async function gatherUniversityContext(universityId, userId, options) {
                     item.description,
                     item.meetingInfo ?? '',
                     item.contactEmail ?? '',
+                    item.presidentName ?? '',
+                    item.presidentEmail ?? '',
+                    item.advisorName ?? '',
+                    item.advisorEmail ?? '',
+                    item.publicContactInfo ?? '',
+                    item.sourceUrls ?? '',
+                    item.importNotes ?? '',
                     item.websiteUrl ?? '',
                 ],
             }), MATCH_RESULT_LIMITS.clubs ?? 8)

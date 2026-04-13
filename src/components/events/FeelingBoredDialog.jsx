@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CalendarDays, Heart, MapPin, Sparkles, ThumbsDown, Undo2 } from 'lucide-react';
+import { CalendarDays, MapPin, Sparkles, ThumbsDown, Undo2 } from 'lucide-react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,6 @@ export function FeelingBoredDialog({
   error,
   onRefresh,
   onPass,
-  onInterested,
   onAddToAppCalendar,
   onRemoveFromAppCalendar,
   onOpenExternalCalendar,
@@ -73,13 +72,15 @@ export function FeelingBoredDialog({
     onPass?.(activeCard.event);
   }, [activeCard, dismissCard, onPass]);
 
-  const handleInterested = React.useCallback(async () => {
+  const handleAddToCalendar = React.useCallback(async () => {
     if (!activeCard) {
       return;
     }
-    await onInterested?.(activeCard.event);
+    if (!activeCard.event.isInCalendar) {
+      await onAddToAppCalendar?.(activeCard.event);
+    }
     dismissCard(activeCard.event.id);
-  }, [activeCard, dismissCard, onInterested]);
+  }, [activeCard, dismissCard, onAddToAppCalendar]);
 
   const resetDeck = React.useCallback(() => {
     setDismissedIds([]);
@@ -170,7 +171,7 @@ export function FeelingBoredDialog({
                       dragConstraints={{ left: 0, right: 0 }}
                       onDragEnd={(_, info) => {
                         if (info.offset.x > 120) {
-                          void handleInterested();
+                          void handleAddToCalendar();
                         } else if (info.offset.x < -120) {
                           handlePass();
                         }
@@ -194,9 +195,6 @@ export function FeelingBoredDialog({
 
                           <div className="mt-5 flex items-start justify-between gap-6">
                             <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                                {activeCard.event.activityLabel ?? activeCard.event.category}
-                              </p>
                               <h3 className="mt-2 font-display text-3xl font-semibold leading-tight text-foreground">
                                 {activeCard.event.title}
                               </h3>
@@ -253,13 +251,14 @@ export function FeelingBoredDialog({
                               <ThumbsDown className="mr-2 h-4 w-4" />
                               Pass
                             </Button>
-                            <Button
-                              type="button"
-                              onClick={() => void handleInterested()}
-                            >
-                              <Heart className="mr-2 h-4 w-4" />
-                              {activeCard.event.isInterested ? 'Keep interested' : 'Interested'}
-                            </Button>
+                            {!activeCard.event.isInCalendar ? (
+                              <Button
+                                type="button"
+                                onClick={() => void handleAddToCalendar()}
+                              >
+                                Add to calendar
+                              </Button>
+                            ) : null}
                           </div>
                         </div>
                       </div>
