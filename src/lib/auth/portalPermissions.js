@@ -1,6 +1,6 @@
 /** @typedef {'STUDENT' | 'FACULTY' | 'ADMIN'} AppRole */
 /** @typedef {'OWNER' | 'IT_ADMIN' | 'CLUB_PRESIDENT' | 'CONTENT_MANAGER'} AdminAccessLevel */
-/** @typedef {'ADMIN_PORTAL_ACCESS' | 'ADMIN_TAB_OVERVIEW' | 'ADMIN_TAB_UNIVERSITIES' | 'ADMIN_TAB_STUDENT_PAGES' | 'ADMIN_TAB_FACULTY' | 'ADMIN_TAB_BUILDINGS' | 'ADMIN_TAB_BUILDING_IMPORT' | 'ADMIN_TAB_LINKS' | 'ADMIN_TAB_SERVICES' | 'ADMIN_TAB_CLUBS' | 'ADMIN_TAB_EVENTS' | 'ADMIN_TAB_IT_ACCOUNTS' | 'ADMIN_TAB_USERS' | 'CAN_PUBLISH_ANNOUNCEMENTS' | 'CAN_MANAGE_CLUB_PROFILE' | 'CAN_MANAGE_CLUB_CONTACT'} PortalPermission */
+/** @typedef {'ADMIN_PORTAL_ACCESS' | 'ADMIN_TAB_OVERVIEW' | 'ADMIN_TAB_UNIVERSITIES' | 'ADMIN_TAB_STUDENT_PAGES' | 'ADMIN_TAB_FACULTY' | 'ADMIN_TAB_BUILDINGS' | 'ADMIN_TAB_BUILDING_IMPORT' | 'ADMIN_TAB_LINKS' | 'ADMIN_TAB_SERVICES' | 'ADMIN_TAB_CLUBS' | 'ADMIN_TAB_EVENTS' | 'ADMIN_TAB_IT_ACCOUNTS' | 'ADMIN_TAB_USERS' | 'CAN_PUBLISH_ANNOUNCEMENTS' | 'CAN_CREATE_DEADLINE_EVENTS' | 'CAN_MANAGE_CLUB_PROFILE' | 'CAN_MANAGE_CLUB_CONTACT'} PortalPermission */
 /** @typedef {'overview' | 'universities' | 'student-pages' | 'faculty' | 'buildings' | 'building-import' | 'links' | 'services' | 'clubs' | 'events' | 'it-accounts' | 'users'} AdminTabValue */
 /** @typedef {{ role: AppRole, adminAccessLevel?: AdminAccessLevel | null, portalPermissions?: PortalPermission[] | null, canPublishCampusAnnouncements?: boolean }} PortalPermissionProfile */
 
@@ -27,6 +27,7 @@ export const PORTAL_PERMISSIONS = [
     'ADMIN_TAB_IT_ACCOUNTS',
     'ADMIN_TAB_USERS',
     'CAN_PUBLISH_ANNOUNCEMENTS',
+    'CAN_CREATE_DEADLINE_EVENTS',
     'CAN_MANAGE_CLUB_PROFILE',
     'CAN_MANAGE_CLUB_CONTACT',
 ];
@@ -60,6 +61,7 @@ const OWNER_PERMISSIONS = [
     'ADMIN_TAB_IT_ACCOUNTS',
     'ADMIN_TAB_USERS',
     'CAN_PUBLISH_ANNOUNCEMENTS',
+    'CAN_CREATE_DEADLINE_EVENTS',
     'CAN_MANAGE_CLUB_PROFILE',
     'CAN_MANAGE_CLUB_CONTACT',
 ];

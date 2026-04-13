@@ -2,7 +2,56 @@ import { prisma } from '@/lib/prisma';
 import { hasPortalPermission } from '@/lib/auth/portalPermissions';
 import { ApiError, getAuthenticatedAdmin, getAuthenticatedPortalUser, handleApiError, requireAnyPortalPermission, successResponse, } from '@/lib/api/utils';
 import { invalidateUniversityData, UNIVERSITY_DATA_TAGS } from '@/lib/server/universityData';
+import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
 import { clubUpdateSchema } from '@/lib/validations/admin';
+const clubUniversitySelect = {
+    select: { id: true, name: true, slug: true },
+};
+const clubSelect = {
+    id: true,
+    universityId: true,
+    name: true,
+    category: true,
+    description: true,
+    contactEmail: true,
+    presidentName: true,
+    presidentEmail: true,
+    advisorName: true,
+    advisorEmail: true,
+    publicContactInfo: true,
+    sourceUrls: true,
+    importNotes: true,
+    websiteUrl: true,
+    meetingInfo: true,
+    createdAt: true,
+    updatedAt: true,
+    university: clubUniversitySelect,
+};
+const legacyClubSelect = {
+    id: true,
+    universityId: true,
+    name: true,
+    category: true,
+    description: true,
+    contactEmail: true,
+    websiteUrl: true,
+    meetingInfo: true,
+    createdAt: true,
+    updatedAt: true,
+    university: clubUniversitySelect,
+};
+function withClubCompatibility(record) {
+    return {
+        ...record,
+        presidentName: 'presidentName' in record ? record.presidentName ?? null : null,
+        presidentEmail: 'presidentEmail' in record ? record.presidentEmail ?? null : null,
+        advisorName: 'advisorName' in record ? record.advisorName ?? null : null,
+        advisorEmail: 'advisorEmail' in record ? record.advisorEmail ?? null : null,
+        publicContactInfo: 'publicContactInfo' in record ? record.publicContactInfo ?? null : null,
+        sourceUrls: 'sourceUrls' in record ? record.sourceUrls ?? null : null,
+        importNotes: 'importNotes' in record ? record.importNotes ?? null : null,
+    };
+}
 export async function PATCH(request, context) {
     try {
         const { profile } = await getAuthenticatedPortalUser();
@@ -38,7 +87,14 @@ export async function PATCH(request, context) {
                 payload.description !== undefined ||
                 payload.meetingInfo !== undefined;
             const contactFieldTouched = payload.contactEmail !== undefined ||
-                payload.websiteUrl !== undefined;
+                payload.websiteUrl !== undefined ||
+                payload.presidentName !== undefined ||
+                payload.presidentEmail !== undefined ||
+                payload.advisorName !== undefined ||
+                payload.advisorEmail !== undefined ||
+                payload.publicContactInfo !== undefined ||
+                payload.sourceUrls !== undefined ||
+                payload.importNotes !== undefined;
             if (profileFieldTouched && !canManageProfile) {
                 throw new ApiError(403, 'You do not have permission to edit club details');
             }
@@ -59,6 +115,27 @@ export async function PATCH(request, context) {
                         ...(payload.contactEmail !== undefined
                             ? { contactEmail: payload.contactEmail }
                             : {}),
+                        ...(payload.presidentName !== undefined
+                            ? { presidentName: payload.presidentName }
+                            : {}),
+                        ...(payload.presidentEmail !== undefined
+                            ? { presidentEmail: payload.presidentEmail }
+                            : {}),
+                        ...(payload.advisorName !== undefined
+                            ? { advisorName: payload.advisorName }
+                            : {}),
+                        ...(payload.advisorEmail !== undefined
+                            ? { advisorEmail: payload.advisorEmail }
+                            : {}),
+                        ...(payload.publicContactInfo !== undefined
+                            ? { publicContactInfo: payload.publicContactInfo }
+                            : {}),
+                        ...(payload.sourceUrls !== undefined
+                            ? { sourceUrls: payload.sourceUrls }
+                            : {}),
+                        ...(payload.importNotes !== undefined
+                            ? { importNotes: payload.importNotes }
+                            : {}),
                         ...(payload.websiteUrl !== undefined ? { websiteUrl: payload.websiteUrl } : {}),
                     }
                     : {}),
@@ -67,17 +144,27 @@ export async function PATCH(request, context) {
                 throw new ApiError(400, 'No editable fields provided');
             }
         }
-        const updated = await prisma.clubOrganization.update({
-            where: { id },
-            data: updateData,
-            include: {
-                university: {
-                    select: { id: true, name: true, slug: true },
-                },
-            },
-        });
+        let updated;
+        try {
+            updated = await prisma.clubOrganization.update({
+                where: { id },
+                data: updateData,
+                select: clubSelect,
+            });
+        }
+        catch (error) {
+            if (!isPrismaSchemaCompatibilityError(error)) {
+                throw error;
+            }
+            const { presidentName, presidentEmail, advisorName, advisorEmail, publicContactInfo, sourceUrls, importNotes, ...legacyUpdateData } = updateData;
+            updated = await prisma.clubOrganization.update({
+                where: { id },
+                data: legacyUpdateData,
+                select: legacyClubSelect,
+            });
+        }
         invalidateUniversityData(UNIVERSITY_DATA_TAGS.clubs);
-        return successResponse(updated);
+        return successResponse(withClubCompatibility(updated));
     }
     catch (error) {
         return handleApiError(error);

@@ -1,5 +1,5 @@
 import { hasPortalPermission } from '@/lib/auth/portalPermissions';
-import { canPublishCampusAnnouncements } from '@/lib/facultyPermissions';
+import { canCreateDeadlineEvents, canPublishCampusAnnouncements } from '@/lib/facultyPermissions';
 import { getStudentFacingFacultyAvailability, normalizeFacultyTags, parseLegacyFacultyAvailability, summarizeFacultyOfficeHours, } from '@/lib/faculty';
 import { prisma } from '@/lib/prisma';
 import { isMissingDatabaseFieldError } from '@/lib/server/dbCompatibility';
@@ -130,6 +130,7 @@ export async function GET() {
             studentAvailabilityLabel: studentAvailability.label,
             studentAvailabilityState: studentAvailability.state,
             canPublishCampusAnnouncements: canPublishCampusAnnouncements(profile),
+            canCreateDeadlineEvents: canCreateDeadlineEvents(profile),
             canManageBuildings,
             canManageServices,
             managedBuildings: profile.managedBuildings ?? [],

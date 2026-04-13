@@ -5,6 +5,44 @@ const optionalTrimmed = z.string().trim().optional().transform((value) => value 
 const latitudeSchema = z.number().min(-90).max(90);
 const longitudeSchema = z.number().min(-180).max(180);
 const studentPageVisibilityKeySchema = z.enum(studentPageVisibilityOptions.map((option) => option.key));
+const hoursTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:MM 24-hour format');
+const buildingHoursSlotSchema = z.object({
+    openTime: hoursTimeSchema,
+    closeTime: hoursTimeSchema,
+}).superRefine((value, context) => {
+    if (value.openTime >= value.closeTime) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['closeTime'],
+            message: 'Closing time must be later than opening time',
+        });
+    }
+});
+const buildingHoursDaySchema = z.object({
+    dayOfWeek: z.number().int().min(0).max(6),
+    kind: z.enum(['closed', 'open', 'all_day', 'text']),
+    label: z.string().trim().max(120).optional().nullable(),
+    slots: z.array(buildingHoursSlotSchema).max(4).default([]),
+}).superRefine((value, context) => {
+    if (value.kind === 'open' && value.slots.length === 0) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['slots'],
+            message: 'Open days need at least one time slot',
+        });
+    }
+    if (value.kind !== 'open' && value.slots.length > 0) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['slots'],
+            message: 'Only open days can include time slots',
+        });
+    }
+});
+const buildingHoursScheduleSchema = z.object({
+    timezone: z.string().trim().min(1).max(64).default('America/Chicago'),
+    days: z.array(buildingHoursDaySchema).length(7),
+}).strict();
 export const universityCreateSchema = z.object({
     name: z.string().trim().min(2).max(120),
     slug: z
@@ -35,6 +73,7 @@ export const adminFacultyCreateSchema = z.object({
     name: z.string().trim().min(2).max(120),
     email: z.string().trim().toLowerCase().email(),
     canPublishCampusAnnouncements: z.boolean().default(false),
+    canCreateDeadlineEvents: z.boolean().default(false),
     managesAllClubs: z.boolean().default(false),
     facultyRoleTags: z.array(z.string().trim().min(1).max(80)).max(30).default([]),
     managedClubIds: z.array(z.string().cuid()).max(100).default([]),
@@ -54,6 +93,7 @@ export const adminFacultySignupEmailCreateSchema = z.object({
     firstName: z.string().trim().min(1).max(80).optional(),
     lastName: z.string().trim().min(1).max(80).optional(),
     canPublishCampusAnnouncements: z.boolean().default(false),
+    canCreateDeadlineEvents: z.boolean().default(false),
     managesAllClubs: z.boolean().default(false),
     facultyRoleTags: z.array(z.string().trim().min(1).max(80)).max(30).default([]),
     managedClubIds: z.array(z.string().cuid()).max(100).default([]),
@@ -64,6 +104,7 @@ export const adminFacultyUpdateSchema = z.object({
     name: z.string().trim().min(2).max(120).optional(),
     email: z.string().trim().toLowerCase().email().optional(),
     canPublishCampusAnnouncements: z.boolean().optional(),
+    canCreateDeadlineEvents: z.boolean().optional(),
     managesAllClubs: z.boolean().optional(),
     facultyRoleTags: z.array(z.string().trim().min(1).max(80)).max(30).optional(),
     managedClubIds: z.array(z.string().cuid()).max(100).optional(),
@@ -89,6 +130,7 @@ export const campusBuildingCreateSchema = z.object({
     purpose: z.string().trim().max(500).optional(),
     description: z.string().trim().max(2000).optional(),
     operatingHours: z.string().trim().max(180).optional(),
+    operatingHoursSchedule: buildingHoursScheduleSchema.optional().nullable(),
     operationalStatus: z.enum(['OPEN', 'CLOSED', 'LIMITED']).default('OPEN'),
     operationalNote: z.string().trim().max(280).optional(),
     categories: z.array(z.string().trim().min(1).max(120)).max(30).default([]),
@@ -107,6 +149,7 @@ export const campusBuildingUpdateSchema = z.object({
     purpose: z.string().trim().max(500).optional().nullable(),
     description: z.string().trim().max(2000).optional().nullable(),
     operatingHours: z.string().trim().max(180).optional().nullable(),
+    operatingHoursSchedule: buildingHoursScheduleSchema.optional().nullable(),
     operationalStatus: z.enum(['OPEN', 'CLOSED', 'LIMITED']).optional(),
     operationalNote: z.string().trim().max(280).optional().nullable(),
     categories: z.array(z.string().trim().min(1).max(120)).max(30).optional(),
@@ -153,6 +196,13 @@ export const clubCreateSchema = z.object({
     category: z.string().trim().min(2).max(100),
     description: z.string().trim().min(2).max(600),
     contactEmail: z.string().trim().toLowerCase().email().optional(),
+    presidentName: z.string().trim().max(160).optional(),
+    presidentEmail: z.string().trim().max(320).optional(),
+    advisorName: z.string().trim().max(200).optional(),
+    advisorEmail: z.string().trim().max(320).optional(),
+    publicContactInfo: z.string().trim().max(600).optional(),
+    sourceUrls: z.string().trim().max(1200).optional(),
+    importNotes: z.string().trim().max(2000).optional(),
     websiteUrl: z.string().url().optional(),
     meetingInfo: z.string().trim().max(180).optional(),
 });
@@ -162,8 +212,19 @@ export const clubUpdateSchema = z.object({
     category: z.string().trim().min(2).max(100).optional(),
     description: z.string().trim().min(2).max(600).optional(),
     contactEmail: z.string().trim().toLowerCase().email().optional().nullable(),
+    presidentName: z.string().trim().max(160).optional().nullable(),
+    presidentEmail: z.string().trim().max(320).optional().nullable(),
+    advisorName: z.string().trim().max(200).optional().nullable(),
+    advisorEmail: z.string().trim().max(320).optional().nullable(),
+    publicContactInfo: z.string().trim().max(600).optional().nullable(),
+    sourceUrls: z.string().trim().max(1200).optional().nullable(),
+    importNotes: z.string().trim().max(2000).optional().nullable(),
     websiteUrl: z.string().url().optional().nullable(),
     meetingInfo: z.string().trim().max(180).optional().nullable(),
+});
+export const clubImportPresetSchema = z.object({
+    universityId: z.string().cuid(),
+    preset: z.enum(['murray-state-organizations']).default('murray-state-organizations'),
 });
 export const adminEventCreateSchema = z.object({
     universityId: z.string().cuid(),
@@ -173,6 +234,7 @@ export const adminEventCreateSchema = z.object({
     time: z.string().trim().min(1).max(80),
     location: z.string().trim().min(2).max(180),
     category: z.enum(['ACADEMIC', 'SOCIAL', 'SPORTS', 'ARTS', 'CAREER', 'CLUBS', 'WELLNESS', 'OTHER']),
+    audience: z.enum(['ORGANIZATION', 'ALL_CAMPUS', 'DEADLINE']).default('ALL_CAMPUS'),
     organizer: z.string().trim().min(2).max(120),
     isPublished: z.boolean().default(true),
 });
@@ -184,6 +246,7 @@ export const adminEventUpdateSchema = z.object({
     time: z.string().trim().min(1).max(80).optional(),
     location: z.string().trim().min(2).max(180).optional(),
     category: z.enum(['ACADEMIC', 'SOCIAL', 'SPORTS', 'ARTS', 'CAREER', 'CLUBS', 'WELLNESS', 'OTHER']).optional(),
+    audience: z.enum(['ORGANIZATION', 'ALL_CAMPUS', 'DEADLINE']).optional(),
     organizer: z.string().trim().min(2).max(120).optional(),
     isPublished: z.boolean().optional(),
 });

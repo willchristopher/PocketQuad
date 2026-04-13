@@ -2,7 +2,7 @@
 import React from 'react';
 import { ExternalLink, Search, Star } from 'lucide-react';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
-import { readFavorites, toggleFavoriteItem } from '@/lib/favorites';
+import { useAuth } from '@/lib/auth/context';
 import { cn } from '@/lib/utils';
 const categories = [
     'All',
@@ -14,17 +14,17 @@ const categories = [
     'OTHER',
 ];
 export default function LinksDirectoryPage() {
+    const { profile, refreshProfile } = useAuth();
     const [query, setQuery] = React.useState('');
     const [activeCategory, setActiveCategory] = React.useState('All');
     const [links, setLinks] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState(null);
     const [pinnedIds, setPinnedIds] = React.useState([]);
+    const [savingLinkId, setSavingLinkId] = React.useState(null);
     React.useEffect(() => {
-        setPinnedIds(readFavorites()
-            .filter((item) => item.kind === 'resource')
-            .map((item) => item.id));
-    }, []);
+        setPinnedIds(profile?.notificationPreferences?.resourceLinkIds ?? []);
+    }, [profile?.notificationPreferences?.resourceLinkIds]);
     const loadLinks = React.useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -48,18 +48,31 @@ export default function LinksDirectoryPage() {
     React.useEffect(() => {
         void loadLinks();
     }, [loadLinks]);
-    const toggleLinkPin = (link) => {
-        const target = {
-            id: `resource-link-${link.id}`,
-            kind: 'resource',
-            label: link.label,
-            subtitle: link.category.replaceAll('_', ' '),
-            href: link.href,
-        };
-        const next = toggleFavoriteItem(target)
-            .filter((item) => item.kind === 'resource')
-            .map((item) => item.id);
-        setPinnedIds(next);
+    const toggleLinkPin = async (link) => {
+        if (savingLinkId === link.id)
+            return;
+        const wasPinned = pinnedIds.includes(link.id);
+        const nextPinnedIds = wasPinned
+            ? pinnedIds.filter((id) => id !== link.id)
+            : [link.id, ...pinnedIds.filter((id) => id !== link.id)];
+        setPinnedIds(nextPinnedIds);
+        setSavingLinkId(link.id);
+        setError(null);
+        try {
+            const result = await apiRequest(`/api/resource-links/${link.id}/favorite`, {
+                method: 'POST',
+            });
+            setPinnedIds(result.resourceLinkIds ?? []);
+            await refreshProfile();
+        }
+        catch (err) {
+            const message = err instanceof ApiClientError ? err.message : 'Unable to update pinned link';
+            setError(message);
+            setPinnedIds(pinnedIds);
+        }
+        finally {
+            setSavingLinkId((current) => current === link.id ? null : current);
+        }
     };
     return (<div className="space-y-6">
       <section className="rounded-xl border border-border/60 bg-card/90 p-4 md:p-5 animate-in-up stagger-1">
@@ -101,11 +114,15 @@ export default function LinksDirectoryPage() {
 
               <div className="shrink-0 sm:self-center">
                 <div className="flex flex-wrap gap-2 sm:justify-end">
-                  <button type="button" onClick={() => toggleLinkPin(link)} className={cn('inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors', pinnedIds.includes(`resource-link-${link.id}`)
+                  <button type="button" onClick={() => void toggleLinkPin(link)} disabled={savingLinkId === link.id} className={cn('inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60', pinnedIds.includes(link.id)
                     ? 'border-primary/30 bg-primary/10 text-primary'
                     : 'border-border/60 text-muted-foreground hover:bg-muted/35 hover:text-foreground')}>
-                    <Star className={cn('h-3.5 w-3.5', pinnedIds.includes(`resource-link-${link.id}`) && 'fill-current')}/>
-                    {pinnedIds.includes(`resource-link-${link.id}`) ? 'Pinned to dashboard' : 'Pin to dashboard'}
+                    <Star className={cn('h-3.5 w-3.5', pinnedIds.includes(link.id) && 'fill-current')}/>
+                    {savingLinkId === link.id
+                        ? 'Saving...'
+                        : pinnedIds.includes(link.id)
+                            ? 'Pinned to dashboard'
+                            : 'Pin to dashboard'}
                   </button>
                   <a href={link.href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-muted/35">
                     Open portal

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse } from '@/lib/api/utils';
+import { dedupePermissions } from '@/lib/auth/portalPermissions';
 import { getAccountStatus } from '@/lib/auth/dormantAccounts';
 import { invalidateUniversityData, UNIVERSITY_DATA_TAGS } from '@/lib/server/universityData';
 import { adminFacultyUpdateSchema } from '@/lib/validations/admin';
@@ -8,6 +9,15 @@ function splitName(name) {
     const firstName = parts[0] ?? 'Faculty';
     const lastName = parts.slice(1).join(' ') || 'Member';
     return { firstName, lastName };
+}
+
+function withDeadlineEventPermission(permissions = [], enabled) {
+    if (enabled === undefined) {
+        return permissions;
+    }
+    return enabled
+        ? dedupePermissions([...permissions, 'CAN_CREATE_DEADLINE_EVENTS'])
+        : permissions.filter((permission) => permission !== 'CAN_CREATE_DEADLINE_EVENTS');
 }
 export async function PATCH(request, context) {
     try {
@@ -40,6 +50,11 @@ export async function PATCH(request, context) {
                     ...(payload.email ? { email: payload.email } : {}),
                     ...(payload.canPublishCampusAnnouncements !== undefined
                         ? { canPublishCampusAnnouncements: payload.canPublishCampusAnnouncements }
+                        : {}),
+                    ...(payload.canCreateDeadlineEvents !== undefined
+                        ? {
+                            portalPermissions: withDeadlineEventPermission(existing.user.portalPermissions ?? [], payload.canCreateDeadlineEvents),
+                        }
                         : {}),
                     ...(payload.managesAllClubs !== undefined
                         ? { managesAllClubs: payload.managesAllClubs }

@@ -28,6 +28,26 @@ function buildCampusEventRangeWhere(startDate, endDate) {
   };
 }
 
+function buildCampusEventCalendarVisibilityWhere(userId) {
+  return {
+    OR: [
+      { audience: 'DEADLINE' },
+      {
+        AND: [
+          { audience: { not: 'DEADLINE' } },
+          {
+            calendarEntries: {
+              some: {
+                userId,
+              },
+            },
+          },
+        ],
+      },
+    ],
+  };
+}
+
 export async function GET(request) {
   try {
     const { profile } = await getAuthenticatedUser();
@@ -84,11 +104,7 @@ export async function GET(request) {
             ...buildCampusEventRangeWhere(startDate, endDate),
             isPublished: true,
             isCancelled: false,
-            interests: {
-              some: {
-                userId: profile.id,
-              },
-            },
+            ...buildCampusEventCalendarVisibilityWhere(profile.id),
           },
           select: {
             id: true,
@@ -98,12 +114,12 @@ export async function GET(request) {
             endDate: true,
             time: true,
             category: true,
+            audience: true,
             location: true,
             organizer: true,
             maxAttendees: true,
-            _count: { select: { interests: true } },
           },
-        })
+      })
       : Promise.resolve([]);
 
     let personalEvents;
@@ -129,7 +145,7 @@ export async function GET(request) {
                 ...buildCampusEventRangeWhere(startDate, endDate),
                 isPublished: true,
                 isCancelled: false,
-                interests: {
+                calendarEntries: {
                   some: {
                     userId: profile.id,
                   },
@@ -146,7 +162,6 @@ export async function GET(request) {
                 location: true,
                 organizer: true,
                 maxAttendees: true,
-                _count: { select: { interests: true } },
               },
             })
           : Promise.resolve([]),
@@ -185,9 +200,29 @@ export async function GET(request) {
         source: 'deadline',
       })),
       ...campusEvents
-        .filter((event) => !linkedCampusEventIds.has(event.id))
+        .filter((event) => event.audience === 'DEADLINE' || !linkedCampusEventIds.has(event.id))
         .map((event) => {
         const range = resolveEventDateRange(event);
+        if (event.audience === 'DEADLINE') {
+          return {
+            id: event.id,
+            title: event.title,
+            description: event.description,
+            start: range.start,
+            end: range.end,
+            allDay: range.allDay,
+            eventType: 'DEADLINE',
+            type: 'DEADLINE',
+            course: event.organizer || event.location || 'Campus deadline',
+            location: event.location,
+            organizer: event.organizer,
+            priority: 'MEDIUM',
+            completed: false,
+            source: 'event',
+            campusEventId: event.id,
+            autoAddedToCalendar: true,
+          };
+        }
         return {
           id: event.id,
           title: event.title,
@@ -200,7 +235,7 @@ export async function GET(request) {
           location: event.location,
           organizer: event.organizer,
           maxAttendees: event.maxAttendees,
-          interestedCount: event._count?.interests || 0,
+          interestedCount: linkedCampusEventIds.has(event.id) ? 0 : 1,
           source: 'event',
           campusEventId: event.id,
         };
@@ -248,12 +283,16 @@ export async function POST(request) {
           endDate: true,
           time: true,
           location: true,
+          audience: true,
           isPublished: true,
           isCancelled: true,
         },
       });
       if (!campusEvent || !campusEvent.isPublished || campusEvent.isCancelled) {
         throw new ApiError(404, 'Campus event not found');
+      }
+      if (campusEvent.audience === 'DEADLINE') {
+        throw new ApiError(400, 'Deadline events already appear on every PocketQuad calendar.');
       }
 
       const range = resolveEventDateRange(campusEvent);

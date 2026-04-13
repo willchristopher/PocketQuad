@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { buildBuildingHoursPayload } from '@/lib/buildingHours';
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse } from '@/lib/api/utils';
 import { updateCampusBuildingCompatible } from '@/lib/server/campusBuildings';
 import { invalidateUniversityData, UNIVERSITY_DATA_TAGS } from '@/lib/server/universityData';
@@ -17,7 +18,12 @@ export async function PATCH(request, context) {
                 throw new ApiError(404, 'University not found');
             }
         }
-        const updated = await updateCampusBuildingCompatible(id, payload);
+        const { operatingHours, operatingHoursSchedule } = buildBuildingHoursPayload(payload);
+        const updated = await updateCampusBuildingCompatible(id, {
+            ...payload,
+            operatingHours,
+            operatingHoursSchedule,
+        });
         invalidateUniversityData(UNIVERSITY_DATA_TAGS.buildings);
         return successResponse(updated);
     }

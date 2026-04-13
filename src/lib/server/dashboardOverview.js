@@ -1,22 +1,41 @@
 import { prisma } from '@/lib/prisma';
+import { getCurrentBuildingAvailability } from '@/lib/buildingHours';
 import { getStudentFacingFacultyAvailability, parseLegacyFacultyAvailability, summarizeFacultyOfficeHours, } from '@/lib/faculty';
 import { getActiveAnnouncementWhere, listUniversityAnnouncements } from '@/lib/server/announcements';
-import { isMissingDatabaseFieldError } from '@/lib/server/dbCompatibility';
+import { listCampusBuildingsCompatible } from '@/lib/server/campusBuildings';
+import { isMissingDatabaseFieldError, isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
 import { getClubsCached, getCampusServicesCached, getResourceLinksCached } from '@/lib/server/universityData';
 
 export async function getDashboardOverview(profile) {
   const universityId = profile.universityId ?? undefined;
   const now = new Date();
 
-  const preferences = await prisma.notificationPreferences.findUnique({
-    where: { userId: profile.id },
-    select: {
-      buildingIds: true,
-      clubInterestIds: true,
-    },
-  });
+  let preferences;
+  try {
+    preferences = await prisma.notificationPreferences.findUnique({
+      where: { userId: profile.id },
+      select: {
+        buildingIds: true,
+        resourceLinkIds: true,
+        clubInterestIds: true,
+      },
+    });
+  } catch (error) {
+    if (!isPrismaSchemaCompatibilityError(error)) {
+      throw error;
+    }
+
+    preferences = await prisma.notificationPreferences.findUnique({
+      where: { userId: profile.id },
+      select: {
+        buildingIds: true,
+        clubInterestIds: true,
+      },
+    });
+  }
 
   const pinnedBuildingIds = preferences?.buildingIds ?? [];
+  const pinnedResourceLinkIds = preferences?.resourceLinkIds ?? [];
   const pinnedClubIds = preferences?.clubInterestIds ?? [];
 
   const favoriteFacultyPromise = prisma.facultyFavorite.findMany({
@@ -112,15 +131,41 @@ export async function getDashboardOverview(profile) {
     });
   });
 
+  const campusDeadlineEventsPromise = prisma.event.findMany({
+    where: {
+      ...(universityId ? { universityId } : {}),
+      date: { gte: now },
+      audience: 'DEADLINE',
+      isPublished: true,
+      isCancelled: false,
+    },
+    select: {
+      id: true,
+      title: true,
+      date: true,
+      organizer: true,
+      location: true,
+    },
+    orderBy: { date: 'asc' },
+    take: 6,
+  }).catch((error) => {
+    if (!isPrismaSchemaCompatibilityError(error)) {
+      throw error;
+    }
+    return [];
+  });
+
   const [
     upcomingEvents,
-    upcomingDeadlines,
+    personalDeadlines,
+    campusDeadlineEvents,
     serviceSnapshot,
     quickLinks,
     clubSnapshot,
     favoriteFaculty,
     campusNews,
     pinnedBuildings,
+    pinnedResourceLinks,
     pinnedClubs,
   ] = await Promise.all([
     prisma.event.findMany({
@@ -129,7 +174,7 @@ export async function getDashboardOverview(profile) {
         date: { gte: now },
         isPublished: true,
         isCancelled: false,
-        interests: {
+        calendarEntries: {
           some: {
             userId: profile.id,
           },
@@ -158,8 +203,9 @@ export async function getDashboardOverview(profile) {
         dueDate: true,
       },
       orderBy: [{ completed: 'asc' }, { dueDate: 'asc' }],
-      take: 3,
+      take: 6,
     }),
+    campusDeadlineEventsPromise,
     getCampusServicesCached(universityId, undefined).then((records) => records.slice(0, 3)),
     getResourceLinksCached(universityId, undefined, undefined).then((records) => records.slice(0, 4)),
     pinnedClubIds.length > 0
@@ -181,35 +227,37 @@ export async function getDashboardOverview(profile) {
     favoriteFacultyPromise,
     listUniversityAnnouncements(universityId, 4),
     pinnedBuildingIds.length > 0
-      ? prisma.campusBuilding.findMany({
-          where: {
-            id: { in: pinnedBuildingIds },
-            ...(universityId ? { universityId } : {}),
-          },
-          select: {
-            id: true,
-            name: true,
-            type: true,
-            address: true,
-            operationalStatus: true,
-            operationalNote: true,
-            announcements: {
-              where: {
-                scope: 'BUILDING',
-                ...getActiveAnnouncementWhere(now),
-              },
-              select: {
-                id: true,
-                title: true,
-                message: true,
-                createdAt: true,
-                expiresAt: true,
-              },
-              orderBy: { createdAt: 'desc' },
-              take: 1,
+      ? Promise.all([
+          listCampusBuildingsCompatible({
+            where: {
+              id: { in: pinnedBuildingIds },
+              ...(universityId ? { universityId } : {}),
             },
-          },
-        }).then((records) => {
+          }),
+          prisma.announcement.findMany({
+            where: {
+              ...(universityId ? { universityId } : {}),
+              scope: 'BUILDING',
+              buildingId: { in: pinnedBuildingIds },
+              ...getActiveAnnouncementWhere(now),
+            },
+            select: {
+              id: true,
+              buildingId: true,
+              title: true,
+              message: true,
+              createdAt: true,
+              expiresAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+          }),
+        ]).then(([records, announcements]) => {
+          const latestAnnouncementByBuildingId = new Map();
+          for (const announcement of announcements) {
+            if (announcement.buildingId && !latestAnnouncementByBuildingId.has(announcement.buildingId)) {
+              latestAnnouncementByBuildingId.set(announcement.buildingId, announcement);
+            }
+          }
           const byId = new Map(records.map((record) => [record.id, record]));
           return pinnedBuildingIds.flatMap((id) => {
             const record = byId.get(id);
@@ -217,9 +265,31 @@ export async function getDashboardOverview(profile) {
               return [];
             }
 
-            const { announcements, ...building } = record;
-            return [{ ...building, latestAnnouncement: announcements[0] ?? null }];
+            const hours = getCurrentBuildingAvailability(record, now);
+            return [{
+              ...record,
+              ...hours,
+              operationalStatus: hours.currentOperationalStatus,
+              latestAnnouncement: latestAnnouncementByBuildingId.get(record.id) ?? null,
+            }];
           });
+        })
+      : Promise.resolve([]),
+    pinnedResourceLinkIds.length > 0
+      ? prisma.campusResourceLink.findMany({
+          where: {
+            id: { in: pinnedResourceLinkIds },
+            ...(universityId ? { universityId } : {}),
+          },
+          select: {
+            id: true,
+            label: true,
+            category: true,
+            href: true,
+          },
+        }).then((records) => {
+          const byId = new Map(records.map((record) => [record.id, record]));
+          return pinnedResourceLinkIds.map((id) => byId.get(id)).filter(Boolean);
         })
       : Promise.resolve([]),
     pinnedClubIds.length > 0
@@ -240,6 +310,25 @@ export async function getDashboardOverview(profile) {
       : Promise.resolve([]),
   ]);
 
+  const upcomingDeadlines = [
+    ...personalDeadlines.map((deadline) => ({
+      id: deadline.id,
+      title: deadline.title,
+      course: deadline.course,
+      priority: deadline.priority,
+      dueDate: deadline.dueDate,
+    })),
+    ...campusDeadlineEvents.map((event) => ({
+      id: event.id,
+      title: event.title,
+      course: event.organizer || event.location || 'Campus deadline',
+      priority: 'MEDIUM',
+      dueDate: event.date,
+    })),
+  ]
+    .sort((left, right) => new Date(left.dueDate).getTime() - new Date(right.dueDate).getTime())
+    .slice(0, 3);
+
   return {
     upcomingEvents,
     upcomingDeadlines,
@@ -249,6 +338,7 @@ export async function getDashboardOverview(profile) {
     favoriteFaculty,
     campusNews,
     pinnedBuildings,
+    pinnedResourceLinks,
     pinnedClubs,
   };
 }

@@ -1,9 +1,16 @@
 import { UserRole } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse } from '@/lib/api/utils';
+import { dedupePermissions } from '@/lib/auth/portalPermissions';
 import { getAccountStatus } from '@/lib/auth/dormantAccounts';
 import { invalidateUniversityData, UNIVERSITY_DATA_TAGS } from '@/lib/server/universityData';
 import { adminFacultyCreateSchema } from '@/lib/validations/admin';
+
+function withDeadlineEventPermission(permissions = [], enabled) {
+    return enabled
+        ? dedupePermissions([...permissions, 'CAN_CREATE_DEADLINE_EVENTS'])
+        : permissions.filter((permission) => permission !== 'CAN_CREATE_DEADLINE_EVENTS');
+}
 function splitName(name) {
     const parts = name.trim().split(/\s+/);
     const firstName = parts[0] ?? 'Faculty';
@@ -93,6 +100,7 @@ export async function POST(request) {
                 select: {
                     id: true,
                     role: true,
+                    portalPermissions: true,
                 },
             });
             if (existingUser) {
@@ -113,6 +121,7 @@ export async function POST(request) {
                         lastName,
                         role: UserRole.FACULTY,
                         canPublishCampusAnnouncements: payload.canPublishCampusAnnouncements,
+                        portalPermissions: withDeadlineEventPermission([], payload.canCreateDeadlineEvents),
                         department: payload.department,
                         universityId: payload.universityId,
                     },
@@ -123,6 +132,7 @@ export async function POST(request) {
                     data: {
                         role: UserRole.FACULTY,
                         canPublishCampusAnnouncements: payload.canPublishCampusAnnouncements,
+                        portalPermissions: withDeadlineEventPermission(existingUser.portalPermissions ?? [], payload.canCreateDeadlineEvents),
                         displayName: payload.name,
                         firstName,
                         lastName,
@@ -136,6 +146,7 @@ export async function POST(request) {
                     where: { id: existingUser.id },
                     data: {
                         canPublishCampusAnnouncements: payload.canPublishCampusAnnouncements,
+                        portalPermissions: withDeadlineEventPermission(existingUser.portalPermissions ?? [], payload.canCreateDeadlineEvents),
                     },
                 });
             }

@@ -21,8 +21,15 @@ const defaultEventForm = {
   time: '12:00',
   location: '',
   category: 'OTHER',
+  audience: 'ALL_CAMPUS',
   maxAttendees: '',
   buildingId: '',
+};
+
+const eventAudienceLabels = {
+  ORGANIZATION: 'Organization',
+  ALL_CAMPUS: 'All campus',
+  DEADLINE: 'Deadline',
 };
 
 function toDateInput(value) {
@@ -121,6 +128,7 @@ export function FacultyEvents({ initialWorkspace = null, initialEvents = null })
       time: toTimeInput(item.time),
       location: item.location,
       category: item.category,
+      audience: item.audience ?? 'ALL_CAMPUS',
       maxAttendees: item.maxAttendees ? String(item.maxAttendees) : '',
       buildingId: item.buildingId ?? '',
     });
@@ -138,6 +146,7 @@ export function FacultyEvents({ initialWorkspace = null, initialEvents = null })
         time: form.time,
         location: form.location,
         category: form.category,
+        audience: form.audience,
         maxAttendees: form.maxAttendees ? Number(form.maxAttendees) : editingId ? null : undefined,
         buildingId: form.buildingId || (editingId ? null : undefined),
       };
@@ -268,6 +277,20 @@ export function FacultyEvents({ initialWorkspace = null, initialEvents = null })
               </select>
             </label>
             <label className="space-y-2 text-sm font-medium">
+              <span>Audience</span>
+              <select
+                value={form.audience}
+                onChange={(e) => setForm((c) => ({ ...c, audience: e.target.value }))}
+                className="flex h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
+              >
+                <option value="ORGANIZATION">Organization</option>
+                <option value="ALL_CAMPUS">All campus</option>
+                {workspace?.canCreateDeadlineEvents || form.audience === 'DEADLINE' ? (
+                  <option value="DEADLINE">Deadline</option>
+                ) : null}
+              </select>
+            </label>
+            <label className="space-y-2 text-sm font-medium">
               <span>Max attendees</span>
               <Input
                 type="number"
@@ -364,6 +387,9 @@ export function FacultyEvents({ initialWorkspace = null, initialEvents = null })
                   </Badge>
                   <Badge variant="outline" className="rounded-full text-[11px]">
                     {item.category}
+                  </Badge>
+                  <Badge variant="outline" className="rounded-full text-[11px]">
+                    {eventAudienceLabels[item.audience ?? 'ALL_CAMPUS']}
                   </Badge>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">

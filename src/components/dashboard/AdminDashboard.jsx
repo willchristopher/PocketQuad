@@ -15,7 +15,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth/context';
 import { getAllowedAdminTabs, hasPortalPermission, } from '@/lib/auth/portalPermissions';
-import { BUILDING_IMPORT_OPTIONAL_HEADERS, BUILDING_IMPORT_REQUIRED_HEADERS, validateBuildingImportHeaders } from '@/lib/buildingImport';
+import { BuildingHoursEditor } from '@/components/buildings/BuildingHoursEditor';
+import { BUILDING_IMPORT_OPTIONAL_HEADERS, BUILDING_IMPORT_REQUIRED_HEADERS, extractBuildingImportRows, validateBuildingImportHeaders } from '@/lib/buildingImport';
+import { hasMeaningfulBuildingHoursSchedule, summarizeBuildingHoursSchedule } from '@/lib/buildingHours';
 import { parseCsvText } from '@/lib/csv';
 import { sanitizeDisabledStudentPages, studentPageVisibilityOptions } from '@/lib/studentPageVisibility';
 import { cn } from '@/lib/utils';
@@ -52,6 +54,16 @@ const eventCategories = [
     'WELLNESS',
     'OTHER',
 ];
+const eventAudienceOptions = [
+    'ORGANIZATION',
+    'ALL_CAMPUS',
+    'DEADLINE',
+];
+const eventAudienceLabels = {
+    ORGANIZATION: 'Organization',
+    ALL_CAMPUS: 'All campus',
+    DEADLINE: 'Deadline',
+};
 const FACULTY_ROLE_TAG_OPTIONS = [
     'Club Advisor',
     'Academic Advisor',
@@ -98,6 +110,7 @@ const portalPermissionOptions = [
     'ADMIN_TAB_IT_ACCOUNTS',
     'ADMIN_TAB_USERS',
     'CAN_PUBLISH_ANNOUNCEMENTS',
+    'CAN_CREATE_DEADLINE_EVENTS',
     'CAN_MANAGE_CLUB_PROFILE',
     'CAN_MANAGE_CLUB_CONTACT',
 ];
@@ -116,6 +129,7 @@ const portalPermissionLabels = {
     ADMIN_TAB_IT_ACCOUNTS: 'Tab: IT Accounts',
     ADMIN_TAB_USERS: 'Tab: Users',
     CAN_PUBLISH_ANNOUNCEMENTS: 'Publish Announcements',
+    CAN_CREATE_DEADLINE_EVENTS: 'Create Deadline Events',
     CAN_MANAGE_CLUB_PROFILE: 'Manage Club Profile',
     CAN_MANAGE_CLUB_CONTACT: 'Manage Club Contact',
 };
@@ -189,6 +203,7 @@ function buildBuildingPayload(building, options = {}) {
         longitude: parseCoordinateValue(building.longitude, 'longitude', clearBlankCoordinates ? null : undefined),
         purpose: building.purpose || undefined,
         operatingHours: building.operatingHours || undefined,
+        operatingHoursSchedule: building.operatingHoursSchedule ?? null,
         operationalStatus: building.operationalStatus,
         operationalNote: building.operationalNote || undefined,
         description: building.description || undefined,
@@ -246,6 +261,7 @@ export function AdminDashboard({ initialUniversities = null }) {
         firstName: '',
         lastName: '',
         canPublishCampusAnnouncements: false,
+        canCreateDeadlineEvents: false,
         managesAllClubs: false,
         facultyRoleTags: [],
         managedBuildingIds: [],
@@ -262,6 +278,7 @@ export function AdminDashboard({ initialUniversities = null }) {
         longitude: '',
         purpose: '',
         operatingHours: '',
+        operatingHoursSchedule: null,
         operationalStatus: 'OPEN',
         operationalNote: '',
         description: '',
@@ -287,6 +304,13 @@ export function AdminDashboard({ initialUniversities = null }) {
         category: '',
         description: '',
         contactEmail: '',
+        presidentName: '',
+        presidentEmail: '',
+        advisorName: '',
+        advisorEmail: '',
+        publicContactInfo: '',
+        sourceUrls: '',
+        importNotes: '',
         websiteUrl: '',
         meetingInfo: '',
     });
@@ -298,6 +322,7 @@ export function AdminDashboard({ initialUniversities = null }) {
         time: '',
         location: '',
         category: 'ACADEMIC',
+        audience: 'ALL_CAMPUS',
         organizer: '',
         isPublished: true,
     });
@@ -361,44 +386,92 @@ export function AdminDashboard({ initialUniversities = null }) {
                 return;
             }
             const universityQuery = `?universityId=${encodeURIComponent(selectedUniversityId)}`;
-            const [nextFaculty, nextFacultySignupEmails, nextBuildings, nextLinks, nextServices, nextClubs, nextEvents, nextAccounts, nextUsers,] = await Promise.all([
-                canManageFaculty
-                    ? apiRequest(`/api/admin/faculty${universityQuery}`)
-                    : Promise.resolve([]),
-                canManageFaculty
-                    ? apiRequest(`/api/admin/faculty/signup-emails${universityQuery}`)
-                    : Promise.resolve([]),
-                canManageBuildings
-                    ? apiRequest(`/api/admin/buildings${universityQuery}`)
-                    : Promise.resolve([]),
-                canManageLinks
-                    ? apiRequest(`/api/admin/resource-links${universityQuery}`)
-                    : Promise.resolve([]),
-                canManageServices
-                    ? apiRequest(`/api/admin/services${universityQuery}`)
-                    : Promise.resolve([]),
-                canManageClubs || canManageAccounts
-                    ? apiRequest(`/api/admin/clubs${universityQuery}`)
-                    : Promise.resolve([]),
-                canManageEvents
-                    ? apiRequest(`/api/admin/events${universityQuery}`)
-                    : Promise.resolve([]),
-                canManageAccounts
-                    ? apiRequest(`/api/admin/accounts${universityQuery}`)
-                    : Promise.resolve([]),
-                canManageUsers
-                    ? apiRequest(`/api/admin/users${universityQuery}`)
-                    : Promise.resolve([]),
-            ]);
-            setFaculty(nextFaculty);
-            setFacultySignupEmails(nextFacultySignupEmails);
-            setBuildings(nextBuildings);
-            setResourceLinks(nextLinks);
-            setServices(nextServices);
-            setClubs(nextClubs);
-            setEvents(nextEvents);
-            setPortalAccounts(nextAccounts);
-            setAllUsers(nextUsers);
+            const sectionRequests = [
+                {
+                    key: 'faculty',
+                    label: 'faculty',
+                    enabled: canManageFaculty,
+                    load: () => apiRequest(`/api/admin/faculty${universityQuery}`),
+                    set: setFaculty,
+                },
+                {
+                    key: 'faculty-signup-emails',
+                    label: 'faculty signup emails',
+                    enabled: canManageFaculty,
+                    load: () => apiRequest(`/api/admin/faculty/signup-emails${universityQuery}`),
+                    set: setFacultySignupEmails,
+                },
+                {
+                    key: 'buildings',
+                    label: 'buildings',
+                    enabled: canManageBuildings,
+                    load: () => apiRequest(`/api/admin/buildings${universityQuery}`),
+                    set: setBuildings,
+                },
+                {
+                    key: 'resource-links',
+                    label: 'resource links',
+                    enabled: canManageLinks,
+                    load: () => apiRequest(`/api/admin/resource-links${universityQuery}`),
+                    set: setResourceLinks,
+                },
+                {
+                    key: 'services',
+                    label: 'services',
+                    enabled: canManageServices,
+                    load: () => apiRequest(`/api/admin/services${universityQuery}`),
+                    set: setServices,
+                },
+                {
+                    key: 'clubs',
+                    label: 'clubs',
+                    enabled: canManageClubs || canManageAccounts,
+                    load: () => apiRequest(`/api/admin/clubs${universityQuery}`),
+                    set: setClubs,
+                },
+                {
+                    key: 'events',
+                    label: 'events',
+                    enabled: canManageEvents,
+                    load: () => apiRequest(`/api/admin/events${universityQuery}`),
+                    set: setEvents,
+                },
+                {
+                    key: 'accounts',
+                    label: 'IT accounts',
+                    enabled: canManageAccounts,
+                    load: () => apiRequest(`/api/admin/accounts${universityQuery}`),
+                    set: setPortalAccounts,
+                },
+                {
+                    key: 'users',
+                    label: 'users',
+                    enabled: canManageUsers,
+                    load: () => apiRequest(`/api/admin/users${universityQuery}`),
+                    set: setAllUsers,
+                },
+            ];
+            const sectionResults = await Promise.allSettled(sectionRequests.map((section) => section.enabled ? section.load() : Promise.resolve([])));
+            const failedSections = [];
+            sectionResults.forEach((result, index) => {
+                const section = sectionRequests[index];
+                if (result.status === 'fulfilled') {
+                    section.set(result.value);
+                    return;
+                }
+                section.set([]);
+                failedSections.push({
+                    label: section.label,
+                    error: result.reason,
+                });
+            });
+            if (failedSections.length === 1) {
+                const failedSection = failedSections[0];
+                toast.error(asErrorMessage(failedSection.error, `Unable to load ${failedSection.label}`));
+            }
+            else if (failedSections.length > 1) {
+                toast.error(`Some admin sections could not be loaded: ${failedSections.map((section) => section.label).join(', ')}`);
+            }
         }
         catch (error) {
             toast.error(asErrorMessage(error, 'Unable to load admin data'));
@@ -528,7 +601,8 @@ export function AdminDashboard({ initialUniversities = null }) {
         try {
             const content = await file.text();
             const rows = parseCsvText(content);
-            if (rows.length === 0) {
+            const { headerRow, dataRows } = extractBuildingImportRows(rows);
+            if (headerRow.length === 0) {
                 setBuildingImportError('CSV file is empty');
                 setBuildingImportValidation(null);
                 setBuildingImportCsvContent('');
@@ -536,9 +610,8 @@ export function AdminDashboard({ initialUniversities = null }) {
                 setBuildingImportFileName(file.name);
                 return;
             }
-            const headers = rows[0] ?? [];
-            const validation = validateBuildingImportHeaders(headers);
-            const rowCount = rows.slice(1).filter((row) => row.some((cell) => cell.trim().length > 0)).length;
+            const validation = validateBuildingImportHeaders(headerRow);
+            const rowCount = dataRows.length;
             setBuildingImportCsvContent(content);
             setBuildingImportFileName(file.name);
             setBuildingImportRowCount(rowCount);
@@ -869,6 +942,10 @@ export function AdminDashboard({ initialUniversities = null }) {
                     Can publish campus announcements
                   </label>
                   <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm hover:bg-muted/30">
+                    <input type="checkbox" checked={newFacultySignupEmail.canCreateDeadlineEvents} onChange={(event) => setNewFacultySignupEmail((c) => ({ ...c, canCreateDeadlineEvents: event.target.checked }))}/>
+                    Can create deadline events
+                  </label>
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm hover:bg-muted/30">
                     <input type="checkbox" checked={newFacultySignupEmail.managesAllClubs} onChange={(event) => setNewFacultySignupEmail((c) => ({ ...c, managesAllClubs: event.target.checked }))}/>
                     Manages all clubs / Student orgs
                   </label>
@@ -943,6 +1020,7 @@ export function AdminDashboard({ initialUniversities = null }) {
                         firstName: newFacultySignupEmail.firstName || undefined,
                         lastName: newFacultySignupEmail.lastName || undefined,
                         canPublishCampusAnnouncements: newFacultySignupEmail.canPublishCampusAnnouncements,
+                        canCreateDeadlineEvents: newFacultySignupEmail.canCreateDeadlineEvents,
                         managesAllClubs: newFacultySignupEmail.managesAllClubs,
                         facultyRoleTags: newFacultySignupEmail.facultyRoleTags,
                         managedBuildingIds: newFacultySignupEmail.managedBuildingIds,
@@ -955,6 +1033,7 @@ export function AdminDashboard({ initialUniversities = null }) {
                     firstName: '',
                     lastName: '',
                     canPublishCampusAnnouncements: false,
+                    canCreateDeadlineEvents: false,
                     managesAllClubs: false,
                     facultyRoleTags: [],
                     managedBuildingIds: [],
@@ -1007,9 +1086,12 @@ export function AdminDashboard({ initialUniversities = null }) {
                                 <p>{ACCOUNT_STATUS_META[record.accountStatus ?? 'DORMANT']?.helper ?? 'Awaiting signup claim'}</p>
                               </div>
                             </div>
-                            {(record.canPublishCampusAnnouncements || record.managesAllClubs) && (<div className="flex flex-wrap gap-2">
+                            {(record.canPublishCampusAnnouncements || record.portalPermissions?.includes('CAN_CREATE_DEADLINE_EVENTS') || record.managesAllClubs) && (<div className="flex flex-wrap gap-2">
                                 {record.canPublishCampusAnnouncements && (<span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
                                     <CheckCircle2 className="h-3 w-3"/>Can publish announcements
+                                  </span>)}
+                                {record.portalPermissions?.includes('CAN_CREATE_DEADLINE_EVENTS') && (<span className="inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                                    <Clock className="h-3 w-3"/>Can create deadline events
                                   </span>)}
                                 {record.managesAllClubs && (<span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
                                     <CheckCircle2 className="h-3 w-3"/>Manages all clubs
@@ -1138,6 +1220,14 @@ export function AdminDashboard({ initialUniversities = null }) {
                                   Can publish campus announcements
                                 </label>
                                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm hover:bg-muted/30">
+                                  <input type="checkbox" checked={Boolean(record.user?.portalPermissions?.includes('CAN_CREATE_DEADLINE_EVENTS'))} onChange={(event) => setFaculty((current) => current.map((item) => item.id === record.id && item.user
+                                ? { ...item, user: { ...item.user, portalPermissions: event.target.checked
+                                            ? [...new Set([...(item.user.portalPermissions ?? []), 'CAN_CREATE_DEADLINE_EVENTS'])]
+                                            : (item.user.portalPermissions ?? []).filter((permission) => permission !== 'CAN_CREATE_DEADLINE_EVENTS') } }
+                                : item))}/>
+                                  Can create deadline events
+                                </label>
+                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm hover:bg-muted/30">
                                   <input type="checkbox" checked={Boolean(record.user?.managesAllClubs)} onChange={(event) => setFaculty((current) => current.map((item) => item.id === record.id && item.user
                                 ? { ...item, user: { ...item.user, managesAllClubs: event.target.checked } }
                                 : item))}/>
@@ -1232,6 +1322,7 @@ export function AdminDashboard({ initialUniversities = null }) {
                                         name: record.name,
                                         email: record.email,
                                         canPublishCampusAnnouncements: Boolean(record.user?.canPublishCampusAnnouncements),
+                                        canCreateDeadlineEvents: Boolean(record.user?.portalPermissions?.includes('CAN_CREATE_DEADLINE_EVENTS')),
                                         managesAllClubs: Boolean(record.user?.managesAllClubs),
                                         facultyRoleTags: record.user?.facultyRoleTags ?? [],
                                         managedBuildingIds: record.user?.managedBuildings.map((mb) => mb.buildingId) ?? [],
@@ -1322,8 +1413,19 @@ export function AdminDashboard({ initialUniversities = null }) {
                     <Input type="number" step="any" min={coordinateFieldConfig.longitude.min} max={coordinateFieldConfig.longitude.max} inputMode="decimal" value={newBuilding.longitude} onChange={(event) => setNewBuilding((c) => ({ ...c, longitude: event.target.value }))} placeholder="e.g. -88.3227"/>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Operating Hours</label>
-                    <Input value={newBuilding.operatingHours} onChange={(event) => setNewBuilding((c) => ({ ...c, operatingHours: event.target.value }))} placeholder="e.g. Mon–Fri 8am–6pm"/>
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {hasMeaningfulBuildingHoursSchedule(newBuilding.operatingHoursSchedule) ? 'Hours Summary' : 'Hours Summary / Fallback'}
+                    </label>
+                    <Input
+                      value={
+                        hasMeaningfulBuildingHoursSchedule(newBuilding.operatingHoursSchedule)
+                          ? summarizeBuildingHoursSchedule(newBuilding.operatingHoursSchedule, newBuilding.operatingHours) ?? ''
+                          : newBuilding.operatingHours
+                      }
+                      onChange={(event) => setNewBuilding((c) => ({ ...c, operatingHours: event.target.value }))}
+                      placeholder="e.g. Mon–Fri 8am–6pm"
+                      readOnly={hasMeaningfulBuildingHoursSchedule(newBuilding.operatingHoursSchedule)}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Operational Status</label>
@@ -1342,6 +1444,11 @@ export function AdminDashboard({ initialUniversities = null }) {
                   <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Purpose (AI descriptor)</label>
                   <Textarea value={newBuilding.purpose} onChange={(event) => setNewBuilding((c) => ({ ...c, purpose: event.target.value }))} placeholder="Describe what this building is used for so the AI assistant can surface it in relevant queries..." rows={2} className="resize-none"/>
                 </div>
+                <BuildingHoursEditor
+                  value={newBuilding.operatingHoursSchedule}
+                  fallbackSummary={newBuilding.operatingHours}
+                  onChange={(operatingHoursSchedule) => setNewBuilding((current) => ({ ...current, operatingHoursSchedule }))}
+                />
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Description</label>
                   <Textarea value={newBuilding.description} onChange={(event) => setNewBuilding((c) => ({ ...c, description: event.target.value }))} placeholder="Optional public-facing description" rows={2} className="resize-none"/>
@@ -1355,7 +1462,7 @@ export function AdminDashboard({ initialUniversities = null }) {
                     setNewBuilding({
                         universityId: selectedUniversityId,
                         name: '', code: '', type: '', address: '', mapQuery: '', latitude: '', longitude: '',
-                        purpose: '', operatingHours: '', operationalStatus: 'OPEN',
+                        purpose: '', operatingHours: '', operatingHoursSchedule: null, operationalStatus: 'OPEN',
                         operationalNote: '', description: '',
                     });
                     setExpandedBuildingId(null);
@@ -1407,11 +1514,24 @@ export function AdminDashboard({ initialUniversities = null }) {
                                 { label: 'Map Query', key: 'mapQuery' },
                                 { label: 'Latitude', key: 'latitude', type: 'number', min: coordinateFieldConfig.latitude.min, max: coordinateFieldConfig.latitude.max },
                                 { label: 'Longitude', key: 'longitude', type: 'number', min: coordinateFieldConfig.longitude.min, max: coordinateFieldConfig.longitude.max },
-                                { label: 'Operating Hours', key: 'operatingHours' },
                             ].map(({ label, key }) => (<div key={String(key)} className="space-y-1.5">
                                   <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</label>
                                   <Input type={key === 'latitude' || key === 'longitude' ? 'number' : undefined} step={key === 'latitude' || key === 'longitude' ? 'any' : undefined} inputMode={key === 'latitude' || key === 'longitude' ? 'decimal' : undefined} min={key === 'latitude' ? coordinateFieldConfig.latitude.min : key === 'longitude' ? coordinateFieldConfig.longitude.min : undefined} max={key === 'latitude' ? coordinateFieldConfig.latitude.max : key === 'longitude' ? coordinateFieldConfig.longitude.max : undefined} value={key === 'latitude' || key === 'longitude' ? formatCoordinateInput(building[key]) : building[key] ?? ''} onChange={(event) => setBuildings((current) => current.map((item) => (item.id === building.id ? { ...item, [key]: event.target.value } : item)))}/>
                                 </div>))}
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                  {hasMeaningfulBuildingHoursSchedule(building.operatingHoursSchedule) ? 'Hours Summary' : 'Hours Summary / Fallback'}
+                                </label>
+                                <Input
+                                  value={
+                                    hasMeaningfulBuildingHoursSchedule(building.operatingHoursSchedule)
+                                      ? summarizeBuildingHoursSchedule(building.operatingHoursSchedule, building.operatingHours) ?? ''
+                                      : building.operatingHours ?? ''
+                                  }
+                                  onChange={(event) => setBuildings((current) => current.map((item) => (item.id === building.id ? { ...item, operatingHours: event.target.value } : item)))}
+                                  readOnly={hasMeaningfulBuildingHoursSchedule(building.operatingHoursSchedule)}
+                                />
+                              </div>
                               <div className="space-y-1.5">
                                 <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Operational Status</label>
                                 <select value={building.operationalStatus ?? 'OPEN'} onChange={(event) => setBuildings((current) => current.map((item) => (item.id === building.id ? { ...item, operationalStatus: event.target.value } : item)))} className="h-11 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
@@ -1429,6 +1549,11 @@ export function AdminDashboard({ initialUniversities = null }) {
                               <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Purpose (AI descriptor)</label>
                               <Textarea value={building.purpose ?? ''} placeholder="Describe what this building is used for so the AI assistant can surface it in relevant queries..." rows={2} className="resize-none" onChange={(event) => setBuildings((current) => current.map((item) => (item.id === building.id ? { ...item, purpose: event.target.value } : item)))}/>
                             </div>
+                            <BuildingHoursEditor
+                              value={building.operatingHoursSchedule}
+                              fallbackSummary={building.operatingHours ?? ''}
+                              onChange={(operatingHoursSchedule) => setBuildings((current) => current.map((item) => (item.id === building.id ? { ...item, operatingHoursSchedule } : item)))}
+                            />
                             <div className="space-y-1.5">
                               <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Description</label>
                               <Textarea value={building.description ?? ''} placeholder="Optional public-facing description" rows={2} className="resize-none" onChange={(event) => setBuildings((current) => current.map((item) => (item.id === building.id ? { ...item, description: event.target.value } : item)))}/>
@@ -1628,6 +1753,31 @@ export function AdminDashboard({ initialUniversities = null }) {
         </TabsContent>
 
         <TabsContent value="clubs" className="mt-0 space-y-4">
+          <Card className="rounded-xl border-border/60">
+            <CardHeader>
+              <CardTitle>Murray State Directory Import</CardTitle>
+              <CardDescription>
+                Load the 131 public Murray State student organizations from the reviewed directory sheet into this university. Existing clubs are matched by name and updated in place.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                This imports category, public leadership contacts, source URLs, and import notes used across Clubhouse, admin CRUD, and the chatbot.
+              </p>
+              <Button disabled={saving || !selectedUniversityId} onClick={() => void runMutation(async () => {
+                return apiRequest('/api/admin/clubs/import', {
+                    method: 'POST',
+                    body: {
+                        universityId: selectedUniversityId,
+                        preset: 'murray-state-organizations',
+                    },
+                });
+            }, (result) => `Synced ${result.totalRows} Murray State organizations (${result.createdCount} created, ${result.updatedCount} updated)`)}>
+                Import Murray State organizations
+              </Button>
+            </CardContent>
+          </Card>
+
           <SimpleCreateCard title="Create Club/Organization" description="Organizations can be displayed across student discovery experiences." content={<>
                 <select value={newClub.universityId} onChange={(event) => setNewClub((current) => ({ ...current, universityId: event.target.value }))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                   {scopedUniversityOptions}
@@ -1636,6 +1786,13 @@ export function AdminDashboard({ initialUniversities = null }) {
                 <Input value={newClub.category} onChange={(event) => setNewClub((current) => ({ ...current, category: event.target.value }))} placeholder="Category"/>
                 <Input value={newClub.description} onChange={(event) => setNewClub((current) => ({ ...current, description: event.target.value }))} placeholder="Description"/>
                 <Input value={newClub.contactEmail} onChange={(event) => setNewClub((current) => ({ ...current, contactEmail: event.target.value }))} placeholder="Contact email (optional)"/>
+                <Input value={newClub.presidentName} onChange={(event) => setNewClub((current) => ({ ...current, presidentName: event.target.value }))} placeholder="President name (optional)"/>
+                <Input value={newClub.presidentEmail} onChange={(event) => setNewClub((current) => ({ ...current, presidentEmail: event.target.value }))} placeholder="President email(s) (optional)"/>
+                <Input value={newClub.advisorName} onChange={(event) => setNewClub((current) => ({ ...current, advisorName: event.target.value }))} placeholder="Campus advisor (optional)"/>
+                <Input value={newClub.advisorEmail} onChange={(event) => setNewClub((current) => ({ ...current, advisorEmail: event.target.value }))} placeholder="Advisor email(s) (optional)"/>
+                <Input value={newClub.publicContactInfo} onChange={(event) => setNewClub((current) => ({ ...current, publicContactInfo: event.target.value }))} placeholder="Public contact listing (optional)"/>
+                <Input value={newClub.sourceUrls} onChange={(event) => setNewClub((current) => ({ ...current, sourceUrls: event.target.value }))} placeholder="Source URL(s) (optional)"/>
+                <Input value={newClub.importNotes} onChange={(event) => setNewClub((current) => ({ ...current, importNotes: event.target.value }))} placeholder="Import notes (optional)"/>
                 <Input value={newClub.websiteUrl} onChange={(event) => setNewClub((current) => ({ ...current, websiteUrl: event.target.value }))} placeholder="Website URL (optional)"/>
                 <Input value={newClub.meetingInfo} onChange={(event) => setNewClub((current) => ({ ...current, meetingInfo: event.target.value }))} placeholder="Meeting info (optional)"/>
                 <Button disabled={saving || !newClub.universityId || !newClub.name || !newClub.category || !newClub.description} onClick={() => void runMutation(async () => {
@@ -1644,6 +1801,13 @@ export function AdminDashboard({ initialUniversities = null }) {
                         body: {
                             ...newClub,
                             contactEmail: newClub.contactEmail || undefined,
+                            presidentName: newClub.presidentName || undefined,
+                            presidentEmail: newClub.presidentEmail || undefined,
+                            advisorName: newClub.advisorName || undefined,
+                            advisorEmail: newClub.advisorEmail || undefined,
+                            publicContactInfo: newClub.publicContactInfo || undefined,
+                            sourceUrls: newClub.sourceUrls || undefined,
+                            importNotes: newClub.importNotes || undefined,
                             websiteUrl: newClub.websiteUrl || undefined,
                             meetingInfo: newClub.meetingInfo || undefined,
                         },
@@ -1654,6 +1818,13 @@ export function AdminDashboard({ initialUniversities = null }) {
                         category: '',
                         description: '',
                         contactEmail: '',
+                        presidentName: '',
+                        presidentEmail: '',
+                        advisorName: '',
+                        advisorEmail: '',
+                        publicContactInfo: '',
+                        sourceUrls: '',
+                        importNotes: '',
                         websiteUrl: '',
                         meetingInfo: '',
                     });
@@ -1671,6 +1842,13 @@ export function AdminDashboard({ initialUniversities = null }) {
                         category: record.category,
                         description: record.description,
                         contactEmail: record.contactEmail || null,
+                        presidentName: record.presidentName || null,
+                        presidentEmail: record.presidentEmail || null,
+                        advisorName: record.advisorName || null,
+                        advisorEmail: record.advisorEmail || null,
+                        publicContactInfo: record.publicContactInfo || null,
+                        sourceUrls: record.sourceUrls || null,
+                        importNotes: record.importNotes || null,
                         websiteUrl: record.websiteUrl || null,
                         meetingInfo: record.meetingInfo || null,
                     },
@@ -1693,6 +1871,9 @@ export function AdminDashboard({ initialUniversities = null }) {
                 <select value={newEvent.category} onChange={(event) => setNewEvent((current) => ({ ...current, category: event.target.value }))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                   {eventCategories.map((category) => (<option key={category} value={category}>{category}</option>))}
                 </select>
+                <select value={newEvent.audience} onChange={(event) => setNewEvent((current) => ({ ...current, audience: event.target.value }))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                  {eventAudienceOptions.map((audience) => (<option key={audience} value={audience}>{eventAudienceLabels[audience]}</option>))}
+                </select>
                 <Input value={newEvent.organizer} onChange={(event) => setNewEvent((current) => ({ ...current, organizer: event.target.value }))} placeholder="Organizer"/>
                 <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                   <input type="checkbox" checked={newEvent.isPublished} onChange={(event) => setNewEvent((current) => ({ ...current, isPublished: event.target.checked }))}/>
@@ -1714,6 +1895,7 @@ export function AdminDashboard({ initialUniversities = null }) {
                         time: '',
                         location: '',
                         category: 'ACADEMIC',
+                        audience: 'ALL_CAMPUS',
                         organizer: '',
                         isPublished: true,
                     });
@@ -1733,6 +1915,7 @@ export function AdminDashboard({ initialUniversities = null }) {
                         time: record.time,
                         location: record.location,
                         category: record.category,
+                        audience: record.audience,
                         organizer: record.organizer,
                         isPublished: record.isPublished,
                     },
@@ -2062,6 +2245,13 @@ function CrudClubTable({ records, universities, saving, onChange, onSave, onDele
             <TableCell className="space-y-2 min-w-[320px]">
               <Input value={record.description} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, description: event.target.value } : item)))}/>
               <Input value={record.contactEmail ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, contactEmail: event.target.value || null } : item)))} placeholder="Contact email"/>
+              <Input value={record.presidentName ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, presidentName: event.target.value || null } : item)))} placeholder="President name"/>
+              <Input value={record.presidentEmail ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, presidentEmail: event.target.value || null } : item)))} placeholder="President email(s)"/>
+              <Input value={record.advisorName ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, advisorName: event.target.value || null } : item)))} placeholder="Advisor name"/>
+              <Input value={record.advisorEmail ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, advisorEmail: event.target.value || null } : item)))} placeholder="Advisor email(s)"/>
+              <Input value={record.publicContactInfo ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, publicContactInfo: event.target.value || null } : item)))} placeholder="Public contact listing"/>
+              <Input value={record.sourceUrls ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, sourceUrls: event.target.value || null } : item)))} placeholder="Source URL(s)"/>
+              <Input value={record.importNotes ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, importNotes: event.target.value || null } : item)))} placeholder="Import notes"/>
               <Input value={record.websiteUrl ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, websiteUrl: event.target.value || null } : item)))} placeholder="Website"/>
               <Input value={record.meetingInfo ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, meetingInfo: event.target.value || null } : item)))} placeholder="Meeting info"/>
             </TableCell>
@@ -2091,6 +2281,9 @@ function CrudEventTable({ records, universities, saving, onChange, onSave, onDel
             <TableCell className="space-y-2">
               <select value={record.category} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, category: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {eventCategories.map((category) => (<option key={category} value={category}>{category}</option>))}
+              </select>
+              <select value={record.audience ?? 'ALL_CAMPUS'} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, audience: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                {eventAudienceOptions.map((audience) => (<option key={audience} value={audience}>{eventAudienceLabels[audience]}</option>))}
               </select>
               <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
                 <input type="checkbox" checked={record.isPublished} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, isPublished: event.target.checked } : item)))}/>

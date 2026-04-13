@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse } from '@/lib/api/utils';
+import { dedupePermissions } from '@/lib/auth/portalPermissions';
 import { getAccountStatus, isDormantUserRecord } from '@/lib/auth/dormantAccounts';
 import { ensureDormantFacultyProfiles } from '@/lib/server/dormantFaculty';
 import { invalidateUniversityData, UNIVERSITY_DATA_TAGS } from '@/lib/server/universityData';
@@ -21,6 +22,12 @@ function splitLocalPart(localPart) {
 function deriveNameFromEmail(email) {
     const localPart = email.split('@')[0] ?? '';
     return splitLocalPart(localPart);
+}
+
+function withDeadlineEventPermission(permissions = [], enabled) {
+    return enabled
+        ? dedupePermissions([...permissions, 'CAN_CREATE_DEADLINE_EVENTS'])
+        : permissions.filter((permission) => permission !== 'CAN_CREATE_DEADLINE_EVENTS');
 }
 export async function GET(request) {
     try {
@@ -126,6 +133,7 @@ export async function POST(request) {
                         lastName,
                         displayName,
                         canPublishCampusAnnouncements: payload.canPublishCampusAnnouncements,
+                        portalPermissions: withDeadlineEventPermission(existingUser.portalPermissions ?? [], payload.canCreateDeadlineEvents),
                         managesAllClubs: payload.managesAllClubs,
                         facultyRoleTags: payload.facultyRoleTags,
                     },
@@ -183,6 +191,7 @@ export async function POST(request) {
                     displayName,
                     role: 'FACULTY',
                     canPublishCampusAnnouncements: payload.canPublishCampusAnnouncements,
+                    portalPermissions: withDeadlineEventPermission([], payload.canCreateDeadlineEvents),
                     managesAllClubs: payload.managesAllClubs,
                     facultyRoleTags: payload.facultyRoleTags,
                 },

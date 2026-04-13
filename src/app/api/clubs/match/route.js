@@ -90,6 +90,11 @@ function scoreClubForMatch({ club, interestTokens, followedCategories }) {
     club.description,
     club.meetingInfo,
     club.contactEmail,
+    club.presidentName,
+    club.presidentEmail,
+    club.advisorName,
+    club.advisorEmail,
+    club.publicContactInfo,
   ].filter(Boolean).join(' '));
 
   const matchedTokens = interestTokens.filter((token) => haystack.includes(token)).slice(0, 3);
@@ -180,6 +185,10 @@ async function generateClubMatchWithAi({ clubs, followedClubs, calendarEntries, 
       `category=${club.category}`,
       `meetingInfo=${club.meetingInfo ?? 'Not listed'}`,
       `website=${club.websiteUrl ?? 'Not listed'}`,
+      `president=${club.presidentName ?? 'Not listed'}`,
+      `presidentEmail=${club.presidentEmail ?? 'Not listed'}`,
+      `advisor=${club.advisorName ?? 'Not listed'}`,
+      `advisorEmail=${club.advisorEmail ?? 'Not listed'}`,
       `description=${club.description}`,
     ].join(' | '))
     .join('\n');

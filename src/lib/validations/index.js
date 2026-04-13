@@ -22,9 +22,48 @@ export const updatePreferencesSchema = z.object({
     theme: z.enum(['system', 'light', 'dark', 'university']).optional(),
     buildingAlerts: z.boolean().optional(),
     buildingIds: z.array(z.string()).optional(),
+    resourceLinkIds: z.array(z.string()).optional(),
     clubInterestIds: z.array(z.string()).optional(),
     dashboardModules: z.array(z.enum(dashboardModuleIds)).optional(),
 });
+const buildingHoursTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:MM 24-hour format');
+const buildingHoursSlotSchema = z.object({
+    openTime: buildingHoursTimeSchema,
+    closeTime: buildingHoursTimeSchema,
+}).superRefine((value, context) => {
+    if (value.openTime >= value.closeTime) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['closeTime'],
+            message: 'Closing time must be later than opening time',
+        });
+    }
+});
+const buildingHoursDaySchema = z.object({
+    dayOfWeek: z.number().int().min(0).max(6),
+    kind: z.enum(['closed', 'open', 'all_day', 'text']),
+    label: z.string().trim().max(120).optional().nullable(),
+    slots: z.array(buildingHoursSlotSchema).max(4).default([]),
+}).superRefine((value, context) => {
+    if (value.kind === 'open' && value.slots.length === 0) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['slots'],
+            message: 'Open days need at least one time slot',
+        });
+    }
+    if (value.kind !== 'open' && value.slots.length > 0) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['slots'],
+            message: 'Only open days can include time slots',
+        });
+    }
+});
+const buildingHoursScheduleSchema = z.object({
+    timezone: z.string().trim().min(1).max(64).default('America/Chicago'),
+    days: z.array(buildingHoursDaySchema).length(7),
+}).strict();
 export const sendMessageSchema = z.object({
     content: z.string().trim().min(1).max(4000),
     replyToId: z.string().cuid().optional(),
@@ -53,6 +92,7 @@ export const createEventSchema = z.object({
     time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:MM 24-hour format'),
     location: z.string().trim().min(1).max(160),
     category: z.enum(['ACADEMIC', 'SOCIAL', 'SPORTS', 'ARTS', 'CAREER', 'CLUBS', 'WELLNESS', 'OTHER']),
+    audience: z.enum(['ORGANIZATION', 'ALL_CAMPUS', 'DEADLINE']).default('ALL_CAMPUS'),
     maxAttendees: z.number().int().min(1).max(10000).optional(),
     buildingId: z.string().cuid().optional(),
 });
@@ -63,6 +103,7 @@ export const updateFacultyEventSchema = z.object({
     time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:MM 24-hour format').optional(),
     location: z.string().trim().min(1).max(160).optional(),
     category: z.enum(['ACADEMIC', 'SOCIAL', 'SPORTS', 'ARTS', 'CAREER', 'CLUBS', 'WELLNESS', 'OTHER']).optional(),
+    audience: z.enum(['ORGANIZATION', 'ALL_CAMPUS', 'DEADLINE']).optional(),
     maxAttendees: z.number().int().min(1).max(10000).nullable().optional(),
     buildingId: z.string().cuid().nullable().optional(),
     isCancelled: z.boolean().optional(),
@@ -131,6 +172,7 @@ export const facultyBuildingManagerSchema = z.object({
 });
 export const updateManagedBuildingSchema = z.object({
     operatingHours: z.string().trim().max(180).optional().nullable(),
+    operatingHoursSchedule: buildingHoursScheduleSchema.optional().nullable(),
     operationalStatus: z.enum(['OPEN', 'CLOSED', 'LIMITED']),
     operationalNote: z.string().trim().max(280).optional().nullable(),
     accessibilityNotes: z.string().trim().max(1500).optional().nullable(),

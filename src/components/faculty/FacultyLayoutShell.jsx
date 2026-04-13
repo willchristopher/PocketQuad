@@ -52,7 +52,7 @@ function FacultyTopBar() {
 export function FacultyLayoutShell({ children }) {
   return (
     <FacultyPagesProvider>
-      <div className="dark min-h-screen bg-background text-foreground">
+      <div className="min-h-screen bg-background text-foreground">
         <FacultyTopBar />
         <main
           id="main-content"

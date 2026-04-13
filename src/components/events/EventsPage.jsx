@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, CalendarDays, Heart, MapPin, RefreshCcw, Search, Sparkles, Ticket } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, MapPin, RefreshCcw, Search, Sparkles, Ticket } from 'lucide-react';
 import { FeelingBoredDialog } from '@/components/events/FeelingBoredDialog';
 import { EventCalendarActions } from '@/components/events/EventCalendarActions';
 import { Button } from '@/components/ui/button';
@@ -76,43 +76,18 @@ function formatInterestCount(count) {
 function EventRow({
   event,
   busyAction,
-  onToggleInterest,
   onAddToAppCalendar,
   onRemoveFromAppCalendar,
   onOpenExternalCalendar,
 }) {
-  const interestBusy = busyAction === `${event.id}:interest`;
-
   return (
     <article className="grid gap-4 border-t border-border/60 py-5 first:border-t-0 md:grid-cols-[112px_minmax(0,1fr)_auto]">
       <div className="space-y-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{event.activityLabel}</p>
         <p className="text-sm font-medium text-foreground">{new Date(event.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
         <p className="text-xs text-muted-foreground">{event.time}</p>
       </div>
 
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-border/60 px-2.5 py-1 text-[11px] text-muted-foreground">
-            {event.sourceLabel}
-          </span>
-          {event.myClubActivity ? (
-            <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-700 dark:text-emerald-300">
-              My club
-            </span>
-          ) : null}
-          {event.isInCalendar ? (
-            <span className="rounded-full border border-border/60 px-2.5 py-1 text-[11px] text-muted-foreground">
-              Added
-            </span>
-          ) : null}
-          {event.exportedProviders?.slice(0, 2).map((provider) => (
-            <span key={provider} className="rounded-full border border-border/60 px-2.5 py-1 text-[11px] text-muted-foreground">
-              {provider}
-            </span>
-          ))}
-        </div>
-
         <div>
           <Link href={`/events/${event.id}`} className="group inline-flex items-center gap-2">
             <h2 className="font-display text-2xl font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary">
@@ -136,25 +111,11 @@ function EventRow({
       </div>
 
       <div className="flex flex-col items-start gap-3 md:items-end">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void onToggleInterest(event)}
-            disabled={interestBusy}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold transition-colors',
-              event.isInterested
-                ? 'border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300'
-                : 'border-border/60 text-muted-foreground hover:bg-muted/50',
-            )}
-          >
-            <Heart className={cn('h-4 w-4', event.isInterested && 'fill-current')} />
-            {interestBusy ? 'Saving...' : event.isInterested ? 'Interested' : 'Interested?'}
-          </button>
+        {event.interestedCount > 0 ? (
           <span className="text-xs text-muted-foreground">
-            {formatInterestCount(event.interestedCount)} interested
+            {formatInterestCount(event.interestedCount)} added
           </span>
-        </div>
+        ) : null}
         <EventCalendarActions
           event={event}
           onAddToAppCalendar={onAddToAppCalendar}
@@ -270,27 +231,6 @@ export default function EventsPage({ initialResponse = null }) {
     }
   }, [loadRecommendations, recommendations, recommendationsLoading, showBoredDialog]);
 
-  const handleToggleInterest = React.useCallback(async (event) => {
-    setBusyAction(`${event.id}:interest`);
-    setError(null);
-
-    try {
-      const result = await apiRequest(`/api/events/${event.id}/interest`, {
-        method: 'POST',
-      });
-      syncEventInState(event.id, (current) => ({
-        ...current,
-        isInterested: result.isInterested,
-        interestedCount: result.interestedCount,
-      }));
-    } catch (err) {
-      const message = err instanceof ApiClientError ? err.message : 'Unable to update your interest.';
-      setError(message);
-    } finally {
-      setBusyAction(null);
-    }
-  }, [syncEventInState]);
-
   const handleAddToAppCalendar = React.useCallback(async (event) => {
     setBusyAction(`${event.id}:app:add`);
     setError(null);
@@ -313,6 +253,7 @@ export default function EventsPage({ initialResponse = null }) {
         ...current,
         isInCalendar: true,
         calendarEntryId: created.id,
+        interestedCount: (current.interestedCount ?? 0) + (current.isInCalendar ? 0 : 1),
       }));
     } catch (err) {
       if (err instanceof ApiClientError && err.status === 409) {
@@ -342,6 +283,7 @@ export default function EventsPage({ initialResponse = null }) {
         ...current,
         isInCalendar: false,
         calendarEntryId: null,
+        interestedCount: Math.max(0, (current.interestedCount ?? 0) - 1),
       }));
     } catch (err) {
       const message = err instanceof ApiClientError ? err.message : 'Unable to remove the event from your app calendar.';
@@ -414,7 +356,7 @@ export default function EventsPage({ initialResponse = null }) {
         || (collectionFilter === 'clubs' && event.clubActivity)
         || (collectionFilter === 'my-clubs' && event.myClubActivity);
       const matchesSavedView =
-        view !== 'saved' || event.isInterested || event.isInCalendar || (event.exportedProviders?.length ?? 0) > 0;
+        view !== 'saved' || event.isInCalendar || (event.exportedProviders?.length ?? 0) > 0;
 
       return matchesSearch && matchesCollection && matchesSavedView;
     });
@@ -515,7 +457,6 @@ export default function EventsPage({ initialResponse = null }) {
                       key={event.id}
                       event={event}
                       busyAction={busyAction}
-                      onToggleInterest={handleToggleInterest}
                       onAddToAppCalendar={handleAddToAppCalendar}
                       onRemoveFromAppCalendar={handleRemoveFromAppCalendar}
                       onOpenExternalCalendar={handleOpenExternalCalendar}
@@ -539,7 +480,6 @@ export default function EventsPage({ initialResponse = null }) {
                             key={event.id}
                             event={event}
                             busyAction={busyAction}
-                            onToggleInterest={handleToggleInterest}
                             onAddToAppCalendar={handleAddToAppCalendar}
                             onRemoveFromAppCalendar={handleRemoveFromAppCalendar}
                             onOpenExternalCalendar={handleOpenExternalCalendar}
@@ -562,7 +502,6 @@ export default function EventsPage({ initialResponse = null }) {
                       key={event.id}
                       event={event}
                       busyAction={busyAction}
-                      onToggleInterest={handleToggleInterest}
                       onAddToAppCalendar={handleAddToAppCalendar}
                       onRemoveFromAppCalendar={handleRemoveFromAppCalendar}
                       onOpenExternalCalendar={handleOpenExternalCalendar}
@@ -583,7 +522,6 @@ export default function EventsPage({ initialResponse = null }) {
         error={recommendationsError}
         onRefresh={loadRecommendations}
         onPass={() => {}}
-        onInterested={handleToggleInterest}
         onAddToAppCalendar={handleAddToAppCalendar}
         onRemoveFromAppCalendar={handleRemoveFromAppCalendar}
         onOpenExternalCalendar={handleOpenExternalCalendar}

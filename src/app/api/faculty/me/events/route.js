@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { canCreateDeadlineEvents } from '@/lib/facultyPermissions';
 import { createFacultyOwnedEvent, getFacultyEventOwner } from '@/lib/server/facultyEvents';
 import { createEventSchema } from '@/lib/validations';
 import { ApiError, getAuthenticatedUser, handleApiError, successResponse, } from '@/lib/api/utils';
@@ -14,6 +15,7 @@ const facultyManagedEventSelect = {
     time: true,
     location: true,
     category: true,
+    audience: true,
     organizer: true,
     organizerId: true,
     maxAttendees: true,
@@ -62,6 +64,9 @@ export async function POST(request) {
             throw new ApiError(403, 'Faculty access required');
         }
         const payload = createEventSchema.parse(await request.json());
+        if (payload.audience === 'DEADLINE' && !canCreateDeadlineEvents(profile)) {
+            throw new ApiError(403, 'You do not have permission to create deadline events');
+        }
         const result = await createFacultyOwnedEvent({
             profile,
             payload,

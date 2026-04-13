@@ -1,8 +1,9 @@
-import { cache } from 'react';
+import { unstable_noStore as noStore } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { canAccessAdminPortal } from '@/lib/auth/portalPermissions';
 import { getHomeForRole } from '@/lib/auth/routing';
+import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 const AUTH_SNAPSHOT_PROFILE_SELECT = {
@@ -35,6 +36,7 @@ const AUTH_SNAPSHOT_PROFILE_SELECT = {
   notificationPreferences: {
     select: {
       theme: true,
+      resourceLinkIds: true,
       dashboardModules: true,
     },
   },
@@ -50,7 +52,46 @@ const AUTH_SNAPSHOT_PROFILE_SELECT = {
   },
 };
 
+const AUTH_SNAPSHOT_PROFILE_SELECT_LEGACY = {
+  id: true,
+  supabaseId: true,
+  universityId: true,
+  email: true,
+  displayName: true,
+  firstName: true,
+  lastName: true,
+  avatar: true,
+  role: true,
+  emailVerified: true,
+  onboardingComplete: true,
+  canPublishCampusAnnouncements: true,
+};
+
+async function countUnreadNotificationsCompatible(userId) {
+  try {
+    return await prisma.notification.count({
+      where: {
+        userId,
+        read: false,
+        clearedAt: null,
+      },
+    });
+  } catch (error) {
+    if (!isPrismaSchemaCompatibilityError(error)) {
+      throw error;
+    }
+    return prisma.notification.count({
+      where: {
+        userId,
+        read: false,
+      },
+    });
+  }
+}
+
 async function readAuthSnapshot() {
+  noStore();
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.getUser();
 
@@ -69,10 +110,31 @@ async function readAuthSnapshot() {
       }
     : { supabaseId: data.user.id };
 
-  const profile = await prisma.user.findFirst({
-    where,
-    select: AUTH_SNAPSHOT_PROFILE_SELECT,
-  });
+  let profile;
+  try {
+    profile = await prisma.user.findFirst({
+      where,
+      select: AUTH_SNAPSHOT_PROFILE_SELECT,
+    });
+  } catch (error) {
+    if (!isPrismaSchemaCompatibilityError(error)) {
+      throw error;
+    }
+    const legacyProfile = await prisma.user.findFirst({
+      where,
+      select: AUTH_SNAPSHOT_PROFILE_SELECT_LEGACY,
+    });
+    profile = legacyProfile
+      ? {
+          ...legacyProfile,
+          adminAccessLevel: null,
+          portalPermissions: [],
+          managedClubs: [],
+          notificationPreferences: null,
+          university: null,
+        }
+      : null;
+  }
 
   if (!profile) {
     return {
@@ -82,13 +144,7 @@ async function readAuthSnapshot() {
     };
   }
 
-  const unreadNotificationCount = await prisma.notification.count({
-    where: {
-      userId: profile.id,
-      read: false,
-      clearedAt: null,
-    },
-  });
+  const unreadNotificationCount = await countUnreadNotificationsCompatible(profile.id);
 
   return {
     session: {
@@ -105,7 +161,9 @@ async function readAuthSnapshot() {
   };
 }
 
-export const getServerAuthSnapshot = cache(readAuthSnapshot);
+export async function getServerAuthSnapshot() {
+  return readAuthSnapshot();
+}
 
 export function getRoleDestination(profile) {
   return getHomeForRole(profile);

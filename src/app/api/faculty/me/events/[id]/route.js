@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { canCreateDeadlineEvents } from '@/lib/facultyPermissions';
 import { combineEventDateTime } from '@/lib/events';
 import { didFacultyEventChange, formatFacultyEventTimeLabel, getFacultyEventOwner, notifyFavoritedStudentsAboutFacultyEvent, resolveFacultyEventBuilding, } from '@/lib/server/facultyEvents';
 import { updateFacultyEventSchema } from '@/lib/validations';
@@ -15,6 +16,7 @@ const facultyManagedEventSelect = {
     time: true,
     location: true,
     category: true,
+    audience: true,
     organizer: true,
     organizerId: true,
     maxAttendees: true,
@@ -55,6 +57,7 @@ export async function PATCH(request, context) {
                 time: true,
                 location: true,
                 category: true,
+                audience: true,
                 buildingId: true,
                 isCancelled: true,
                 maxAttendees: true,
@@ -66,6 +69,11 @@ export async function PATCH(request, context) {
         const building = payload.buildingId !== undefined
             ? await resolveFacultyEventBuilding(profile, payload.buildingId)
             : undefined;
+        if (payload.audience === 'DEADLINE' &&
+            existing.audience !== 'DEADLINE' &&
+            !canCreateDeadlineEvents(profile)) {
+            throw new ApiError(403, 'You do not have permission to create deadline events');
+        }
         const resolvedDate = payload.date ?? existing.date.toISOString().slice(0, 10);
         const resolvedTime = payload.time ?? existing.time;
         const startsAt = combineEventDateTime(resolvedDate, resolvedTime);
@@ -85,6 +93,7 @@ export async function PATCH(request, context) {
                     : {}),
                 ...(payload.location !== undefined ? { location: payload.location } : {}),
                 ...(payload.category !== undefined ? { category: payload.category } : {}),
+                ...(payload.audience !== undefined ? { audience: payload.audience } : {}),
                 ...(payload.maxAttendees !== undefined ? { maxAttendees: payload.maxAttendees } : {}),
                 ...(payload.buildingId !== undefined ? { buildingId: building?.id ?? null } : {}),
                 ...(payload.isCancelled !== undefined ? { isCancelled: payload.isCancelled } : {}),

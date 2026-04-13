@@ -36,6 +36,7 @@ enum PortalPermission {
   ADMIN_TAB_IT_ACCOUNTS
   ADMIN_TAB_USERS
   CAN_PUBLISH_ANNOUNCEMENTS
+  CAN_CREATE_DEADLINE_EVENTS
   CAN_MANAGE_CLUB_PROFILE
   CAN_MANAGE_CLUB_CONTACT
 }
@@ -65,6 +66,12 @@ enum EventCategory {
   CLUBS
   WELLNESS
   OTHER
+}
+
+enum EventAudience {
+  ORGANIZATION
+  ALL_CAMPUS
+  DEADLINE
 }
 
 enum OfficeHourMode {
@@ -185,6 +192,7 @@ model NotificationPreferences {
   pushEnabled       Boolean  @default(false) @map("push_enabled")
   buildingAlerts    Boolean  @default(false) @map("building_alerts")
   buildingIds       String[] @default([]) @map("building_ids")
+  resourceLinkIds   String[] @default([]) @map("resource_link_ids")
   clubInterestIds   String[] @default([]) @map("club_interest_ids")
   dashboardModules  String[] @default(["favorites", "deadlines", "events", "faculty", "news", "services", "links", "clubs"]) @map("dashboard_modules")
   theme             String   @default("system")
@@ -310,6 +318,7 @@ model Event {
   location     String
   tags         String[]        @default([])
   category     EventCategory
+  audience     EventAudience   @default(ALL_CAMPUS)
   organizer    String
   organizerId  String?         @map("organizer_id")
   maxAttendees Int?            @map("max_attendees")
@@ -326,6 +335,7 @@ model Event {
 
   @@index([universityId, date])
   @@index([universityId, isPublished, isCancelled, date])
+  @@index([universityId, audience, isPublished, isCancelled, date])
   @@index([externalSource, externalId])
   @@index([buildingId, date])
   @@index([date])
@@ -412,6 +422,7 @@ model CampusBuilding {
   description          String?
   accessibilityNotes   String?                     @map("accessibility_notes")
   operatingHours       String?                     @map("operating_hours")
+  operatingHoursSchedule Json?                     @map("operating_hours_schedule")
   operationalStatus    CampusServiceStatus         @default(OPEN) @map("operational_status")
   operationalNote      String?                     @map("operational_note")
   operationalUpdatedAt DateTime?                   @map("operational_updated_at")
@@ -463,18 +474,25 @@ model CampusService {
 }
 
 model ClubOrganization {
-  id           String                  @id @default(cuid())
-  universityId String                  @map("university_id")
-  name         String
-  category     String
-  description  String
-  contactEmail String?                 @map("contact_email")
-  websiteUrl   String?                 @map("website_url")
-  meetingInfo  String?                 @map("meeting_info")
-  createdAt    DateTime                @default(now()) @map("created_at")
-  updatedAt    DateTime                @updatedAt @map("updated_at")
-  managers     ClubManagerAssignment[]
-  university   University              @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  id                String                  @id @default(cuid())
+  universityId      String                  @map("university_id")
+  name              String
+  category          String
+  description       String
+  contactEmail      String?                 @map("contact_email")
+  presidentName     String?                 @map("president_name")
+  presidentEmail    String?                 @map("president_email")
+  advisorName       String?                 @map("advisor_name")
+  advisorEmail      String?                 @map("advisor_email")
+  publicContactInfo String?                 @map("public_contact_info")
+  sourceUrls        String?                 @map("source_urls")
+  importNotes       String?                 @map("import_notes")
+  websiteUrl        String?                 @map("website_url")
+  meetingInfo       String?                 @map("meeting_info")
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+  managers          ClubManagerAssignment[]
+  university        University              @relation(fields: [universityId], references: [id], onDelete: Cascade)
 
   @@index([universityId, name])
   @@map("club_organizations")

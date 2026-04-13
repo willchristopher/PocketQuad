@@ -19,6 +19,13 @@ import {
 import CampusGoogleMap from '@/components/campus/CampusGoogleMap'
 import { ApiClientError, apiRequest } from '@/lib/api/client'
 import { useAuth } from '@/lib/auth/context'
+import {
+  BUILDING_HOURS_DAY_LABELS,
+  BUILDING_HOURS_DISPLAY_ORDER,
+  hasMeaningfulBuildingHoursSchedule,
+  normalizeBuildingHoursSchedule,
+  summarizeBuildingHoursDay,
+} from '@/lib/buildingHours'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -80,6 +87,17 @@ function getSearchResultLabel(count, query) {
   }
 
   return `${count} campus location${count === 1 ? '' : 's'}`
+}
+
+function getWeeklyHoursLines(schedule) {
+  const normalized = normalizeBuildingHoursSchedule(schedule)
+  if (!normalized || !hasMeaningfulBuildingHoursSchedule(normalized)) {
+    return []
+  }
+
+  return BUILDING_HOURS_DISPLAY_ORDER.map((dayOfWeek) =>
+    summarizeBuildingHoursDay(normalized.days[dayOfWeek]),
+  )
 }
 
 export default function CampusMapPage({
@@ -350,6 +368,16 @@ export default function CampusMapPage({
                         <span>{building.address}</span>
                       </p>
 
+                      {building.currentOperationalLabel ? (
+                        <p className="flex items-start gap-2 text-sm leading-6 text-muted-foreground">
+                          <Clock3 className="mt-1 h-4 w-4 shrink-0" />
+                          <span>
+                            {building.currentOperationalLabel}
+                            {building.currentOperationalDetail ? ` · ${building.currentOperationalDetail}` : ''}
+                          </span>
+                        </p>
+                      ) : null}
+
                       {building.description ? (
                         <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">
                           {building.description}
@@ -398,6 +426,21 @@ export default function CampusMapPage({
                   </p>
                 ) : null}
 
+                {selectedBuilding.currentOperationalLabel ? (
+                  <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                    <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                      <Clock3 className="h-3.5 w-3.5" />
+                      Live availability
+                    </p>
+                    <p className="mt-2 text-sm font-semibold">{selectedBuilding.currentOperationalLabel}</p>
+                    {selectedBuilding.currentOperationalDetail ? (
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {selectedBuilding.currentOperationalDetail}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 {(selectedBuilding.operatingHours ||
                   selectedBuilding.operationalNote ||
                   selectedBuilding.accessibilityNotes) ? (
@@ -409,6 +452,13 @@ export default function CampusMapPage({
                           Hours
                         </p>
                         <p className="mt-2 text-sm">{selectedBuilding.operatingHours}</p>
+                        {getWeeklyHoursLines(selectedBuilding.operatingHoursSchedule).length > 0 ? (
+                          <div className="mt-3 space-y-1 border-t border-border/60 pt-3 text-sm text-muted-foreground">
+                            {getWeeklyHoursLines(selectedBuilding.operatingHoursSchedule).map((line, index) => (
+                              <p key={`${selectedBuilding.id}-hours-${index}`}>{line}</p>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
 

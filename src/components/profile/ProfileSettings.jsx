@@ -18,6 +18,7 @@ const defaultPreferences = {
     pushEnabled: false,
     buildingAlerts: false,
     buildingIds: [],
+    resourceLinkIds: [],
     clubInterestIds: [],
     theme: 'system',
 };
@@ -55,7 +56,7 @@ export function ProfileSettings() {
         setPreferences({
             ...defaultPreferences,
             ...(profile.notificationPreferences ?? {}),
-            dashboardModules: profile.notificationPreferences?.dashboardModules?.length
+            dashboardModules: Array.isArray(profile.notificationPreferences?.dashboardModules)
                 ? profile.notificationPreferences.dashboardModules
                 : [...dashboardModuleIds],
         });
@@ -113,7 +114,7 @@ export function ProfileSettings() {
         }
     };
     const handleDashboardModuleToggle = async (moduleId) => {
-        const previousModules = preferences.dashboardModules?.length
+        const previousModules = Array.isArray(preferences.dashboardModules)
             ? preferences.dashboardModules
             : [...dashboardModuleIds];
         const nextVisibility = {
@@ -174,7 +175,7 @@ export function ProfileSettings() {
             setError(message);
             setPreferences((current) => ({
                 ...current,
-                dashboardModules: profile?.notificationPreferences?.dashboardModules?.length
+                dashboardModules: Array.isArray(profile?.notificationPreferences?.dashboardModules)
                     ? profile.notificationPreferences.dashboardModules
                     : [...dashboardModuleIds],
             }));

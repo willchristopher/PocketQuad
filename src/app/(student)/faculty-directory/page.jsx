@@ -148,14 +148,14 @@ export default function FacultyDirectoryPage() {
         }
     }, [allEntries, entries, pendingFacultyId, updateFavoriteState]);
     return (<div className="space-y-6">
-      <section className="rounded-xl border border-border/60 bg-card p-4 md:p-5">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
-          <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-background px-3 transition-colors focus-within:border-primary/40 focus-within:bg-muted/50">
+      <section className="overflow-hidden rounded-xl border border-border/60 bg-card p-4 md:p-5">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(180px,220px)]">
+          <div className="min-w-0 flex items-center gap-2 rounded-xl border border-border/60 bg-background px-3 transition-colors focus-within:border-primary/40 focus-within:bg-muted/50">
             <Search className="h-4 w-4 text-muted-foreground"/>
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by faculty name, role, tag, or office" className="h-11 w-full bg-transparent text-sm outline-none"/>
           </div>
 
-          <select value={department} onChange={(event) => setDepartment(event.target.value)} className="h-11 rounded-xl border border-border/60 bg-background px-3 text-sm transition-colors hover:bg-muted/50">
+          <select value={department} onChange={(event) => setDepartment(event.target.value)} className="min-w-0 w-full h-11 rounded-xl border border-border/60 bg-background px-3 text-sm transition-colors hover:bg-muted/50">
             {departments.map((item) => (<option key={item} value={item}>
                 {item}
               </option>))}
