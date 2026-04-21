@@ -38,7 +38,7 @@ export function AIChatDialog({ open, onOpenChange, messages, input, onInputChang
           <div className="p-4 border-t border-border/60">
             <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-muted/20 px-3.5 py-2.5">
               <MessageSquare className="w-4 h-4 text-muted-foreground"/>
-              <input value={input} onChange={(e) => onInputChange(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && input.trim() && onSend()} placeholder="Ask about events, faculty, clubs, services..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"/>
+              <input value={input} onChange={(e) => onInputChange(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && input.trim() && onSend()} placeholder="Ask about events, faculty, clubs, buildings, or resources..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"/>
               <button onClick={onSend} disabled={!input.trim()} className={cn('inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 transition-colors', input.trim()
             ? 'bg-primary text-primary-foreground shadow-md'
             : 'bg-muted text-muted-foreground')}>

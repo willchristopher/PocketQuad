@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { differenceInCalendarDays } from 'date-fns';
-import { CalendarClock, Compass, ExternalLink, Flag, Heart, Newspaper, Star } from 'lucide-react';
+import { CalendarClock, ExternalLink, Flag, Heart, Newspaper, Star } from 'lucide-react';
 import { BentoGrid, BentoWidget } from '@/components/dashboard/BentoGrid';
 import { NotificationWidget } from '@/components/dashboard/NotificationWidget';
 import { dashboardModulesToPreferences } from '@/lib/studentData';
@@ -74,12 +74,6 @@ function formatDaysLeft(value) {
   }
   return `${daysLeft} days left`;
 }
-
-const statusColors = {
-  OPEN: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  CLOSED: 'bg-red-500/10 text-red-600 dark:text-red-400',
-  LIMITED: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-};
 
 const facultyAvailabilityColors = {
   emerald: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
@@ -300,49 +294,13 @@ export function StudentDashboard({ initialOverview }) {
         </BentoWidget>
       ) : null}
 
-      {dashboardPreferences.services && isPageVisible('campus-map') ? (
-        <BentoWidget
-          title="Services"
-          icon={Compass}
-          span="medium"
-          action={{ label: 'All', href: '/services-status' }}
-          className="animate-in-up stagger-6"
-        >
-          <div className="space-y-2">
-            {initialOverview.serviceSnapshot.length === 0 ? (
-              <p className={emptyStateClassName}>No service data</p>
-            ) : (
-              initialOverview.serviceSnapshot.map((service) => (
-                <a
-                  key={service.id}
-                  href={service.directionsUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={cn('block', listItemClassName)}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold">{service.name}</p>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${statusColors[service.status] ?? 'bg-muted text-muted-foreground'}`}
-                    >
-                      {service.status}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{service.hours}</p>
-                </a>
-              ))
-            )}
-          </div>
-        </BentoWidget>
-      ) : null}
-
       {dashboardPreferences.links && isPageVisible('links-directory') ? (
         <BentoWidget
           title="Quick Links"
           icon={ExternalLink}
           span="medium"
           action={{ label: 'All', href: '/links-directory' }}
-          className="animate-in-up stagger-7"
+          className="animate-in-up stagger-6"
         >
           <div className="space-y-2">
             {pinnedResources.length === 0 ? (
@@ -373,7 +331,7 @@ export function StudentDashboard({ initialOverview }) {
           icon={Flag}
           span="medium"
           action={{ label: 'Open', href: '/clubs' }}
-          className="animate-in-up stagger-8"
+          className="animate-in-up stagger-7"
         >
           <div className="space-y-2">
             {initialOverview.pinnedClubs.length === 0 ? (

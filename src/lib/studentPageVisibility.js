@@ -25,8 +25,8 @@ export const studentPageVisibilityOptions = [
     },
     {
         key: 'campus-map',
-        label: 'Map & Services',
-        description: 'Campus map, saved buildings, and service status pages.',
+        label: 'Campus Map',
+        description: 'Campus map, saved buildings, and location details.',
         href: '/campus-map',
     },
     {
@@ -104,7 +104,7 @@ export function getStudentPageKeyForPathname(pathname) {
         return 'chatroom';
     }
 
-    if (pathname === '/campus-map' || pathname === '/services-status') {
+    if (pathname === '/campus-map') {
         return 'campus-map';
     }
 

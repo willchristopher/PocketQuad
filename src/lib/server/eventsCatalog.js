@@ -6,6 +6,7 @@ import {
   serializeEventForViewer,
 } from '@/lib/server/campusEvents';
 import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
+import { purgeExpiredEvents } from '@/lib/server/eventMaintenance';
 import { eventQuerySchema } from '@/lib/validations';
 
 function startOfToday() {
@@ -27,6 +28,8 @@ export async function getEventsCatalogData(profile, options = {}) {
     page: options.page ?? 1,
     limit: options.limit ?? 20,
   });
+
+  await purgeExpiredEvents(universityId);
 
   const today = startOfToday();
   const where = {

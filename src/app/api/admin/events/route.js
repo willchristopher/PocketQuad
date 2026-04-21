@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { ApiError, getAuthenticatedAdmin, handleApiError, successResponse } from '@/lib/api/utils';
 import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
+import { purgeExpiredEvents } from '@/lib/server/eventMaintenance';
 import { adminEventCreateSchema } from '@/lib/validations/admin';
 const adminEventSelect = {
     id: true,
@@ -53,6 +54,7 @@ export async function GET(request) {
     try {
         await getAuthenticatedAdmin('ADMIN_TAB_EVENTS');
         const universityId = request.nextUrl.searchParams.get('universityId') ?? undefined;
+        await purgeExpiredEvents(universityId);
         let events;
         try {
             events = await prisma.event.findMany({

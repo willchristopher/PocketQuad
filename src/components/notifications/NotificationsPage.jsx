@@ -75,8 +75,10 @@ export function NotificationsPage({ initialData = null }) {
       <section className="space-y-2.5">
         {loading ? <p className="text-sm text-muted-foreground">Loading notifications...</p> : null}
 
-        {!loading
-          ? filtered.map((item, index) => {
+        {!loading && filtered.length > 0 ? (
+          <div className="overflow-hidden rounded-[1.5rem] border border-border/60 bg-card">
+            <div className="divide-y divide-border/60">
+              {filtered.map((item, index) => {
               const meta = getNotificationMeta(item.type);
               const Icon = meta.icon;
               const external = isExternalNotificationUrl(item.actionUrl);
@@ -101,7 +103,7 @@ export function NotificationsPage({ initialData = null }) {
                       </div>
                       {!item.read ? <span className="mt-1 h-2 w-2 rounded-full bg-primary" /> : null}
                     </div>
-                    <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{item.message}</p>
+                    <p className="mt-2 line-clamp-2 text-sm text-muted-foreground sm:line-clamp-3">{item.message}</p>
                     {item.actionUrl ? (
                       <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">
                         {item.actionLabel ?? 'Open'}
@@ -112,13 +114,13 @@ export function NotificationsPage({ initialData = null }) {
                 </div>
               );
               const className = cn(
-                'w-full rounded-xl border p-4 transition-all duration-200 animate-in-up',
+                'w-full px-4 py-4 transition-all duration-200 animate-in-up sm:px-5',
                 item.read
-                  ? 'border-border/60 bg-card hover:bg-muted/25'
-                  : 'border-primary/25 bg-primary/[0.04] hover:bg-primary/[0.07]',
+                  ? 'bg-card hover:bg-muted/20'
+                  : 'bg-primary/[0.045] hover:bg-primary/[0.07]',
                 isPending && 'opacity-70',
               );
-              const actionClassName = 'block min-w-0 flex-1 rounded-xl text-left transition-all duration-200';
+              const actionClassName = 'block min-w-0 flex-1 text-left transition-all duration-200';
               const style = { animationDelay: `${0.035 * (index + 1)}s` };
 
               if (item.actionUrl && external) {
@@ -142,7 +144,7 @@ export function NotificationsPage({ initialData = null }) {
                         type="button"
                         onClick={() => void clearNotification(item.id)}
                         disabled={isClearing}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground disabled:opacity-60"
+                        className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground disabled:opacity-60"
                         aria-label={`Clear ${item.title}`}
                       >
                         <X className="h-3.5 w-3.5" />
@@ -172,7 +174,7 @@ export function NotificationsPage({ initialData = null }) {
                         type="button"
                         onClick={() => void clearNotification(item.id)}
                         disabled={isClearing}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground disabled:opacity-60"
+                        className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground disabled:opacity-60"
                         aria-label={`Clear ${item.title}`}
                       >
                         <X className="h-3.5 w-3.5" />
@@ -201,17 +203,19 @@ export function NotificationsPage({ initialData = null }) {
                       type="button"
                       onClick={() => void clearNotification(item.id)}
                       disabled={isClearing}
-                      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground disabled:opacity-60"
+                      className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground disabled:opacity-60"
                       aria-label={`Clear ${item.title}`}
                     >
                       <X className="h-3.5 w-3.5" />
                       {isClearing ? 'Clearing...' : 'Clear'}
                     </button>
                   </div>
-                </div>
+                  </div>
               );
-            })
-          : null}
+            })}
+            </div>
+          </div>
+        ) : null}
       </section>
 
       {!loading && filtered.length === 0 ? (
