@@ -1,7 +1,6 @@
 'use client'
 
 import React from 'react'
-import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import {
   Accessibility,
@@ -590,12 +589,6 @@ export default function CampusMapPage({
         </div>
       </section>
 
-      <section className="rounded-xl border border-border/60 bg-card p-4 text-sm text-muted-foreground animate-in-up stagger-3">
-        <Link href="/services-status" className="font-semibold text-primary hover:text-primary/80">
-          Services Status
-        </Link>
-        .
-      </section>
     </div>
   )
 }

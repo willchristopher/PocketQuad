@@ -14,15 +14,23 @@ const toneClasses = {
 };
 function FacultyCard({ entry, pending, onToggleFavorite }) {
     const tone = toneClasses[getStudentFacingFacultyAvailabilityTone(entry.studentAvailabilityState)];
-    return (<article className="rounded-xl border border-border/60 bg-card p-5 transition-all hover:border-primary/30 hover:shadow-md">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <Link href={`/faculty-directory/${entry.id}`} className="min-w-0 flex-1 space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{entry.department}</p>
-          <h2 className="font-display text-xl font-bold tracking-tight">{entry.name}</h2>
-          <p className="text-sm text-muted-foreground">{entry.title}</p>
-        </Link>
+    return (<article className="group py-4 first:pt-0 last:pb-0">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{entry.department}</p>
+            <div className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', tone)}>
+              {entry.studentAvailabilityLabel}
+            </div>
+          </div>
 
-        <button type="button" onClick={() => void onToggleFavorite(entry.id)} disabled={pending} className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60', entry.isFavorited
+          <Link href={`/faculty-directory/${entry.id}`} className="mt-2 block space-y-1">
+            <h2 className="font-display text-xl font-semibold tracking-tight transition-colors group-hover:text-primary">{entry.name}</h2>
+            <p className="text-sm text-muted-foreground">{entry.title}</p>
+          </Link>
+        </div>
+
+        <button type="button" onClick={() => void onToggleFavorite(entry.id)} disabled={pending} className={cn('inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60', entry.isFavorited
             ? 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400'
             : 'border-border/60 bg-muted/20 text-muted-foreground hover:bg-muted/35')} aria-pressed={entry.isFavorited} aria-label={entry.isFavorited ? `Remove ${entry.name} from favorites` : `Save ${entry.name} to favorites`}>
           <Heart className={cn('h-3.5 w-3.5', entry.isFavorited && 'fill-current')}/>
@@ -30,32 +38,29 @@ function FacultyCard({ entry, pending, onToggleFavorite }) {
         </button>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <div className={cn('rounded-full border px-3 py-1 text-xs font-semibold', tone)}>
-          {entry.studentAvailabilityLabel}
-        </div>
-        {entry.tags.slice(0, 3).map((tag) => (<Badge key={tag} variant="outline" className="rounded-full px-3 py-1 text-[11px]">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {entry.tags.slice(0, 2).map((tag) => (<Badge key={tag} variant="outline" className="rounded-full px-3 py-1 text-[11px]">
             {tag}
           </Badge>))}
         {entry.tags.length === 0 && (<Badge variant="outline" className="rounded-full px-3 py-1 text-[11px]">
-            Faculty contact
-          </Badge>)}
+          Faculty contact
+        </Badge>)}
       </div>
 
-      <Link href={`/faculty-directory/${entry.id}`} className="mt-4 block">
+      <Link href={`/faculty-directory/${entry.id}`} className="mt-3 block">
         <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">
           {entry.bio ?? 'No bio yet. Open the profile for office hours, office location, and contact details.'}
         </p>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
             <MapPin className="h-4 w-4"/>
             {entry.officeLocation}
           </span>
-          <span>{entry.officeHours}</span>
+          <span className="truncate">{entry.officeHours}</span>
         </div>
 
-        <div className="mt-5 inline-flex items-center text-sm font-semibold text-primary transition-colors hover:text-primary/80">
+        <div className="mt-4 inline-flex items-center text-sm font-semibold text-primary transition-colors hover:text-primary/80">
           View full profile
         </div>
       </Link>
@@ -177,12 +182,15 @@ export default function FacultyDirectoryPage() {
 
           {loading && <p className="text-sm text-muted-foreground">Loading faculty...</p>}
 
-          {!loading &&
-            entries.map((entry) => (<FacultyCard key={entry.id} entry={entry} pending={pendingFacultyId === entry.id} onToggleFavorite={onToggleFavorite}/>))}
+          {!loading && entries.length > 0 ? (<section className="rounded-[1.5rem] border border-border/60 bg-card px-4 py-2 sm:px-5">
+              <div className="divide-y divide-border/60">
+                {entries.map((entry) => (<FacultyCard key={entry.id} entry={entry} pending={pendingFacultyId === entry.id} onToggleFavorite={onToggleFavorite}/>))}
+              </div>
+            </section>) : null}
         </div>
 
         <aside className="xl:sticky xl:top-6">
-          <div className="rounded-xl border border-border/60 bg-card p-5">
+          <div className="rounded-[1.5rem] border border-border/60 bg-card p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Your saved faculty</p>
@@ -203,9 +211,10 @@ export default function FacultyDirectoryPage() {
                   <p className="mt-1 text-sm text-muted-foreground">
                     Tap Save on any faculty card to pin them here.
                   </p>
-                </div>) : (favoriteEntries.map((entry) => {
+                </div>) : (<div className="divide-y divide-border/60 rounded-[1.25rem] border border-border/60 bg-background/80 px-4 py-1">
+                    {favoriteEntries.map((entry) => {
             const tone = toneClasses[getStudentFacingFacultyAvailabilityTone(entry.studentAvailabilityState)];
-            return (<article key={entry.id} className="rounded-xl border border-border/60 bg-background p-4">
+            return (<article key={entry.id} className="py-4 first:pt-3 last:pb-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 space-y-1">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{entry.department}</p>
@@ -230,7 +239,8 @@ export default function FacultyDirectoryPage() {
                         </span>
                       </div>
                     </article>);
-        }))}
+        })}
+                  </div>)}
             </div>
           </div>
         </aside>

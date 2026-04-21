@@ -2,7 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Building2, CalendarDays, ExternalLink, Landmark, LayoutDashboard, LayoutGrid, LogOut, ShieldCheck, ShieldUser, School, UserCog, Users, Wrench, } from 'lucide-react';
+import { Building2, CalendarDays, ExternalLink, Landmark, LayoutDashboard, LayoutGrid, LogOut, ShieldCheck, ShieldUser, School, UserCog, Users, } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth/context';
@@ -14,7 +14,6 @@ const adminLinks = [
     { icon: UserCog, label: 'Faculty', tab: 'faculty' },
     { icon: Building2, label: 'Buildings', tab: 'buildings' },
     { icon: ExternalLink, label: 'Resource Links', tab: 'links' },
-    { icon: Wrench, label: 'Services', tab: 'services' },
     { icon: Landmark, label: 'Clubs', tab: 'clubs' },
     { icon: CalendarDays, label: 'Events', tab: 'events' },
     { icon: ShieldUser, label: 'IT Accounts', tab: 'it-accounts' },

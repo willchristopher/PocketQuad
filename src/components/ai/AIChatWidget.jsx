@@ -30,7 +30,7 @@ export function AIChatWidget({ initialOpen = false }) {
             {
                 id: 'welcome',
                 role: 'assistant',
-                content: `${greeting} I'm your PocketQuad campus assistant. I can help with your university's events, faculty, services, buildings, and clubs. I don't have access to personal calendars or class schedules. What can I help you with?`,
+                content: `${greeting} I'm your PocketQuad campus assistant. I can help with your university's events, faculty, buildings, clubs, and resources. I don't have access to personal calendars or class schedules. What can I help you with?`,
             },
         ]);
         if (profile)
@@ -129,7 +129,7 @@ export function AIChatWidget({ initialOpen = false }) {
                 if (e.key === 'Enter' && input.trim()) {
                     void sendMessage();
                 }
-            }} placeholder="Ask about events, faculty, clubs, services..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"/>
+            }} placeholder="Ask about events, faculty, clubs, buildings, or resources..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"/>
               <button onClick={() => {
                 void sendMessage();
             }} disabled={!input.trim() || isTyping} className={cn('inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 transition-colors', input.trim() && !isTyping

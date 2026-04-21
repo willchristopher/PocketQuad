@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Copy, Heart, Mail, MapPin, Navigation, Phone } from 'lucide-react';
+import { ArrowLeft, Clock3, Copy, Heart, Mail, MapPin, Navigation, Phone } from 'lucide-react';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
 import { getStudentFacingFacultyAvailabilityTone } from '@/lib/faculty';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,22 @@ const toneClasses = {
     rose: 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300',
     slate: 'border-border/60 bg-muted/20 text-muted-foreground',
 };
+
+function ProfileRow({ icon: Icon, label, children, action }) {
+    return (<div className="flex items-start gap-3 px-4 py-4 sm:px-5">
+      <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[rgba(var(--msu-blue-rgb),0.06)] text-primary">
+        <Icon className="h-4 w-4"/>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+        <div className="mt-1 text-sm leading-6 text-foreground">
+          {children}
+        </div>
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>);
+}
+
 export default function FacultyDetailPage({ params }) {
     const { id } = React.use(params);
     const [faculty, setFaculty] = React.useState(null);
@@ -97,7 +113,7 @@ export default function FacultyDetailPage({ params }) {
     const mapUrl = hasOfficeLocation
         ? `https://maps.google.com/?q=${encodeURIComponent(faculty.officeLocation)}`
         : null;
-    return (<div className="mx-auto max-w-5xl space-y-6">
+    return (<div className="mx-auto max-w-4xl space-y-4 sm:space-y-6">
       <Link href="/faculty-directory" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
         <ArrowLeft className="h-4 w-4"/>
         Back to Faculty Directory
@@ -107,101 +123,75 @@ export default function FacultyDetailPage({ params }) {
           {error}
         </p>)}
 
-      <section className="rounded-xl border border-border/60 bg-card p-6 md:p-8">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_320px]">
-          <div className="space-y-5">
-            <div className="space-y-2">
+      <section className="overflow-hidden rounded-[1.75rem] border border-border/60 bg-card">
+        <div className="border-b border-border/50 bg-[linear-gradient(180deg,rgba(var(--msu-blue-rgb),0.08),rgba(255,255,255,0))] px-5 py-5 sm:px-7 sm:py-6">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_320px] lg:gap-8">
+            <div className="space-y-5">
+              <div className="space-y-2">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">{faculty.department}</p>
-              <h1 className="font-display text-3xl font-extrabold tracking-tight md:text-4xl">{faculty.name}</h1>
+              <h1 className="font-display text-[2.2rem] font-semibold tracking-tight md:text-[3rem]">{faculty.name}</h1>
               <p className="text-base text-muted-foreground">{faculty.title}</p>
             </div>
 
-            <div className={cn('inline-flex rounded-full border px-4 py-2 text-sm font-semibold', tone)}>
-              {faculty.studentAvailabilityLabel}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {faculty.tags.length === 0 ? (<Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className={cn('inline-flex rounded-full border px-4 py-2 text-sm font-semibold', tone)}>
+                  {faculty.studentAvailabilityLabel}
+                </div>
+                {faculty.tags.length === 0 ? (<Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
                   General faculty support
                 </Badge>) : (faculty.tags.map((tag) => (<Badge key={tag} variant="outline" className="rounded-full px-3 py-1 text-xs">
                     {tag}
                   </Badge>)))}
-            </div>
-
-            <p className="max-w-3xl text-sm leading-7 text-muted-foreground">
-              {faculty.bio ?? 'This faculty member has not added a bio yet. Use the office hours and contact details to reach out directly.'}
-            </p>
-
-            <div className="flex flex-wrap gap-3">
-              <button onClick={() => void onToggleFavorite()} className={cn('inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-all duration-200', faculty.isFavorited
-            ? 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400'
-            : 'border-border/60 hover:bg-muted/35')}>
-                <Heart className={cn('h-4 w-4', faculty.isFavorited && 'fill-red-600 dark:fill-red-400')}/>
-                {faculty.isFavorited ? 'Saved to favorites' : 'Save to favorites'}
-              </button>
-
-              {mapUrl ? (<a href={mapUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-xl border border-border/60 px-3.5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted/35">
-                  <MapPin className="h-4 w-4"/>
-                  Get directions
-                </a>) : (<div className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-border/60 px-3.5 py-2.5 text-sm font-medium text-muted-foreground">
-                  <MapPin className="h-4 w-4"/>
-                  Office location not posted yet
-                </div>)}
-            </div>
-
-            {actionMessage && (<p className="text-sm text-emerald-700 dark:text-emerald-300">{actionMessage}</p>)}
-          </div>
-
-          <div className="space-y-4">
-            <div className="rounded-xl border border-border/60 bg-muted/45 p-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Contact</p>
-              <div className="mt-4 space-y-3 text-sm">
-                <p className="flex items-start gap-2">
-                  <Mail className="mt-0.5 h-4 w-4 text-muted-foreground"/>
-                  <a href={`mailto:${faculty.email}`} className="font-medium text-primary hover:text-primary/80">
-                    {faculty.email}
-                  </a>
-                </p>
-                {faculty.phone && (<p className="flex items-start gap-2">
-                    <Phone className="mt-0.5 h-4 w-4 text-muted-foreground"/>
-                    {faculty.phone}
-                  </p>)}
-                <p className="flex items-start gap-2">
-                  <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground"/>
-                  {faculty.officeLocation}
-                </p>
               </div>
-            </div>
 
-            <div className="rounded-xl border border-border/60 bg-muted/45 p-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Office hours</p>
-              <p className="mt-3 text-sm text-muted-foreground">{faculty.officeHours}</p>
-            </div>
-
-            <div className="rounded-xl border border-border/60 bg-muted/45 p-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Actions</p>
-              <div className="mt-3 grid gap-2">
-                <a href={`mailto:${faculty.email}`} className="inline-flex items-center gap-2 rounded-xl border border-border/60 px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/35">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <a href={`mailto:${faculty.email}`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90">
                   <Mail className="h-4 w-4"/>
                   Email faculty
                 </a>
 
-                {faculty.phone ? (<a href={`tel:${faculty.phone}`} className="inline-flex items-center gap-2 rounded-xl border border-border/60 px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/35">
-                    <Phone className="h-4 w-4"/>
-                    Call office
-                  </a>) : null}
-
-                <button type="button" onClick={() => void copyEmail()} className="inline-flex items-center gap-2 rounded-xl border border-border/60 px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-muted/35">
-                  <Copy className="h-4 w-4"/>
-                  Copy email address
+                <button onClick={() => void onToggleFavorite()} className={cn('inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-all duration-200', faculty.isFavorited
+            ? 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400'
+            : 'border-border/60 hover:bg-muted/35')}>
+                  <Heart className={cn('h-4 w-4', faculty.isFavorited && 'fill-red-600 dark:fill-red-400')}/>
+                {faculty.isFavorited ? 'Saved to favorites' : 'Save to favorites'}
                 </button>
+              </div>
 
-                {mapUrl ? (<a href={mapUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-border/60 px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/35">
-                    <Navigation className="h-4 w-4"/>
-                    Open office in Maps
-                  </a>) : null}
+              {actionMessage && (<p className="text-sm text-emerald-700 dark:text-emerald-300">{actionMessage}</p>)}
+
+              <div className="space-y-2 rounded-[1.4rem] border border-border/60 bg-background/75 px-4 py-4 sm:px-5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">About</p>
+                <p className="text-sm leading-7 text-muted-foreground">
+                  {faculty.bio ?? 'This faculty member has not added a bio yet. Use the contact details below to reach out directly.'}
+                </p>
               </div>
             </div>
+
+            <aside className="overflow-hidden rounded-[1.5rem] border border-border/60 bg-background/80 shadow-sm">
+              <div className="px-4 py-4 sm:px-5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Profile details</p>
+              </div>
+              <div className="divide-y divide-border/60">
+                <ProfileRow icon={Mail} label="Email" action={<button type="button" onClick={() => void copyEmail()} className="inline-flex min-h-11 items-center rounded-full border border-border/60 px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground"><Copy className="mr-1.5 h-3.5 w-3.5"/>Copy</button>}>
+                  <a href={`mailto:${faculty.email}`} className="font-medium text-primary hover:text-primary/80">
+                    {faculty.email}
+                  </a>
+                </ProfileRow>
+
+                {faculty.phone ? (<ProfileRow icon={Phone} label="Phone" action={<a href={`tel:${faculty.phone}`} className="inline-flex min-h-11 items-center rounded-full border border-border/60 px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground">Call</a>}>
+                    {faculty.phone}
+                  </ProfileRow>) : null}
+
+                <ProfileRow icon={MapPin} label="Office" action={mapUrl ? (<a href={mapUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-full border border-border/60 px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground">Map</a>) : null}>
+                  {faculty.officeLocation}
+                </ProfileRow>
+
+                <ProfileRow icon={Clock3} label="Office hours" action={mapUrl ? (<a href={mapUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-full border border-border/60 px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground"><Navigation className="mr-1.5 h-3.5 w-3.5"/>Directions</a>) : null}>
+                  {faculty.officeHours}
+                </ProfileRow>
+              </div>
+            </aside>
           </div>
         </div>
       </section>

@@ -81,16 +81,44 @@ function EventRow({
   onOpenExternalCalendar,
 }) {
   return (
-    <article className="grid gap-4 border-t border-border/60 py-5 first:border-t-0 md:grid-cols-[112px_minmax(0,1fr)_auto]">
-      <div className="space-y-1">
-        <p className="text-sm font-medium text-foreground">{new Date(event.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
-        <p className="text-xs text-muted-foreground">{event.time}</p>
+    <article className="grid gap-4 py-4 first:pt-0 last:pb-0 md:grid-cols-[88px_minmax(0,1fr)]">
+      <div className="flex items-start gap-3 md:block">
+        <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-[rgba(var(--msu-blue-rgb),0.06)] text-primary md:h-16 md:w-16">
+          <span className="text-[10px] font-bold uppercase leading-none">
+            {new Date(event.date).toLocaleDateString(undefined, { month: 'short' })}
+          </span>
+          <span className="mt-1 text-xl font-extrabold leading-none">
+            {new Date(event.date).toLocaleDateString(undefined, { day: 'numeric' })}
+          </span>
+        </div>
+        <div className="min-w-0 pt-1 md:pt-3">
+          <p className="text-xs font-medium text-foreground">{event.time}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{bucketLabel(event.date)}</p>
+        </div>
       </div>
 
       <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {event.sourceLabel ? (
+            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+              {event.sourceLabel}
+            </span>
+          ) : null}
+          {event.myClubActivity ? (
+            <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+              My club
+            </span>
+          ) : null}
+          {event.isInCalendar ? (
+            <span className="rounded-full bg-[rgb(236,172,0)]/14 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[rgb(132,88,0)]">
+              Saved
+            </span>
+          ) : null}
+        </div>
+
         <div>
           <Link href={`/events/${event.id}`} className="group inline-flex items-center gap-2">
-            <h2 className="font-display text-2xl font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary">
+            <h2 className="font-display text-[1.35rem] font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary sm:text-[1.6rem]">
               {event.title}
             </h2>
             <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
@@ -108,21 +136,22 @@ function EventRow({
             {event.location ?? 'Location TBA'}
           </span>
         </div>
-      </div>
 
-      <div className="flex flex-col items-start gap-3 md:items-end">
-        {event.interestedCount > 0 ? (
-          <span className="text-xs text-muted-foreground">
-            {formatInterestCount(event.interestedCount)} added
-          </span>
-        ) : null}
-        <EventCalendarActions
-          event={event}
-          onAddToAppCalendar={onAddToAppCalendar}
-          onRemoveFromAppCalendar={onRemoveFromAppCalendar}
-          onOpenExternalCalendar={onOpenExternalCalendar}
-          busyAction={busyAction}
-        />
+        <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
+          {event.interestedCount > 0 ? (
+            <span className="text-xs text-muted-foreground">
+              {formatInterestCount(event.interestedCount)} added
+            </span>
+          ) : <span className="text-xs text-muted-foreground">Add this event to keep it handy.</span>}
+          <EventCalendarActions
+            event={event}
+            onAddToAppCalendar={onAddToAppCalendar}
+            onRemoveFromAppCalendar={onRemoveFromAppCalendar}
+            onOpenExternalCalendar={onOpenExternalCalendar}
+            busyAction={busyAction}
+            compact
+          />
+        </div>
       </div>
     </article>
   );
@@ -367,7 +396,8 @@ export default function EventsPage({ initialResponse = null }) {
   return (
     <>
       <div className="space-y-5">
-        <section className="rounded-[1.5rem] border border-border/60 bg-card px-5 py-5">
+        <section className="overflow-hidden rounded-[1.5rem] border border-border/60 bg-card">
+          <div className="bg-[linear-gradient(180deg,rgba(var(--msu-blue-rgb),0.08),rgba(255,255,255,0))] px-5 py-5">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="space-y-1">
               <div className="inline-flex items-center gap-2">
@@ -375,7 +405,7 @@ export default function EventsPage({ initialResponse = null }) {
                 <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground">Events</h1>
               </div>
               <p className="text-sm text-muted-foreground">
-                Check out all the Murray State events happening and see what there is to do!
+                Browse campus events, save the ones you care about, and keep your week organized.
               </p>
             </div>
 
@@ -389,6 +419,7 @@ export default function EventsPage({ initialResponse = null }) {
                 Feeling bored?
               </Button>
             </div>
+          </div>
           </div>
         </section>
 
@@ -448,33 +479,35 @@ export default function EventsPage({ initialResponse = null }) {
             </TabsList>
 
             <TabsContent value="list">
-              <section className="rounded-[1.5rem] border border-border/60 bg-card px-6 py-2">
+              <section className="rounded-[1.5rem] border border-border/60 bg-card px-4 py-3 sm:px-6">
                 {filteredEvents.length === 0 ? (
                   <div className="py-16 text-center text-sm text-muted-foreground">No events matched this view.</div>
                 ) : (
-                  filteredEvents.map((event) => (
-                    <EventRow
-                      key={event.id}
-                      event={event}
-                      busyAction={busyAction}
-                      onAddToAppCalendar={handleAddToAppCalendar}
-                      onRemoveFromAppCalendar={handleRemoveFromAppCalendar}
-                      onOpenExternalCalendar={handleOpenExternalCalendar}
-                    />
-                  ))
+                  <div className="divide-y divide-border/60">
+                    {filteredEvents.map((event) => (
+                      <EventRow
+                        key={event.id}
+                        event={event}
+                        busyAction={busyAction}
+                        onAddToAppCalendar={handleAddToAppCalendar}
+                        onRemoveFromAppCalendar={handleRemoveFromAppCalendar}
+                        onOpenExternalCalendar={handleOpenExternalCalendar}
+                      />
+                    ))}
+                  </div>
                 )}
               </section>
             </TabsContent>
 
             <TabsContent value="timeline">
-              <section className="rounded-[1.5rem] border border-border/60 bg-card px-6 py-2">
+              <section className="rounded-[1.5rem] border border-border/60 bg-card px-4 py-3 sm:px-6">
                 {groupedEvents.length === 0 ? (
                   <div className="py-16 text-center text-sm text-muted-foreground">No events matched this view.</div>
                 ) : (
                   groupedEvents.map((group) => (
                     <div key={group.label} className="border-t border-border/60 py-6 first:border-t-0">
                       <h2 className="font-display text-2xl font-semibold tracking-tight text-foreground">{group.label}</h2>
-                      <div className="mt-2">
+                      <div className="mt-2 divide-y divide-border/60">
                         {group.events.map((event) => (
                           <EventRow
                             key={event.id}
@@ -493,20 +526,22 @@ export default function EventsPage({ initialResponse = null }) {
             </TabsContent>
 
             <TabsContent value="saved">
-              <section className="rounded-[1.5rem] border border-border/60 bg-card px-6 py-2">
+              <section className="rounded-[1.5rem] border border-border/60 bg-card px-4 py-3 sm:px-6">
                 {filteredEvents.length === 0 ? (
                   <div className="py-16 text-center text-sm text-muted-foreground">No saved events yet.</div>
                 ) : (
-                  filteredEvents.map((event) => (
-                    <EventRow
-                      key={event.id}
-                      event={event}
-                      busyAction={busyAction}
-                      onAddToAppCalendar={handleAddToAppCalendar}
-                      onRemoveFromAppCalendar={handleRemoveFromAppCalendar}
-                      onOpenExternalCalendar={handleOpenExternalCalendar}
-                    />
-                  ))
+                  <div className="divide-y divide-border/60">
+                    {filteredEvents.map((event) => (
+                      <EventRow
+                        key={event.id}
+                        event={event}
+                        busyAction={busyAction}
+                        onAddToAppCalendar={handleAddToAppCalendar}
+                        onRemoveFromAppCalendar={handleRemoveFromAppCalendar}
+                        onOpenExternalCalendar={handleOpenExternalCalendar}
+                      />
+                    ))}
+                  </div>
                 )}
               </section>
             </TabsContent>

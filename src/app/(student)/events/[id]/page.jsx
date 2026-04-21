@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, MapPin } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ExternalLink, MapPin, Users } from 'lucide-react';
 import { EventCalendarActions } from '@/components/events/EventCalendarActions';
 import { Button } from '@/components/ui/button';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
@@ -28,6 +28,24 @@ function formatCalendarProvider(provider) {
   if (provider === 'GOOGLE') return 'Google Calendar';
   if (provider === 'OUTLOOK') return 'Outlook';
   return 'Apple Calendar';
+}
+
+function DetailRow({ icon: Icon, label, primary, secondary, action }) {
+  return (
+    <div className="flex items-start gap-3 px-4 py-4 sm:px-5">
+      <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[rgba(var(--msu-blue-rgb),0.06)] text-primary">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+        <p className="mt-1 text-sm font-medium leading-6 text-foreground">{primary}</p>
+        {secondary ? (
+          <p className="mt-0.5 text-sm leading-6 text-muted-foreground">{secondary}</p>
+        ) : null}
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
 }
 
 export default function EventDetailPage({ params }) {
@@ -163,7 +181,7 @@ export default function EventDetailPage({ params }) {
     : null;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 sm:space-y-6">
+    <div className="mx-auto max-w-4xl space-y-4 sm:space-y-6">
       <Link href="/events" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
         <ArrowLeft className="h-4 w-4" />
         Back to events
@@ -175,10 +193,11 @@ export default function EventDetailPage({ params }) {
         </p>
       ) : null}
 
-      <section className="relative overflow-hidden rounded-[1.75rem] border border-border/60 bg-card/96 p-5 sm:p-7">
-        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:gap-8">
-          <div className="space-y-5">
-            <div className="flex flex-wrap items-center gap-2">
+      <section className="overflow-hidden rounded-[1.75rem] border border-border/60 bg-card">
+        <div className="border-b border-border/50 bg-[linear-gradient(180deg,rgba(var(--msu-blue-rgb),0.08),rgba(255,255,255,0))] px-5 py-5 sm:px-7 sm:py-6">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_320px] lg:gap-8">
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
                 {event.sourceLabel ?? event.audienceLabel ?? event.activityLabel ?? 'Campus event'}
               </span>
@@ -197,81 +216,111 @@ export default function EventDetailPage({ params }) {
                   In PocketQuad
                 </span>
               ) : null}
-            </div>
-
-            <div>
-              <h1 className="font-display text-[2.5rem] font-semibold tracking-tight text-foreground sm:text-[3rem]">
-                {event.title}
-              </h1>
-              <p className="mt-4 max-w-3xl text-base leading-8 text-muted-foreground">
-                {event.description}
-              </p>
-            </div>
-
-            <div className="grid gap-4 rounded-[1.5rem] border border-border/60 bg-muted/20 p-5 sm:grid-cols-2">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">When</p>
-                <p className="mt-2 text-sm text-foreground">{formatLongDate(event.date)}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{event.time}</p>
               </div>
+
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Where</p>
-                <p className="mt-2 text-sm text-foreground">{event.location ?? 'Location TBA'}</p>
-                {event.organizer ? (
-                  <p className="mt-1 text-sm text-muted-foreground">{event.organizer}</p>
-                ) : null}
+                <h1 className="font-display text-[2.1rem] font-semibold tracking-tight text-foreground sm:text-[3rem]">
+                  {event.title}
+                </h1>
+                <p className="mt-4 max-w-2xl text-[15px] leading-7 text-muted-foreground sm:text-base sm:leading-8">
+                  {event.description}
+                </p>
               </div>
             </div>
 
-          </div>
-
-          <div className="space-y-5 rounded-[1.6rem] border border-border/60 bg-muted/20 p-5">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Your actions</p>
-              <p className="mt-3 text-sm leading-6 text-foreground">
-                Save this event, open directions, or add it to a calendar.
+            <aside className="rounded-[1.5rem] border border-border/60 bg-background/80 p-4 shadow-sm sm:p-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Quick actions</p>
+              <p className="mt-2 text-sm leading-6 text-foreground">
+                Save this event, get directions, or send it to the calendar you already use.
               </p>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mt-3 text-sm text-muted-foreground">
                 {event.autoAddedToCalendar
-                  ? 'This deadline event appears automatically on every PocketQuad calendar.'
+                  ? 'Deadline events appear automatically on every PocketQuad calendar.'
                   : formatInterestedCount(event.interestedCount)}
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {event.exportedProviders?.map((provider) => (
-                  <span key={provider} className="rounded-full border border-border/60 px-3 py-1 text-xs text-muted-foreground">
-                    Added to {formatCalendarProvider(provider)}
-                  </span>
-                ))}
+              <div className="mt-4 space-y-3">
+                <EventCalendarActions
+                  event={event}
+                  onAddToAppCalendar={handleAddToAppCalendar}
+                  onRemoveFromAppCalendar={handleRemoveFromAppCalendar}
+                  onOpenExternalCalendar={handleOpenExternalCalendar}
+                  busyAction={busyAction}
+                  compact
+                  mobileStack
+                />
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {mapUrl ? (
+                    <Button asChild variant="outline" size="sm" className="w-full justify-center">
+                      <a href={mapUrl} target="_blank" rel="noreferrer">
+                        <MapPin className="mr-2 h-4 w-4" />
+                        Open map
+                      </a>
+                    </Button>
+                  ) : null}
+
+                  {event.externalUrl ? (
+                    <Button asChild variant="outline" size="sm" className="w-full justify-center">
+                      <a href={event.externalUrl} target="_blank" rel="noreferrer">
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        Source listing
+                      </a>
+                    </Button>
+                  ) : null}
+                </div>
+
+                {event.exportedProviders?.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {event.exportedProviders.map((provider) => (
+                      <span key={provider} className="rounded-full border border-border/60 bg-background px-3 py-1 text-[11px] font-medium text-muted-foreground">
+                        Added to {formatCalendarProvider(provider)}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </div>
-            </div>
+            </aside>
+          </div>
+        </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              {mapUrl ? (
-                <Button asChild variant="outline" className="w-full justify-center">
-                  <a href={mapUrl} target="_blank" rel="noreferrer">
-                    <MapPin className="mr-2 h-4 w-4" />
-                    Open map
+        <div className="px-3 py-3 sm:px-4 sm:py-4">
+          <div className="overflow-hidden rounded-[1.4rem] border border-border/60 bg-background/75">
+            <div className="divide-y divide-border/60">
+              <DetailRow
+                icon={CalendarDays}
+                label="When"
+                primary={formatLongDate(event.date)}
+                secondary={event.time}
+              />
+              <DetailRow
+                icon={MapPin}
+                label="Where"
+                primary={event.location ?? 'Location TBA'}
+                secondary={event.organizer ?? 'Organizer will be listed here when available.'}
+                action={mapUrl ? (
+                  <a
+                    href={mapUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-h-11 items-center rounded-full border border-border/60 px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground"
+                  >
+                    Directions
                   </a>
-                </Button>
-              ) : null}
+                ) : null}
+              />
+              <DetailRow
+                icon={Users}
+                label="Event status"
+                primary={
+                  event.isCancelled
+                    ? 'This event has been canceled.'
+                    : event.isInCalendar
+                      ? 'Saved in your PocketQuad calendar.'
+                      : 'Not saved yet.'
+                }
+                secondary={event.audienceLabel ?? event.activityLabel ?? 'Open to the campus community.'}
+              />
             </div>
-
-            <EventCalendarActions
-              event={event}
-              onAddToAppCalendar={handleAddToAppCalendar}
-              onRemoveFromAppCalendar={handleRemoveFromAppCalendar}
-              onOpenExternalCalendar={handleOpenExternalCalendar}
-              busyAction={busyAction}
-              mobileStack
-            />
-
-            {event.externalUrl ? (
-              <Button asChild variant="ghost" className="w-full justify-start px-0 text-primary hover:bg-transparent">
-                <a href={event.externalUrl} target="_blank" rel="noreferrer">
-                  View source listing
-                </a>
-              </Button>
-            ) : null}
           </div>
         </div>
       </section>

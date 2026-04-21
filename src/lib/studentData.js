@@ -1,5 +1,5 @@
 /**
- * @typedef {'favorites' | 'deadlines' | 'events' | 'faculty' | 'news' | 'services' | 'links' | 'clubs'} DashboardModuleId
+ * @typedef {'favorites' | 'deadlines' | 'events' | 'faculty' | 'news' | 'links' | 'clubs'} DashboardModuleId
  */
 /**
  * @typedef {{ id: string, kind: 'building' | 'resource' | 'club', label: string, subtitle: string, href: string }} FavoriteItem
@@ -264,7 +264,6 @@ export const dashboardModuleIds = [
     'events',
     'faculty',
     'news',
-    'services',
     'links',
     'clubs',
 ];
@@ -274,7 +273,6 @@ export const dashboardModuleConfig = [
     { id: 'favorites', label: 'Pinned' },
     { id: 'faculty', label: 'Favorite Faculty' },
     { id: 'news', label: 'Notifications' },
-    { id: 'services', label: 'Services' },
     { id: 'links', label: 'Quick Links' },
     { id: 'clubs', label: 'Clubhouse' },
 ];
@@ -285,7 +283,6 @@ export const defaultDashboardPreferences = {
     events: true,
     faculty: true,
     news: true,
-    services: true,
     links: true,
     clubs: true,
 };

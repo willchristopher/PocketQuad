@@ -79,7 +79,7 @@ function LoginForm() {
       <AuthInteractionPanel
         eyebrow="Welcome back"
         title="Sign in"
-        description="Enter your university email and password to get back to your campus workspace."
+        description="Enter your university email and password to access PocketQuad."
         mobileCentered
         footer={
           <p>

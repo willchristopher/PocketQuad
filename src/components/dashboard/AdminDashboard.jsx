@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertCircle, Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronUp, Clock, ExternalLink, GraduationCap, KeyRound, Landmark, LayoutGrid, Loader2, Pencil, Plus, School, ShieldUser, Tag, Trash2, Upload, Users, Wrench, X, } from 'lucide-react';
+import { AlertCircle, Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronUp, Clock, ExternalLink, GraduationCap, KeyRound, Landmark, LayoutGrid, Loader2, Pencil, Plus, School, Search, ShieldUser, Tag, Trash2, Upload, Users, X, } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,6 @@ const tabItems = [
     { value: 'buildings', label: 'Buildings', icon: Building2 },
     { value: 'building-import', label: 'Building Import', icon: Upload },
     { value: 'links', label: 'Resource Links', icon: ExternalLink },
-    { value: 'services', label: 'Services', icon: Wrench },
     { value: 'clubs', label: 'Clubs', icon: Users },
     { value: 'events', label: 'Events', icon: CalendarDays },
     { value: 'it-accounts', label: 'IT Accounts', icon: ShieldUser },
@@ -43,7 +42,6 @@ const resourceCategories = [
     'CAMPUS_LIFE',
     'OTHER',
 ];
-const serviceStatuses = ['OPEN', 'CLOSED', 'LIMITED'];
 const eventCategories = [
     'ACADEMIC',
     'SOCIAL',
@@ -104,7 +102,6 @@ const portalPermissionOptions = [
     'ADMIN_TAB_BUILDINGS',
     'ADMIN_TAB_BUILDING_IMPORT',
     'ADMIN_TAB_LINKS',
-    'ADMIN_TAB_SERVICES',
     'ADMIN_TAB_CLUBS',
     'ADMIN_TAB_EVENTS',
     'ADMIN_TAB_IT_ACCOUNTS',
@@ -123,7 +120,6 @@ const portalPermissionLabels = {
     ADMIN_TAB_BUILDINGS: 'Tab: Buildings',
     ADMIN_TAB_BUILDING_IMPORT: 'Tab: Building Import',
     ADMIN_TAB_LINKS: 'Tab: Resource Links',
-    ADMIN_TAB_SERVICES: 'Tab: Services',
     ADMIN_TAB_CLUBS: 'Tab: Clubs',
     ADMIN_TAB_EVENTS: 'Tab: Events',
     ADMIN_TAB_IT_ACCOUNTS: 'Tab: IT Accounts',
@@ -141,6 +137,30 @@ function asErrorMessage(error, fallback) {
         return error.message;
     }
     return fallback;
+}
+function normalizeSearchValue(value) {
+    return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+function matchesSearch(value, query) {
+    if (!query) {
+        return true;
+    }
+    if (value === null || typeof value === 'undefined') {
+        return false;
+    }
+    return `${value}`.toLowerCase().includes(query);
+}
+function matchesAnySearch(record, query, selectors) {
+    if (!query) {
+        return true;
+    }
+    return selectors.some((selector) => {
+        const value = typeof selector === 'function' ? selector(record) : record?.[selector];
+        if (Array.isArray(value)) {
+            return value.some((item) => matchesSearch(item, query));
+        }
+        return matchesSearch(value, query);
+    });
 }
 function formatDateTimeInput(value) {
     const date = new Date(value);
@@ -234,7 +254,6 @@ export function AdminDashboard({ initialUniversities = null }) {
     const [facultySignupEmails, setFacultySignupEmails] = React.useState([]);
     const [buildings, setBuildings] = React.useState([]);
     const [resourceLinks, setResourceLinks] = React.useState([]);
-    const [services, setServices] = React.useState([]);
     const [clubs, setClubs] = React.useState([]);
     const [events, setEvents] = React.useState([]);
     const [portalAccounts, setPortalAccounts] = React.useState([]);
@@ -242,6 +261,13 @@ export function AdminDashboard({ initialUniversities = null }) {
     const [allUsers, setAllUsers] = React.useState([]);
     const [userSearchQuery, setUserSearchQuery] = React.useState('');
     const [userRoleFilter, setUserRoleFilter] = React.useState('');
+    const [pendingInviteSearchQuery, setPendingInviteSearchQuery] = React.useState('');
+    const [facultySearchQuery, setFacultySearchQuery] = React.useState('');
+    const [buildingSearchQuery, setBuildingSearchQuery] = React.useState('');
+    const [linkSearchQuery, setLinkSearchQuery] = React.useState('');
+    const [clubSearchQuery, setClubSearchQuery] = React.useState('');
+    const [eventSearchQuery, setEventSearchQuery] = React.useState('');
+    const [portalAccountSearchQuery, setPortalAccountSearchQuery] = React.useState('');
     // UI expansion state
     const [expandedFacultyId, setExpandedFacultyId] = React.useState(null);
     const [expandedSignupEmailId, setExpandedSignupEmailId] = React.useState(null);
@@ -290,14 +316,6 @@ export function AdminDashboard({ initialUniversities = null }) {
         href: '',
         description: '',
     });
-    const [newService, setNewService] = React.useState({
-        universityId: '',
-        name: '',
-        status: 'OPEN',
-        hours: '',
-        location: '',
-        directionsUrl: '',
-    });
     const [newClub, setNewClub] = React.useState({
         universityId: '',
         name: '',
@@ -343,7 +361,6 @@ export function AdminDashboard({ initialUniversities = null }) {
     const canManageFaculty = !profile || hasPortalPermission(profile, 'ADMIN_TAB_FACULTY');
     const canManageBuildings = !profile || hasPortalPermission(profile, 'ADMIN_TAB_BUILDINGS');
     const canManageLinks = !profile || hasPortalPermission(profile, 'ADMIN_TAB_LINKS');
-    const canManageServices = !profile || hasPortalPermission(profile, 'ADMIN_TAB_SERVICES');
     const canManageClubs = !profile || hasPortalPermission(profile, 'ADMIN_TAB_CLUBS');
     const canManageEvents = !profile || hasPortalPermission(profile, 'ADMIN_TAB_EVENTS');
     const canManageAccounts = !profile || hasPortalPermission(profile, 'ADMIN_TAB_IT_ACCOUNTS');
@@ -378,7 +395,6 @@ export function AdminDashboard({ initialUniversities = null }) {
                 setFacultySignupEmails([]);
                 setBuildings([]);
                 setResourceLinks([]);
-                setServices([]);
                 setClubs([]);
                 setEvents([]);
                 setPortalAccounts([]);
@@ -414,13 +430,6 @@ export function AdminDashboard({ initialUniversities = null }) {
                     enabled: canManageLinks,
                     load: () => apiRequest(`/api/admin/resource-links${universityQuery}`),
                     set: setResourceLinks,
-                },
-                {
-                    key: 'services',
-                    label: 'services',
-                    enabled: canManageServices,
-                    load: () => apiRequest(`/api/admin/services${universityQuery}`),
-                    set: setServices,
                 },
                 {
                     key: 'clubs',
@@ -486,7 +495,6 @@ export function AdminDashboard({ initialUniversities = null }) {
         canManageEvents,
         canManageFaculty,
         canManageLinks,
-        canManageServices,
         canManageUniversities,
         canManageUsers,
         fallbackUniversityFromProfile,
@@ -534,7 +542,6 @@ export function AdminDashboard({ initialUniversities = null }) {
         }));
         setNewBuilding((current) => ({ ...current, universityId: selectedUniversityId }));
         setNewLink((current) => ({ ...current, universityId: selectedUniversityId }));
-        setNewService((current) => ({ ...current, universityId: selectedUniversityId }));
         setNewClub((current) => ({ ...current, universityId: selectedUniversityId }));
         setNewEvent((current) => ({ ...current, universityId: selectedUniversityId }));
         setNewPortalAccount((current) => ({ ...current, universityId: selectedUniversityId }));
@@ -568,11 +575,11 @@ export function AdminDashboard({ initialUniversities = null }) {
         params.set('tab', normalized);
         router.replace(`/admin?${params.toString()}`, { scroll: false });
     };
-    const withinSelectedUniversity = (records) => {
+    const withinSelectedUniversity = React.useCallback((records) => {
         if (!selectedUniversityId)
             return [];
         return records.filter((record) => record.universityId === selectedUniversityId);
-    };
+    }, [selectedUniversityId]);
     const runMutation = async (action, successMessage) => {
         setSaving(true);
         try {
@@ -701,10 +708,67 @@ export function AdminDashboard({ initialUniversities = null }) {
             };
         }));
     }, []);
+    const pendingInviteQuery = React.useDeferredValue(normalizeSearchValue(pendingInviteSearchQuery));
+    const facultyQuery = React.useDeferredValue(normalizeSearchValue(facultySearchQuery));
+    const buildingQuery = React.useDeferredValue(normalizeSearchValue(buildingSearchQuery));
+    const linkQuery = React.useDeferredValue(normalizeSearchValue(linkSearchQuery));
+    const clubQuery = React.useDeferredValue(normalizeSearchValue(clubSearchQuery));
+    const eventQuery = React.useDeferredValue(normalizeSearchValue(eventSearchQuery));
+    const portalAccountQuery = React.useDeferredValue(normalizeSearchValue(portalAccountSearchQuery));
     const selectedUniversity = universities.find((university) => university.id === selectedUniversityId) ?? null;
     const selectedUniversityDisabledStudentPages = sanitizeDisabledStudentPages(selectedUniversity?.disabledStudentPages);
     const visibleStudentPageCount = studentPageVisibilityOptions.length - selectedUniversityDisabledStudentPages.length;
     const scopedUniversities = selectedUniversity ? [selectedUniversity] : [];
+    const scopedFaculty = React.useMemo(() => withinSelectedUniversity(faculty), [faculty, withinSelectedUniversity]);
+    const scopedFacultySignupEmails = React.useMemo(() => withinSelectedUniversity(facultySignupEmails), [facultySignupEmails, withinSelectedUniversity]);
+    const scopedBuildings = React.useMemo(() => withinSelectedUniversity(buildings), [buildings, withinSelectedUniversity]);
+    const scopedResourceLinks = React.useMemo(() => withinSelectedUniversity(resourceLinks), [resourceLinks, withinSelectedUniversity]);
+    const scopedClubs = React.useMemo(() => withinSelectedUniversity(clubs), [clubs, withinSelectedUniversity]);
+    const scopedEvents = React.useMemo(() => withinSelectedUniversity(events), [events, withinSelectedUniversity]);
+    const scopedPortalAccounts = React.useMemo(() => withinSelectedUniversity(portalAccounts), [portalAccounts, withinSelectedUniversity]);
+    const filteredFacultySignupEmails = React.useMemo(() => scopedFacultySignupEmails.filter((record) => matchesAnySearch(record, pendingInviteQuery, ['displayName', 'email', 'facultyRoleTags', (item) => item.managedBuildings.map((entry) => entry.building.name), (item) => item.managedClubs.map((entry) => entry.club.name)])), [pendingInviteQuery, scopedFacultySignupEmails]);
+    const filteredFaculty = React.useMemo(() => scopedFaculty.filter((record) => matchesAnySearch(record, facultyQuery, ['name', 'email', 'title', 'department', 'officeLocation', 'officeHours', 'tags', (item) => item.user?.facultyRoleTags ?? [], (item) => item.user?.managedBuildings?.map((entry) => entry.building.name) ?? [], (item) => item.user?.managedClubs?.map((entry) => entry.club.name) ?? []])), [facultyQuery, scopedFaculty]);
+    const filteredBuildings = React.useMemo(() => scopedBuildings.filter((record) => matchesAnySearch(record, buildingQuery, ['name', 'code', 'type', 'address', 'mapQuery', 'operationalNote', 'description'])), [buildingQuery, scopedBuildings]);
+    const filteredResourceLinks = React.useMemo(() => scopedResourceLinks.filter((record) => matchesAnySearch(record, linkQuery, ['label', 'category', 'href', 'description'])), [linkQuery, scopedResourceLinks]);
+    const filteredClubs = React.useMemo(() => scopedClubs.filter((record) => matchesAnySearch(record, clubQuery, ['name', 'category', 'description', 'contactEmail', 'presidentName', 'presidentEmail', 'advisorName', 'advisorEmail', 'meetingInfo'])), [clubQuery, scopedClubs]);
+    const filteredEvents = React.useMemo(() => scopedEvents.filter((record) => matchesAnySearch(record, eventQuery, ['title', 'description', 'location', 'organizer', 'category', 'audience'])), [eventQuery, scopedEvents]);
+    const filteredPortalAccounts = React.useMemo(() => scopedPortalAccounts.filter((record) => matchesAnySearch(record, portalAccountQuery, ['displayName', 'firstName', 'lastName', 'email', 'role', 'adminAccessLevel', 'portalPermissions', (item) => item.managedClubs.map((entry) => entry.club.name)])), [portalAccountQuery, scopedPortalAccounts]);
+    const facultyAccountOptions = React.useMemo(() => {
+        const deduped = new Map();
+        scopedFaculty.forEach((record) => {
+            deduped.set(record.email.toLowerCase(), {
+                id: record.id,
+                label: record.name,
+                secondary: record.title ? `${record.title} · ${record.email}` : record.email,
+                email: record.email,
+                value: record.name,
+            });
+        });
+        allUsers
+            .filter((record) => record.university?.id === selectedUniversityId && record.role === 'FACULTY')
+            .forEach((record) => {
+            const key = record.email.toLowerCase();
+            if (!deduped.has(key)) {
+                deduped.set(key, {
+                    id: record.id,
+                    label: record.displayName,
+                    secondary: record.email,
+                    email: record.email,
+                    value: record.displayName,
+                });
+            }
+        });
+        return Array.from(deduped.values());
+    }, [allUsers, scopedFaculty, selectedUniversityId]);
+    const studentAccountOptions = React.useMemo(() => allUsers
+        .filter((record) => record.university?.id === selectedUniversityId && record.role === 'STUDENT')
+        .map((record) => ({
+        id: record.id,
+        label: record.displayName,
+        secondary: record.email,
+        email: record.email,
+        value: record.email,
+    })), [allUsers, selectedUniversityId]);
     const universityOptions = universities.map((university) => (<option key={university.id} value={university.id}>
       {university.name}
     </option>));
@@ -743,12 +807,11 @@ export function AdminDashboard({ initialUniversities = null }) {
           {/* Stats grid — click any to navigate */}
           <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
             {[
-                { label: 'Faculty', value: faculty.length, icon: GraduationCap, tab: 'faculty' },
-                { label: 'Buildings', value: buildings.length, icon: Building2, tab: 'buildings' },
-                { label: 'Clubs', value: clubs.length, icon: Landmark, tab: 'clubs' },
-                { label: 'Events', value: events.length, icon: CalendarDays, tab: 'events' },
-                { label: 'Links', value: resourceLinks.length, icon: ExternalLink, tab: 'links' },
-                { label: 'Services', value: services.length, icon: Wrench, tab: 'services' },
+                { label: 'Faculty', value: scopedFaculty.length, icon: GraduationCap, tab: 'faculty' },
+                { label: 'Buildings', value: scopedBuildings.length, icon: Building2, tab: 'buildings' },
+                { label: 'Clubs', value: scopedClubs.length, icon: Landmark, tab: 'clubs' },
+                { label: 'Events', value: scopedEvents.length, icon: CalendarDays, tab: 'events' },
+                { label: 'Links', value: scopedResourceLinks.length, icon: ExternalLink, tab: 'links' },
                 { label: 'Users', value: allUsers.length, icon: Users, tab: 'users' },
             ].map((stat) => (<button key={stat.label} className="rounded-xl border border-border/60 bg-card/70 p-4 text-left hover:bg-card transition-colors duration-150" onClick={() => handleTabChange(stat.tab)}>
                 <stat.icon className="h-4 w-4 text-muted-foreground mb-2"/>
@@ -771,7 +834,6 @@ export function AdminDashboard({ initialUniversities = null }) {
                 { icon: Building2, title: 'Manage Buildings', desc: 'Add buildings and update their status', tab: 'buildings', visible: canManageBuildings },
                 { icon: Landmark, title: 'Manage Clubs', desc: 'Update club info and leadership', tab: 'clubs', visible: canManageClubs },
                 { icon: CalendarDays, title: 'Publish Events', desc: 'Create and manage campus events', tab: 'events', visible: canManageEvents },
-                { icon: Wrench, title: 'Update Services', desc: 'Change service status and hours', tab: 'services', visible: canManageServices },
                 { icon: ShieldUser, title: 'IT Accounts', desc: 'Provision portal access and permissions', tab: 'it-accounts', visible: canManageAccounts },
             ].filter((action) => action.visible).map((action) => (<button key={action.title} className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-left hover:bg-muted/40 transition-colors" onClick={() => handleTabChange(action.tab)}>
                     <action.icon className="mt-0.5 h-4 w-4 text-primary shrink-0"/>
@@ -860,9 +922,6 @@ export function AdminDashboard({ initialUniversities = null }) {
           <Card className="rounded-xl border-border/60">
             <CardHeader>
               <CardTitle>Student Page Visibility</CardTitle>
-              <CardDescription>
-                Control which student-facing pages are visible for {selectedUniversity.name}. Hidden pages are removed from navigation and direct visits redirect students away.
-              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
@@ -879,8 +938,6 @@ export function AdminDashboard({ initialUniversities = null }) {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-sm font-semibold">{page.label}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">{page.description}</p>
-                          <p className="mt-2 text-[11px] font-mono text-muted-foreground">{page.href}</p>
                         </div>
                         <Badge variant={isVisible ? 'success' : 'secondary'} className="shrink-0 text-[10px]">
                           {isVisible ? 'Visible' : 'Hidden'}
@@ -934,23 +991,41 @@ export function AdminDashboard({ initialUniversities = null }) {
 
               <Separator />
 
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Permissions</p>
-                <div className="flex flex-wrap gap-2">
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm hover:bg-muted/30">
-                    <input type="checkbox" checked={newFacultySignupEmail.canPublishCampusAnnouncements} onChange={(event) => setNewFacultySignupEmail((c) => ({ ...c, canPublishCampusAnnouncements: event.target.checked }))}/>
-                    Can publish campus announcements
-                  </label>
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm hover:bg-muted/30">
-                    <input type="checkbox" checked={newFacultySignupEmail.canCreateDeadlineEvents} onChange={(event) => setNewFacultySignupEmail((c) => ({ ...c, canCreateDeadlineEvents: event.target.checked }))}/>
-                    Can create deadline events
-                  </label>
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm hover:bg-muted/30">
-                    <input type="checkbox" checked={newFacultySignupEmail.managesAllClubs} onChange={(event) => setNewFacultySignupEmail((c) => ({ ...c, managesAllClubs: event.target.checked }))}/>
-                    Manages all clubs / Student orgs
-                  </label>
-                </div>
-              </div>
+              <SearchableMultiSelect
+                title="Permissions"
+                description="Choose the faculty permissions for this invite."
+                items={[
+                    { id: 'announcements', label: 'Can publish campus announcements' },
+                    { id: 'deadlines', label: 'Can create deadline events' },
+                    { id: 'all-clubs', label: 'Manages all clubs / student orgs' },
+                ]}
+                selectedIds={[
+                    ...(newFacultySignupEmail.canPublishCampusAnnouncements ? ['announcements'] : []),
+                    ...(newFacultySignupEmail.canCreateDeadlineEvents ? ['deadlines'] : []),
+                    ...(newFacultySignupEmail.managesAllClubs ? ['all-clubs'] : []),
+                ]}
+                onToggle={(permissionId) => {
+                    if (permissionId === 'announcements') {
+                        setNewFacultySignupEmail((current) => ({
+                            ...current,
+                            canPublishCampusAnnouncements: !current.canPublishCampusAnnouncements,
+                        }));
+                    }
+                    if (permissionId === 'deadlines') {
+                        setNewFacultySignupEmail((current) => ({
+                            ...current,
+                            canCreateDeadlineEvents: !current.canCreateDeadlineEvents,
+                        }));
+                    }
+                    if (permissionId === 'all-clubs') {
+                        setNewFacultySignupEmail((current) => ({
+                            ...current,
+                            managesAllClubs: !current.managesAllClubs,
+                        }));
+                    }
+                }}
+                placeholder="Search permissions"
+              />
 
               <div className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Role Tags</p>
@@ -972,43 +1047,43 @@ export function AdminDashboard({ initialUniversities = null }) {
                 </div>
               </div>
 
-              {withinSelectedUniversity(buildings).length > 0 && (<div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Manages Buildings</p>
-                  <div className="grid gap-1.5 md:grid-cols-2 lg:grid-cols-3">
-                    {withinSelectedUniversity(buildings).map((building) => {
-                    const isSelected = newFacultySignupEmail.managedBuildingIds.includes(building.id);
-                    return (<label key={building.id} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-xs hover:bg-muted/30">
-                          <input type="checkbox" checked={isSelected} onChange={() => setNewFacultySignupEmail((c) => ({
-                            ...c,
-                            managedBuildingIds: isSelected
-                                ? c.managedBuildingIds.filter((id) => id !== building.id)
-                                : [...c.managedBuildingIds, building.id],
-                        }))}/>
-                          <Building2 className="h-3 w-3 shrink-0 text-muted-foreground"/>
-                          <span className="truncate">{building.name}</span>
-                        </label>);
-                })}
-                  </div>
-                </div>)}
+              {scopedBuildings.length > 0 ? (<SearchableMultiSelect
+                  title="Manages Buildings"
+                  description="Search and assign the buildings this faculty member can manage."
+                  icon={Building2}
+                  items={scopedBuildings.map((building) => ({
+                    id: building.id,
+                    label: building.name,
+                    secondary: [building.code, building.type].filter(Boolean).join(' · '),
+                }))}
+                  selectedIds={newFacultySignupEmail.managedBuildingIds}
+                  onToggle={(buildingId) => setNewFacultySignupEmail((current) => ({
+                    ...current,
+                    managedBuildingIds: current.managedBuildingIds.includes(buildingId)
+                        ? current.managedBuildingIds.filter((id) => id !== buildingId)
+                        : [...current.managedBuildingIds, buildingId],
+                }))}
+                  placeholder="Search buildings"
+                />) : null}
 
-              {withinSelectedUniversity(clubs).length > 0 && (<div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Advises Clubs / Orgs</p>
-                  <div className="grid gap-1.5 md:grid-cols-2 lg:grid-cols-3">
-                    {withinSelectedUniversity(clubs).map((club) => {
-                    const isSelected = newFacultySignupEmail.managedClubIds.includes(club.id);
-                    return (<label key={club.id} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-xs hover:bg-muted/30">
-                          <input type="checkbox" checked={isSelected} onChange={() => setNewFacultySignupEmail((c) => ({
-                            ...c,
-                            managedClubIds: isSelected
-                                ? c.managedClubIds.filter((id) => id !== club.id)
-                                : [...c.managedClubIds, club.id],
-                        }))}/>
-                          <Landmark className="h-3 w-3 shrink-0 text-muted-foreground"/>
-                          <span className="truncate">{club.name}</span>
-                        </label>);
-                })}
-                  </div>
-                </div>)}
+              {scopedClubs.length > 0 ? (<SearchableMultiSelect
+                  title="Advises Clubs / Orgs"
+                  description="Search and assign the clubs or organizations tied to this invite."
+                  icon={Landmark}
+                  items={scopedClubs.map((club) => ({
+                    id: club.id,
+                    label: club.name,
+                    secondary: club.category,
+                }))}
+                  selectedIds={newFacultySignupEmail.managedClubIds}
+                  onToggle={(clubId) => setNewFacultySignupEmail((current) => ({
+                    ...current,
+                    managedClubIds: current.managedClubIds.includes(clubId)
+                        ? current.managedClubIds.filter((id) => id !== clubId)
+                        : [...current.managedClubIds, clubId],
+                }))}
+                  placeholder="Search clubs or organizations"
+                />) : null}
 
               <div>
                 <Button disabled={saving || !newFacultySignupEmail.universityId || !newFacultySignupEmail.email.trim()} onClick={() => void runMutation(async () => {
@@ -1047,14 +1122,20 @@ export function AdminDashboard({ initialUniversities = null }) {
           </Card>
 
           {/* ── Pending Invitations ───────────────────────────────── */}
-          {withinSelectedUniversity(facultySignupEmails).length > 0 && (<Card className="rounded-xl border-border/60">
+          {scopedFacultySignupEmails.length > 0 && (<Card className="rounded-xl border-border/60">
               <CardHeader>
                 <CardTitle>Pending Invitations</CardTitle>
                 <CardDescription>Invited faculty who haven&apos;t yet completed their profile.</CardDescription>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="space-y-4 p-4">
+                <SectionSearchBar
+                  value={pendingInviteSearchQuery}
+                  onChange={setPendingInviteSearchQuery}
+                  placeholder="Search invitations by name, email, role tag, building, or club"
+                  countLabel={`${filteredFacultySignupEmails.length} invitation${filteredFacultySignupEmails.length === 1 ? '' : 's'}`}
+                />
                 <div className="divide-y divide-border/40">
-                  {withinSelectedUniversity(facultySignupEmails).map((record) => {
+                  {filteredFacultySignupEmails.map((record) => {
                     const isExpanded = expandedSignupEmailId === record.id;
                     return (<div key={record.id}>
                         <button className="flex w-full items-center justify-between gap-3 px-6 py-3 text-left hover:bg-muted/30 transition-colors" onClick={() => setExpandedSignupEmailId(isExpanded ? null : record.id)}>
@@ -1138,12 +1219,18 @@ export function AdminDashboard({ initialUniversities = null }) {
             <CardHeader>
               <CardTitle>Faculty Directory</CardTitle>
               <CardDescription>
-                {withinSelectedUniversity(faculty).length} member{withinSelectedUniversity(faculty).length !== 1 ? 's' : ''} — click a row to view and edit.
+                {scopedFaculty.length} member{scopedFaculty.length !== 1 ? 's' : ''} — click a row to view and edit.
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-0">
-              {withinSelectedUniversity(faculty).length === 0 ? (<p className="px-6 py-6 text-sm text-muted-foreground">No faculty profiles yet.</p>) : (<div className="divide-y divide-border/40">
-                  {withinSelectedUniversity(faculty).map((record) => {
+            <CardContent className="space-y-4 p-4">
+              <SectionSearchBar
+                value={facultySearchQuery}
+                onChange={setFacultySearchQuery}
+                placeholder="Search faculty by name, email, department, title, building, or club"
+                countLabel={`${filteredFaculty.length} match${filteredFaculty.length === 1 ? '' : 'es'}`}
+              />
+              {scopedFaculty.length === 0 ? (<p className="px-2 py-2 text-sm text-muted-foreground">No faculty profiles yet.</p>) : (<div className="divide-y divide-border/40">
+                  {filteredFaculty.map((record) => {
                     const isExpanded = expandedFacultyId === record.id;
                     return (<div key={record.id}>
                         <button className="flex w-full items-center justify-between gap-3 px-6 py-3 text-left hover:bg-muted/30 transition-colors" onClick={() => setExpandedFacultyId(isExpanded ? null : record.id)}>
@@ -1210,31 +1297,57 @@ export function AdminDashboard({ initialUniversities = null }) {
                             <Separator />
 
                             {/* Permissions */}
-                            <div className="space-y-2">
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Permissions</p>
-                              <div className="flex flex-wrap gap-2">
-                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm hover:bg-muted/30">
-                                  <input type="checkbox" checked={Boolean(record.user?.canPublishCampusAnnouncements)} onChange={(event) => setFaculty((current) => current.map((item) => item.id === record.id && item.user
-                                ? { ...item, user: { ...item.user, canPublishCampusAnnouncements: event.target.checked } }
-                                : item))}/>
-                                  Can publish campus announcements
-                                </label>
-                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm hover:bg-muted/30">
-                                  <input type="checkbox" checked={Boolean(record.user?.portalPermissions?.includes('CAN_CREATE_DEADLINE_EVENTS'))} onChange={(event) => setFaculty((current) => current.map((item) => item.id === record.id && item.user
-                                ? { ...item, user: { ...item.user, portalPermissions: event.target.checked
-                                            ? [...new Set([...(item.user.portalPermissions ?? []), 'CAN_CREATE_DEADLINE_EVENTS'])]
-                                            : (item.user.portalPermissions ?? []).filter((permission) => permission !== 'CAN_CREATE_DEADLINE_EVENTS') } }
-                                : item))}/>
-                                  Can create deadline events
-                                </label>
-                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm hover:bg-muted/30">
-                                  <input type="checkbox" checked={Boolean(record.user?.managesAllClubs)} onChange={(event) => setFaculty((current) => current.map((item) => item.id === record.id && item.user
-                                ? { ...item, user: { ...item.user, managesAllClubs: event.target.checked } }
-                                : item))}/>
-                                  Manages all clubs / Student orgs
-                                </label>
-                              </div>
-                            </div>
+                            <SearchableMultiSelect
+                              title="Permissions"
+                              description="Choose faculty permissions for this profile."
+                              items={[
+                                { id: 'announcements', label: 'Can publish campus announcements' },
+                                { id: 'deadlines', label: 'Can create deadline events' },
+                                { id: 'all-clubs', label: 'Manages all clubs / student orgs' },
+                              ]}
+                              selectedIds={[
+                                ...(record.user?.canPublishCampusAnnouncements ? ['announcements'] : []),
+                                ...(record.user?.portalPermissions?.includes('CAN_CREATE_DEADLINE_EVENTS') ? ['deadlines'] : []),
+                                ...(record.user?.managesAllClubs ? ['all-clubs'] : []),
+                              ]}
+                              onToggle={(permissionId) => setFaculty((current) => current.map((item) => {
+                                if (item.id !== record.id || !item.user) {
+                                    return item;
+                                }
+                                if (permissionId === 'announcements') {
+                                    return {
+                                        ...item,
+                                        user: {
+                                            ...item.user,
+                                            canPublishCampusAnnouncements: !item.user.canPublishCampusAnnouncements,
+                                        },
+                                    };
+                                }
+                                if (permissionId === 'deadlines') {
+                                    const hasPermission = item.user.portalPermissions?.includes('CAN_CREATE_DEADLINE_EVENTS');
+                                    return {
+                                        ...item,
+                                        user: {
+                                            ...item.user,
+                                            portalPermissions: hasPermission
+                                                ? (item.user.portalPermissions ?? []).filter((permission) => permission !== 'CAN_CREATE_DEADLINE_EVENTS')
+                                                : [...new Set([...(item.user.portalPermissions ?? []), 'CAN_CREATE_DEADLINE_EVENTS'])],
+                                        },
+                                    };
+                                }
+                                if (permissionId === 'all-clubs') {
+                                    return {
+                                        ...item,
+                                        user: {
+                                            ...item.user,
+                                            managesAllClubs: !item.user.managesAllClubs,
+                                        },
+                                    };
+                                }
+                                return item;
+                            }))}
+                              placeholder="Search permissions"
+                            />
 
                             {/* Role Tags */}
                             <div className="space-y-2">
@@ -1264,54 +1377,62 @@ export function AdminDashboard({ initialUniversities = null }) {
                             </div>
 
                             {/* Building Assignments */}
-                            {withinSelectedUniversity(buildings).length > 0 && (<div className="space-y-2">
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Manages Buildings</p>
-                                <div className="grid gap-1.5 md:grid-cols-2 lg:grid-cols-3">
-                                  {withinSelectedUniversity(buildings).map((building) => {
-                                    const isAssigned = (record.user?.managedBuildings ?? []).some((mb) => mb.buildingId === building.id);
-                                    return (<label key={building.id} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-xs hover:bg-muted/30">
-                                        <input type="checkbox" checked={isAssigned} onChange={() => setFaculty((current) => current.map((item) => item.id === record.id && item.user
-                                            ? {
-                                                ...item,
-                                                user: {
-                                                    ...item.user,
-                                                    managedBuildings: isAssigned
-                                                        ? item.user.managedBuildings.filter((mb) => mb.buildingId !== building.id)
-                                                        : [...item.user.managedBuildings, { buildingId: building.id, building: { id: building.id, name: building.name } }],
-                                                },
-                                            }
-                                            : item))}/>
-                                        <Building2 className="h-3 w-3 shrink-0 text-muted-foreground"/>
-                                        <span className="truncate">{building.name}</span>
-                                      </label>);
-                                })}
-                                </div>
-                              </div>)}
+                            {scopedBuildings.length > 0 ? (<SearchableMultiSelect
+                                title="Manages Buildings"
+                                description="Search and assign the buildings this faculty member manages."
+                                icon={Building2}
+                                items={scopedBuildings.map((building) => ({
+                                    id: building.id,
+                                    label: building.name,
+                                    secondary: [building.code, building.type].filter(Boolean).join(' · '),
+                                }))}
+                                selectedIds={(record.user?.managedBuildings ?? []).map((entry) => entry.buildingId)}
+                                onToggle={(buildingId) => setFaculty((current) => current.map((item) => {
+                                    if (item.id !== record.id || !item.user) {
+                                        return item;
+                                    }
+                                    const isAssigned = item.user.managedBuildings.some((entry) => entry.buildingId === buildingId);
+                                    return {
+                                        ...item,
+                                        user: {
+                                            ...item.user,
+                                            managedBuildings: isAssigned
+                                                ? item.user.managedBuildings.filter((entry) => entry.buildingId !== buildingId)
+                                                : [...item.user.managedBuildings, { buildingId, building: { id: buildingId, name: scopedBuildings.find((building) => building.id === buildingId)?.name ?? 'Unknown Building' } }],
+                                        },
+                                    };
+                                }))}
+                                placeholder="Search buildings"
+                              />) : null}
 
                             {/* Club Assignments */}
-                            {withinSelectedUniversity(clubs).length > 0 && (<div className="space-y-2">
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Advises Clubs / Orgs</p>
-                                <div className="grid gap-1.5 md:grid-cols-2 lg:grid-cols-3">
-                                  {withinSelectedUniversity(clubs).map((club) => {
-                                    const isAssigned = (record.user?.managedClubs ?? []).some((mc) => mc.clubId === club.id);
-                                    return (<label key={club.id} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-xs hover:bg-muted/30">
-                                        <input type="checkbox" checked={isAssigned} onChange={() => setFaculty((current) => current.map((item) => item.id === record.id && item.user
-                                            ? {
-                                                ...item,
-                                                user: {
-                                                    ...item.user,
-                                                    managedClubs: isAssigned
-                                                        ? item.user.managedClubs.filter((mc) => mc.clubId !== club.id)
-                                                        : [...item.user.managedClubs, { clubId: club.id, club: { id: club.id, name: club.name } }],
-                                                },
-                                            }
-                                            : item))}/>
-                                        <Landmark className="h-3 w-3 shrink-0 text-muted-foreground"/>
-                                        <span className="truncate">{club.name}</span>
-                                      </label>);
-                                })}
-                                </div>
-                              </div>)}
+                            {scopedClubs.length > 0 ? (<SearchableMultiSelect
+                                title="Advises Clubs / Orgs"
+                                description="Search and assign the clubs or organizations this faculty member advises."
+                                icon={Landmark}
+                                items={scopedClubs.map((club) => ({
+                                    id: club.id,
+                                    label: club.name,
+                                    secondary: club.category,
+                                }))}
+                                selectedIds={(record.user?.managedClubs ?? []).map((entry) => entry.clubId)}
+                                onToggle={(clubId) => setFaculty((current) => current.map((item) => {
+                                    if (item.id !== record.id || !item.user) {
+                                        return item;
+                                    }
+                                    const isAssigned = item.user.managedClubs.some((entry) => entry.clubId === clubId);
+                                    return {
+                                        ...item,
+                                        user: {
+                                            ...item.user,
+                                            managedClubs: isAssigned
+                                                ? item.user.managedClubs.filter((entry) => entry.clubId !== clubId)
+                                                : [...item.user.managedClubs, { clubId, club: { id: clubId, name: scopedClubs.find((club) => club.id === clubId)?.name ?? 'Unknown Club' } }],
+                                        },
+                                    };
+                                }))}
+                                placeholder="Search clubs or organizations"
+                              />) : null}
 
                             <div className="flex gap-2 pt-1">
                               <Button size="sm" variant="outline" disabled={saving} onClick={() => void runMutation(async () => {
@@ -1373,9 +1494,16 @@ export function AdminDashboard({ initialUniversities = null }) {
               </Button>
             </div>
             <p className="text-sm text-muted-foreground">
-              {withinSelectedUniversity(buildings).length} building{withinSelectedUniversity(buildings).length !== 1 ? 's' : ''}
+              {scopedBuildings.length} building{scopedBuildings.length !== 1 ? 's' : ''}
             </p>
           </div>
+
+          <SectionSearchBar
+            value={buildingSearchQuery}
+            onChange={setBuildingSearchQuery}
+            placeholder="Search buildings by name, code, type, address, or note"
+            countLabel={`${filteredBuildings.length} result${filteredBuildings.length === 1 ? '' : 's'}`}
+          />
 
           {/* New building form */}
           {expandedBuildingId === 'new' && (<Card className="rounded-xl border-primary/30 bg-primary/5">
@@ -1480,8 +1608,8 @@ export function AdminDashboard({ initialUniversities = null }) {
           {/* Buildings list */}
           <Card className="rounded-xl border-border/60">
             <CardContent className="p-0">
-              {withinSelectedUniversity(buildings).length === 0 ? (<p className="px-6 py-6 text-sm text-muted-foreground">No buildings yet. Add one above or import from CSV.</p>) : (<div className="divide-y divide-border/40">
-                  {withinSelectedUniversity(buildings).map((building) => {
+              {scopedBuildings.length === 0 ? (<p className="px-6 py-6 text-sm text-muted-foreground">No buildings yet. Add one above or import from CSV.</p>) : filteredBuildings.length === 0 ? (<p className="px-6 py-6 text-sm text-muted-foreground">No buildings matched that search.</p>) : (<div className="divide-y divide-border/40">
+                  {filteredBuildings.map((building) => {
                     const isExpanded = expandedBuildingId === building.id;
                     const statusMeta = STATUS_CONFIG[building.operationalStatus ?? 'OPEN'];
                     return (<div key={building.id}>
@@ -1689,7 +1817,14 @@ export function AdminDashboard({ initialUniversities = null }) {
                 </Button>
               </>}/>
 
-          <CrudLinkTable records={withinSelectedUniversity(resourceLinks)} universities={scopedUniversities} saving={saving} onChange={setResourceLinks} onSave={(record) => runMutation(async () => {
+          <SectionSearchBar
+            value={linkSearchQuery}
+            onChange={setLinkSearchQuery}
+            placeholder="Search links by label, category, URL, or description"
+            countLabel={`${filteredResourceLinks.length} link${filteredResourceLinks.length === 1 ? '' : 's'}`}
+          />
+
+          <CrudLinkTable records={filteredResourceLinks} universities={scopedUniversities} saving={saving} onChange={setResourceLinks} onSave={(record) => runMutation(async () => {
                 await apiRequest(`/api/admin/resource-links/${record.id}`, {
                     method: 'PATCH',
                     body: {
@@ -1703,53 +1838,6 @@ export function AdminDashboard({ initialUniversities = null }) {
             }, 'Resource link updated')} onDelete={(recordId) => runMutation(async () => {
                 await apiRequest(`/api/admin/resource-links/${recordId}`, { method: 'DELETE' });
             }, 'Resource link deleted')}/>
-        </TabsContent>
-
-        <TabsContent value="services" className="mt-0 space-y-4">
-          <SimpleCreateCard title="Create Service" description="Services power the student Services Status page." content={<>
-                <select value={newService.universityId} onChange={(event) => setNewService((current) => ({ ...current, universityId: event.target.value }))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
-                  {scopedUniversityOptions}
-                </select>
-                <Input value={newService.name} onChange={(event) => setNewService((current) => ({ ...current, name: event.target.value }))} placeholder="Service name"/>
-                <select value={newService.status} onChange={(event) => setNewService((current) => ({ ...current, status: event.target.value }))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
-                  {serviceStatuses.map((status) => (<option key={status} value={status}>{status}</option>))}
-                </select>
-                <Input value={newService.hours} onChange={(event) => setNewService((current) => ({ ...current, hours: event.target.value }))} placeholder="Hours"/>
-                <Input value={newService.location} onChange={(event) => setNewService((current) => ({ ...current, location: event.target.value }))} placeholder="Location"/>
-                <Input value={newService.directionsUrl} onChange={(event) => setNewService((current) => ({ ...current, directionsUrl: event.target.value }))} placeholder="Directions URL"/>
-                <Button disabled={saving || !newService.universityId || !newService.name || !newService.hours || !newService.location || !newService.directionsUrl} onClick={() => void runMutation(async () => {
-                    await apiRequest('/api/admin/services', {
-                        method: 'POST',
-                        body: newService,
-                    });
-                    setNewService({
-                        universityId: selectedUniversityId,
-                        name: '',
-                        status: 'OPEN',
-                        hours: '',
-                        location: '',
-                        directionsUrl: '',
-                    });
-                }, 'Service created')}>
-                  Create Service
-                </Button>
-              </>}/>
-
-          <CrudServiceTable records={withinSelectedUniversity(services)} universities={scopedUniversities} saving={saving} onChange={setServices} onSave={(record) => runMutation(async () => {
-                await apiRequest(`/api/admin/services/${record.id}`, {
-                    method: 'PATCH',
-                    body: {
-                        universityId: record.universityId,
-                        name: record.name,
-                        status: record.status,
-                        hours: record.hours,
-                        location: record.location,
-                        directionsUrl: record.directionsUrl,
-                    },
-                });
-            }, 'Service updated')} onDelete={(recordId) => runMutation(async () => {
-                await apiRequest(`/api/admin/services/${recordId}`, { method: 'DELETE' });
-            }, 'Service deleted')}/>
         </TabsContent>
 
         <TabsContent value="clubs" className="mt-0 space-y-4">
@@ -1787,8 +1875,30 @@ export function AdminDashboard({ initialUniversities = null }) {
                 <Input value={newClub.description} onChange={(event) => setNewClub((current) => ({ ...current, description: event.target.value }))} placeholder="Description"/>
                 <Input value={newClub.contactEmail} onChange={(event) => setNewClub((current) => ({ ...current, contactEmail: event.target.value }))} placeholder="Contact email (optional)"/>
                 <Input value={newClub.presidentName} onChange={(event) => setNewClub((current) => ({ ...current, presidentName: event.target.value }))} placeholder="President name (optional)"/>
-                <Input value={newClub.presidentEmail} onChange={(event) => setNewClub((current) => ({ ...current, presidentEmail: event.target.value }))} placeholder="President email(s) (optional)"/>
-                <Input value={newClub.advisorName} onChange={(event) => setNewClub((current) => ({ ...current, advisorName: event.target.value }))} placeholder="Campus advisor (optional)"/>
+                <AutocompleteField
+                  value={newClub.presidentEmail}
+                  onChange={(value) => setNewClub((current) => ({ ...current, presidentEmail: value }))}
+                  onSelect={(option) => setNewClub((current) => ({
+                    ...current,
+                    presidentName: option.label,
+                    presidentEmail: option.email,
+                  }))}
+                  options={studentAccountOptions}
+                  placeholder="President email (search existing student accounts)"
+                  emptyLabel="No matching student accounts"
+                />
+                <AutocompleteField
+                  value={newClub.advisorName}
+                  onChange={(value) => setNewClub((current) => ({ ...current, advisorName: value }))}
+                  onSelect={(option) => setNewClub((current) => ({
+                    ...current,
+                    advisorName: option.label,
+                    advisorEmail: option.email,
+                  }))}
+                  options={facultyAccountOptions}
+                  placeholder="Campus advisor (search faculty by name)"
+                  emptyLabel="No matching faculty accounts"
+                />
                 <Input value={newClub.advisorEmail} onChange={(event) => setNewClub((current) => ({ ...current, advisorEmail: event.target.value }))} placeholder="Advisor email(s) (optional)"/>
                 <Input value={newClub.publicContactInfo} onChange={(event) => setNewClub((current) => ({ ...current, publicContactInfo: event.target.value }))} placeholder="Public contact listing (optional)"/>
                 <Input value={newClub.sourceUrls} onChange={(event) => setNewClub((current) => ({ ...current, sourceUrls: event.target.value }))} placeholder="Source URL(s) (optional)"/>
@@ -1833,7 +1943,14 @@ export function AdminDashboard({ initialUniversities = null }) {
                 </Button>
               </>}/>
 
-          <CrudClubTable records={withinSelectedUniversity(clubs)} universities={scopedUniversities} saving={saving} onChange={setClubs} onSave={(record) => runMutation(async () => {
+          <SectionSearchBar
+            value={clubSearchQuery}
+            onChange={setClubSearchQuery}
+            placeholder="Search clubs by name, category, advisor, president, or meeting info"
+            countLabel={`${filteredClubs.length} club${filteredClubs.length === 1 ? '' : 's'}`}
+          />
+
+          <CrudClubTable records={filteredClubs} universities={scopedUniversities} saving={saving} onChange={setClubs} advisorOptions={facultyAccountOptions} studentOptions={studentAccountOptions} onSave={(record) => runMutation(async () => {
                 await apiRequest(`/api/admin/clubs/${record.id}`, {
                     method: 'PATCH',
                     body: {
@@ -1855,7 +1972,7 @@ export function AdminDashboard({ initialUniversities = null }) {
                 });
             }, 'Club updated')} onDelete={(recordId) => runMutation(async () => {
                 await apiRequest(`/api/admin/clubs/${recordId}`, { method: 'DELETE' });
-            }, 'Club deleted')}/>
+                }, 'Club deleted')}/>
         </TabsContent>
 
         <TabsContent value="events" className="mt-0 space-y-4">
@@ -1904,7 +2021,14 @@ export function AdminDashboard({ initialUniversities = null }) {
                 </Button>
               </>}/>
 
-          <CrudEventTable records={withinSelectedUniversity(events)} universities={scopedUniversities} saving={saving} onChange={setEvents} onSave={(record) => runMutation(async () => {
+          <SectionSearchBar
+            value={eventSearchQuery}
+            onChange={setEventSearchQuery}
+            placeholder="Search events by title, organizer, category, location, or audience"
+            countLabel={`${filteredEvents.length} event${filteredEvents.length === 1 ? '' : 's'}`}
+          />
+
+          <CrudEventTable records={filteredEvents} universities={scopedUniversities} saving={saving} onChange={setEvents} onSave={(record) => runMutation(async () => {
                 await apiRequest(`/api/admin/events/${record.id}`, {
                     method: 'PATCH',
                     body: {
@@ -1989,29 +2113,32 @@ export function AdminDashboard({ initialUniversities = null }) {
             }))} placeholder="Password (optional)"/>
               </div>
 
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  Portal Permissions
-                </p>
-                <div className="grid gap-2 md:grid-cols-3">
-                  {portalPermissionOptions.map((permission) => (<label key={permission} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#002144]/10 bg-muted/20 px-3 py-2 text-xs text-foreground">
-                      <input type="checkbox" checked={newPortalAccount.portalPermissions.includes(permission)} onChange={() => togglePermissionInDraftAccount(permission)}/>
-                      {portalPermissionLabels[permission]}
-                    </label>))}
-                </div>
-              </div>
+              <SearchableMultiSelect
+                title="Portal Permissions"
+                description="Search and assign tab permissions for this account."
+                items={portalPermissionOptions.map((permission) => ({
+                    id: permission,
+                    label: portalPermissionLabels[permission],
+                    secondary: permission,
+                }))}
+                selectedIds={newPortalAccount.portalPermissions}
+                onToggle={togglePermissionInDraftAccount}
+                placeholder="Search permissions"
+              />
 
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  Managed Clubs (for club leadership roles)
-                </p>
-                <div className="grid gap-2 md:grid-cols-3">
-                  {withinSelectedUniversity(clubs).map((club) => (<label key={club.id} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#002144]/10 bg-muted/20 px-3 py-2 text-xs text-foreground">
-                      <input type="checkbox" checked={newPortalAccount.managedClubIds.includes(club.id)} onChange={() => toggleManagedClubInDraftAccount(club.id)}/>
-                      {club.name}
-                    </label>))}
-                </div>
-              </div>
+              <SearchableMultiSelect
+                title="Managed Clubs"
+                description="Assign clubs for club leadership roles."
+                icon={Landmark}
+                items={scopedClubs.map((club) => ({
+                    id: club.id,
+                    label: club.name,
+                    secondary: club.category,
+                }))}
+                selectedIds={newPortalAccount.managedClubIds}
+                onToggle={toggleManagedClubInDraftAccount}
+                placeholder="Search clubs"
+              />
 
               <Button disabled={saving ||
                 !newPortalAccount.universityId ||
@@ -2055,7 +2182,14 @@ export function AdminDashboard({ initialUniversities = null }) {
             </CardContent>
           </Card>
 
-          <CrudPortalAccountsTable records={withinSelectedUniversity(portalAccounts)} universities={scopedUniversities} clubs={withinSelectedUniversity(clubs)} saving={saving} onChange={setPortalAccounts} onTogglePermission={togglePermissionForAccount} onToggleManagedClub={toggleManagedClubForAccount} onSave={(record) => runMutation(async () => {
+          <SectionSearchBar
+            value={portalAccountSearchQuery}
+            onChange={setPortalAccountSearchQuery}
+            placeholder="Search portal accounts by name, email, role, permission, or club"
+            countLabel={`${filteredPortalAccounts.length} account${filteredPortalAccounts.length === 1 ? '' : 's'}`}
+          />
+
+          <CrudPortalAccountsTable records={filteredPortalAccounts} universities={scopedUniversities} clubs={scopedClubs} saving={saving} onChange={setPortalAccounts} onTogglePermission={togglePermissionForAccount} onToggleManagedClub={toggleManagedClubForAccount} onSave={(record) => runMutation(async () => {
                 await apiRequest(`/api/admin/accounts/${record.id}`, {
                     method: 'PATCH',
                     body: {
@@ -2179,123 +2313,254 @@ function SimpleCreateCard({ title, description, content, }) {
       <CardContent className="grid gap-3 md:grid-cols-3">{content}</CardContent>
     </Card>);
 }
+function SectionSearchBar({ value, onChange, placeholder, countLabel }) {
+    return (<div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative w-full sm:max-w-sm">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"/>
+        <Input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="pl-10"/>
+      </div>
+      {countLabel ? <Badge variant="outline" className="self-start sm:self-center">{countLabel}</Badge> : null}
+    </div>);
+}
+function SearchableMultiSelect({ title, description, items, selectedIds, onToggle, icon: Icon, placeholder = 'Search options', emptyLabel = 'No matches found.', }) {
+    const [isOpen, setIsOpen] = React.useState(false);
+    const [query, setQuery] = React.useState('');
+    const normalizedQuery = normalizeSearchValue(query);
+    const filteredItems = React.useMemo(() => items.filter((item) => matchesAnySearch(item, normalizedQuery, ['label', 'secondary'])), [items, normalizedQuery]);
+    const selectedItems = items.filter((item) => selectedIds.includes(item.id));
+    return (<div className="space-y-2 rounded-xl border border-border/60 bg-card/60 p-3">
+      <button type="button" onClick={() => setIsOpen((current) => !current)} className="flex w-full items-center justify-between gap-3 text-left">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">{title}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {selectedItems.length === 0
+                ? description
+                : `${selectedItems.length} selected${selectedItems.length <= 3 ? `: ${selectedItems.map((item) => item.label).join(', ')}` : ''}`}
+          </p>
+        </div>
+        <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', isOpen && 'rotate-180')}/>
+      </button>
+
+      {selectedItems.length > 0 ? (<div className="flex flex-wrap gap-1.5">
+          {selectedItems.map((item) => (<Badge key={item.id} variant="secondary" className="gap-1 pr-1.5">
+              {Icon ? <Icon className="h-3 w-3"/> : null}
+              <span className="max-w-[160px] truncate">{item.label}</span>
+              <button type="button" className="rounded-full p-0.5 text-muted-foreground hover:text-foreground" onClick={(event) => {
+                    event.stopPropagation();
+                    onToggle(item.id);
+                }}>
+                <X className="h-3 w-3"/>
+              </button>
+            </Badge>))}
+        </div>) : null}
+
+      {isOpen ? (<div className="space-y-2 rounded-xl border border-border/60 bg-background p-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"/>
+            <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={placeholder} className="pl-10"/>
+          </div>
+          <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
+            {filteredItems.length === 0 ? (<p className="px-2 py-3 text-sm text-muted-foreground">{emptyLabel}</p>) : (filteredItems.map((item) => {
+                const isSelected = selectedIds.includes(item.id);
+                return (<button key={item.id} type="button" onClick={() => onToggle(item.id)} className={cn('flex w-full items-start justify-between gap-3 rounded-lg px-3 py-2 text-left transition-colors', isSelected
+                        ? 'bg-primary/10 text-foreground'
+                        : 'hover:bg-muted')}>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{item.label}</p>
+                      {item.secondary ? <p className="mt-1 text-xs text-muted-foreground">{item.secondary}</p> : null}
+                    </div>
+                    <Badge variant={isSelected ? 'success' : 'outline'}>{isSelected ? 'Selected' : 'Add'}</Badge>
+                  </button>);
+            }))}
+          </div>
+        </div>) : null}
+    </div>);
+}
+function AutocompleteField({ value, onChange, onSelect, options, placeholder, emptyLabel = 'No matches found.', }) {
+    const normalizedValue = normalizeSearchValue(value);
+    const filteredOptions = React.useMemo(() => {
+        if (!normalizedValue) {
+            return options.slice(0, 6);
+        }
+        return options
+            .filter((option) => matchesAnySearch(option, normalizedValue, ['label', 'secondary', 'value', 'email']))
+            .slice(0, 6);
+    }, [normalizedValue, options]);
+    const [showSuggestions, setShowSuggestions] = React.useState(false);
+    return (<div className="relative">
+      <Input value={value} onChange={(event) => {
+            onChange(event.target.value);
+            setShowSuggestions(true);
+        }} onFocus={() => setShowSuggestions(true)} onBlur={() => {
+            window.setTimeout(() => setShowSuggestions(false), 120);
+        }} placeholder={placeholder}/>
+      {showSuggestions ? (<div className="absolute z-20 mt-2 w-full rounded-xl border border-border/70 bg-background p-2 shadow-lg">
+          {filteredOptions.length === 0 ? (<p className="px-2 py-3 text-sm text-muted-foreground">{emptyLabel}</p>) : (filteredOptions.map((option) => (<button key={option.id} type="button" onMouseDown={(event) => {
+                    event.preventDefault();
+                    onSelect(option);
+                    setShowSuggestions(false);
+                }} className="flex w-full flex-col rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted">
+                <span className="text-sm font-medium">{option.label}</span>
+                {option.secondary ? <span className="mt-1 text-xs text-muted-foreground">{option.secondary}</span> : null}
+              </button>)))}
+        </div>) : null}
+    </div>);
+}
 function CrudLinkTable({ records, universities, saving, onChange, onSave, onDelete, }) {
-    return (<CrudCard title="Manage Resource Links" description="Update portal links shown to students.">
-      <BaseCrudTable rows={records.map((record) => (<TableRow key={record.id}>
-            <TableCell className="space-y-2 min-w-[260px]">
-              <Input value={record.label} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, label: event.target.value } : item)))}/>
-              <select value={record.category} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, category: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
-                {resourceCategories.map((category) => (<option key={category} value={category}>{category}</option>))}
-              </select>
-            </TableCell>
-            <TableCell>
-              <select value={record.universityId} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, universityId: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
-                {universities.map((university) => (<option key={university.id} value={university.id}>{university.name}</option>))}
-              </select>
-            </TableCell>
-            <TableCell className="space-y-2 min-w-[340px]">
-              <Input value={record.href} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, href: event.target.value } : item)))}/>
-              <Input value={record.description} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, description: event.target.value } : item)))}/>
-            </TableCell>
-            <TableCell className="space-x-2">
-              <Button size="sm" variant="outline" disabled={saving} onClick={() => void onSave(record)}>Save</Button>
-              <Button size="sm" variant="destructive" disabled={saving} onClick={() => void onDelete(record.id)}>Delete</Button>
-            </TableCell>
-          </TableRow>))}/>
+    return (<CrudCard title="Manage Resource Links" description="Update portal links shown to students without the table overflow.">
+      <div className="space-y-3">
+        {records.length === 0 ? (<p className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
+            No resource links matched that search.
+          </p>) : (records.map((record) => (<div key={record.id} className="rounded-xl border border-border/60 bg-card/70 p-4">
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_220px]">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Input value={record.label} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, label: event.target.value } : item)))} placeholder="Link label"/>
+                  <select value={record.category} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, category: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                    {resourceCategories.map((category) => (<option key={category} value={category}>{category}</option>))}
+                  </select>
+                  <div className="md:col-span-2">
+                    <Input value={record.href} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, href: event.target.value } : item)))} placeholder="https://..."/>
+                  </div>
+                  <div className="md:col-span-2">
+                    <Input value={record.description} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, description: event.target.value } : item)))} placeholder="Description"/>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <select value={record.universityId} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, universityId: event.target.value } : item)))} className="h-11 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
+                    {universities.map((university) => (<option key={university.id} value={university.id}>{university.name}</option>))}
+                  </select>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" disabled={saving} onClick={() => void onSave(record)}>Save</Button>
+                    <Button size="sm" variant="destructive" disabled={saving} onClick={() => void onDelete(record.id)}>Delete</Button>
+                  </div>
+                </div>
+              </div>
+            </div>)))}
+      </div>
     </CrudCard>);
 }
-function CrudServiceTable({ records, universities, saving, onChange, onSave, onDelete, }) {
-    return (<CrudCard title="Manage Services" description="Control service status cards on student pages.">
-      <BaseCrudTable rows={records.map((record) => (<TableRow key={record.id}>
-            <TableCell className="space-y-2 min-w-[260px]">
-              <Input value={record.name} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, name: event.target.value } : item)))}/>
-              <select value={record.status} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, status: event.target.value } : item)))} className={cn('h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm', record.status === 'OPEN' ? 'text-emerald-600' : record.status === 'LIMITED' ? 'text-amber-600' : 'text-red-600')}>
-                {serviceStatuses.map((status) => (<option key={status} value={status}>{status}</option>))}
-              </select>
-            </TableCell>
-            <TableCell>
-              <select value={record.universityId} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, universityId: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
-                {universities.map((university) => (<option key={university.id} value={university.id}>{university.name}</option>))}
-              </select>
-            </TableCell>
-            <TableCell className="space-y-2 min-w-[300px]">
-              <Input value={record.hours} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, hours: event.target.value } : item)))}/>
-              <Input value={record.location} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, location: event.target.value } : item)))}/>
-              <Input value={record.directionsUrl} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, directionsUrl: event.target.value } : item)))}/>
-            </TableCell>
-            <TableCell className="space-x-2">
-              <Button size="sm" variant="outline" disabled={saving} onClick={() => void onSave(record)}>Save</Button>
-              <Button size="sm" variant="destructive" disabled={saving} onClick={() => void onDelete(record.id)}>Delete</Button>
-            </TableCell>
-          </TableRow>))}/>
-    </CrudCard>);
-}
-function CrudClubTable({ records, universities, saving, onChange, onSave, onDelete, }) {
-    return (<CrudCard title="Manage Clubs" description="Maintain clubs and organizations by university.">
-      <BaseCrudTable rows={records.map((record) => (<TableRow key={record.id}>
-            <TableCell className="space-y-2 min-w-[260px]">
-              <Input value={record.name} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, name: event.target.value } : item)))}/>
-              <Input value={record.category} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, category: event.target.value } : item)))}/>
-            </TableCell>
-            <TableCell>
-              <select value={record.universityId} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, universityId: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
-                {universities.map((university) => (<option key={university.id} value={university.id}>{university.name}</option>))}
-              </select>
-            </TableCell>
-            <TableCell className="space-y-2 min-w-[320px]">
-              <Input value={record.description} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, description: event.target.value } : item)))}/>
-              <Input value={record.contactEmail ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, contactEmail: event.target.value || null } : item)))} placeholder="Contact email"/>
-              <Input value={record.presidentName ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, presidentName: event.target.value || null } : item)))} placeholder="President name"/>
-              <Input value={record.presidentEmail ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, presidentEmail: event.target.value || null } : item)))} placeholder="President email(s)"/>
-              <Input value={record.advisorName ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, advisorName: event.target.value || null } : item)))} placeholder="Advisor name"/>
-              <Input value={record.advisorEmail ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, advisorEmail: event.target.value || null } : item)))} placeholder="Advisor email(s)"/>
-              <Input value={record.publicContactInfo ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, publicContactInfo: event.target.value || null } : item)))} placeholder="Public contact listing"/>
-              <Input value={record.sourceUrls ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, sourceUrls: event.target.value || null } : item)))} placeholder="Source URL(s)"/>
-              <Input value={record.importNotes ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, importNotes: event.target.value || null } : item)))} placeholder="Import notes"/>
-              <Input value={record.websiteUrl ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, websiteUrl: event.target.value || null } : item)))} placeholder="Website"/>
-              <Input value={record.meetingInfo ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, meetingInfo: event.target.value || null } : item)))} placeholder="Meeting info"/>
-            </TableCell>
-            <TableCell className="space-x-2">
-              <Button size="sm" variant="outline" disabled={saving} onClick={() => void onSave(record)}>Save</Button>
-              <Button size="sm" variant="destructive" disabled={saving} onClick={() => void onDelete(record.id)}>Delete</Button>
-            </TableCell>
-          </TableRow>))}/>
+function CrudClubTable({ records, universities, saving, onChange, onSave, onDelete, advisorOptions = [], studentOptions = [], }) {
+    return (<CrudCard title="Manage Clubs" description="Compact club cards with searchable advisor and president lookups.">
+      <div className="space-y-3">
+        {records.length === 0 ? (<p className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
+            No clubs matched that search.
+          </p>) : (records.map((record) => (<details key={record.id} className="group rounded-xl border border-border/60 bg-card/70 p-4">
+              <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">{record.name}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {[record.category, record.advisorName, record.meetingInfo].filter(Boolean).join(' · ') || 'No additional details yet'}
+                  </p>
+                </div>
+                <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"/>
+              </summary>
+              <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Input value={record.name} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, name: event.target.value } : item)))} placeholder="Club name"/>
+                  <Input value={record.category} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, category: event.target.value } : item)))} placeholder="Category"/>
+                  <div className="md:col-span-2">
+                    <Input value={record.description} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, description: event.target.value } : item)))} placeholder="Description"/>
+                  </div>
+                  <Input value={record.contactEmail ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, contactEmail: event.target.value || null } : item)))} placeholder="Contact email"/>
+                  <Input value={record.presidentName ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, presidentName: event.target.value || null } : item)))} placeholder="President name"/>
+                  <AutocompleteField
+                    value={record.presidentEmail ?? ''}
+                    onChange={(value) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, presidentEmail: value || null } : item)))}
+                    onSelect={(option) => onChange((current) => current.map((item) => (item.id === record.id ? {
+                            ...item,
+                            presidentName: option.label,
+                            presidentEmail: option.email,
+                        } : item)))}
+                    options={studentOptions}
+                    placeholder="President email (search student accounts)"
+                    emptyLabel="No matching student accounts"
+                  />
+                  <AutocompleteField
+                    value={record.advisorName ?? ''}
+                    onChange={(value) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, advisorName: value || null } : item)))}
+                    onSelect={(option) => onChange((current) => current.map((item) => (item.id === record.id ? {
+                            ...item,
+                            advisorName: option.label,
+                            advisorEmail: option.email,
+                        } : item)))}
+                    options={advisorOptions}
+                    placeholder="Advisor name (search faculty)"
+                    emptyLabel="No matching faculty accounts"
+                  />
+                  <Input value={record.advisorEmail ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, advisorEmail: event.target.value || null } : item)))} placeholder="Advisor email"/>
+                  <Input value={record.meetingInfo ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, meetingInfo: event.target.value || null } : item)))} placeholder="Meeting info"/>
+                  <Input value={record.websiteUrl ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, websiteUrl: event.target.value || null } : item)))} placeholder="Website URL"/>
+                  <Input value={record.publicContactInfo ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, publicContactInfo: event.target.value || null } : item)))} placeholder="Public contact listing"/>
+                  <Input value={record.sourceUrls ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, sourceUrls: event.target.value || null } : item)))} placeholder="Source URL(s)"/>
+                  <div className="md:col-span-2">
+                    <Input value={record.importNotes ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, importNotes: event.target.value || null } : item)))} placeholder="Import notes"/>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <select value={record.universityId} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, universityId: event.target.value } : item)))} className="h-11 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
+                    {universities.map((university) => (<option key={university.id} value={university.id}>{university.name}</option>))}
+                  </select>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" disabled={saving} onClick={() => void onSave(record)}>Save</Button>
+                    <Button size="sm" variant="destructive" disabled={saving} onClick={() => void onDelete(record.id)}>Delete</Button>
+                  </div>
+                </div>
+              </div>
+            </details>)))}
+      </div>
     </CrudCard>);
 }
 function CrudEventTable({ records, universities, saving, onChange, onSave, onDelete, }) {
-    return (<CrudCard title="Manage Events" description="Edit event data visible in student event discovery.">
-      <BaseCrudTable rows={records.map((record) => (<TableRow key={record.id}>
-            <TableCell className="space-y-2 min-w-[280px]">
-              <Input value={record.title} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, title: event.target.value } : item)))}/>
-              <Input value={record.description} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, description: event.target.value } : item)))}/>
-              <Input value={record.organizer} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, organizer: event.target.value } : item)))}/>
-            </TableCell>
-            <TableCell className="space-y-2 min-w-[220px]">
-              <select value={record.universityId ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, universityId: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
-                {universities.map((university) => (<option key={university.id} value={university.id}>{university.name}</option>))}
-              </select>
-              <Input type="datetime-local" value={formatDateTimeInput(record.date)} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, date: new Date(event.target.value).toISOString() } : item)))}/>
-              <Input value={record.time} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, time: event.target.value } : item)))}/>
-              <Input value={record.location} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, location: event.target.value } : item)))}/>
-            </TableCell>
-            <TableCell className="space-y-2">
-              <select value={record.category} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, category: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
-                {eventCategories.map((category) => (<option key={category} value={category}>{category}</option>))}
-              </select>
-              <select value={record.audience ?? 'ALL_CAMPUS'} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, audience: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
-                {eventAudienceOptions.map((audience) => (<option key={audience} value={audience}>{eventAudienceLabels[audience]}</option>))}
-              </select>
-              <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                <input type="checkbox" checked={record.isPublished} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, isPublished: event.target.checked } : item)))}/>
-                Published
-              </label>
-              <Badge variant={record.isPublished ? 'success' : 'secondary'}>{record.isPublished ? 'Live' : 'Draft'}</Badge>
-            </TableCell>
-            <TableCell className="space-x-2">
-              <Button size="sm" variant="outline" disabled={saving || !record.universityId} onClick={() => void onSave(record)}>Save</Button>
-              <Button size="sm" variant="destructive" disabled={saving} onClick={() => void onDelete(record.id)}>Delete</Button>
-            </TableCell>
-          </TableRow>))}/>
+    return (<CrudCard title="Manage Events" description="Searchable event cards. Expired events are cleaned out automatically before this list loads.">
+      <div className="space-y-3">
+        {records.length === 0 ? (<p className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
+            No events matched that search.
+          </p>) : (records.map((record) => (<details key={record.id} className="group rounded-xl border border-border/60 bg-card/70 p-4">
+              <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">{record.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {[new Date(record.date).toLocaleDateString(), record.time, record.location].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={record.isPublished ? 'success' : 'secondary'}>{record.isPublished ? 'Live' : 'Draft'}</Badge>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180"/>
+                </div>
+              </summary>
+              <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Input value={record.title} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, title: event.target.value } : item)))}/>
+                  <Input value={record.organizer} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, organizer: event.target.value } : item)))}/>
+                  <div className="md:col-span-2">
+                    <Input value={record.description} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, description: event.target.value } : item)))}/>
+                  </div>
+                  <Input type="datetime-local" value={formatDateTimeInput(record.date)} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, date: new Date(event.target.value).toISOString() } : item)))}/>
+                  <Input value={record.time} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, time: event.target.value } : item)))}/>
+                  <Input value={record.location} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, location: event.target.value } : item)))}/>
+                  <select value={record.category} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, category: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                    {eventCategories.map((category) => (<option key={category} value={category}>{category}</option>))}
+                  </select>
+                  <select value={record.audience ?? 'ALL_CAMPUS'} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, audience: event.target.value } : item)))} className="h-11 min-h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                    {eventAudienceOptions.map((audience) => (<option key={audience} value={audience}>{eventAudienceLabels[audience]}</option>))}
+                  </select>
+                </div>
+                <div className="space-y-3">
+                  <select value={record.universityId ?? ''} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, universityId: event.target.value } : item)))} className="h-11 min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
+                    {universities.map((university) => (<option key={university.id} value={university.id}>{university.name}</option>))}
+                  </select>
+                  <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                    <input type="checkbox" checked={record.isPublished} onChange={(event) => onChange((current) => current.map((item) => (item.id === record.id ? { ...item, isPublished: event.target.checked } : item)))}/>
+                    Published
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" disabled={saving || !record.universityId} onClick={() => void onSave(record)}>Save</Button>
+                    <Button size="sm" variant="destructive" disabled={saving} onClick={() => void onDelete(record.id)}>Delete</Button>
+                  </div>
+                </div>
+              </div>
+            </details>)))}
+      </div>
     </CrudCard>);
 }
 function CrudPortalAccountsTable({ records, universities, clubs, saving, onChange, onTogglePermission, onToggleManagedClub, onSave, onDelete, }) {

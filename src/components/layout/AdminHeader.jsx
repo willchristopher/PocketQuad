@@ -20,10 +20,6 @@ const tabConfig = {
         title: 'Resource Links',
         subtitle: 'Maintain external links shown in student directories.',
     },
-    services: {
-        title: 'Services',
-        subtitle: 'Update service status cards and directions links.',
-    },
     clubs: {
         title: 'Clubs & Orgs',
         subtitle: 'Manage campus organizations by university.',

@@ -102,8 +102,8 @@ const studentPageMeta = {
     description: 'Course deadlines, upcoming events, and schedule context in one organized timeline.',
   },
   campusMap: {
-    title: 'Campus Map & Services',
-    description: 'Find buildings, service health, and operational updates without hunting around.',
+    title: 'Campus Map',
+    description: 'Find buildings, locations, and campus spaces without hunting around.',
   },
   chatroom: {
     title: 'Campus Chat',
@@ -193,7 +193,6 @@ export function isStudentPathActive(pathname, href) {
   return (
     pathname === href ||
     pathname?.startsWith(`${href}/`) ||
-    (href === '/dashboard' && pathname === '/') ||
-    (href === '/campus-map' && pathname === '/services-status')
+    (href === '/dashboard' && pathname === '/')
   )
 }

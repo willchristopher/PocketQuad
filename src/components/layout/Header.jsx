@@ -66,8 +66,21 @@ export function Header() {
             <SheetContent side="left" className="w-[320px] border-r border-border/70 bg-background p-0">
               <div className="flex h-full flex-col">
                 <div className="border-b border-border/70 px-5 py-5">
-                  <p className="text-sm font-medium text-muted-foreground">{universityName ?? 'Murray State University'}</p>
-                  <p className="mt-2 font-display text-3xl leading-none text-foreground">Navigation</p>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setSheetOpen(false)}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/70 bg-card/70 p-1.5 shadow-surface transition-all hover:border-primary/25 hover:bg-card"
+                    aria-label="PocketQuad dashboard"
+                  >
+                    <Image
+                      src="/transparentlogo.png"
+                      alt="PocketQuad logo"
+                      width={28}
+                      height={28}
+                      className="h-7 w-7 object-contain"
+                      priority
+                    />
+                  </Link>
                 </div>
 
                 <nav className="flex-1 overflow-y-auto px-4 py-4">
