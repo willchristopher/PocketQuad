@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { differenceInCalendarDays } from 'date-fns';
 import { CalendarClock, Compass, ExternalLink, Flag, Heart, Newspaper, Star } from 'lucide-react';
 import { BentoGrid, BentoWidget } from '@/components/dashboard/BentoGrid';
 import { NotificationWidget } from '@/components/dashboard/NotificationWidget';
@@ -9,7 +10,7 @@ import { dashboardModulesToPreferences } from '@/lib/studentData';
 import { getStudentFacingFacultyAvailabilityTone } from '@/lib/faculty';
 import { useStudentPageVisibility } from '@/hooks/useStudentPageVisibility';
 import { useAuth } from '@/lib/auth/context';
-import { cn } from '@/lib/utils';
+import { cn, formatEnumLabel } from '@/lib/utils';
 
 function formatDate(value) {
   return new Intl.DateTimeFormat(undefined, {
@@ -54,12 +55,25 @@ function getPinnedBuildingSubtitle(building) {
   }
   return `${building.type} · ${statusLabel}`;
 }
+function formatDaysLeft(value) {
+  const dueDate = new Date(value);
+  dueDate.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-const priorityColors = {
-  HIGH: 'bg-red-500/10 text-red-600 dark:text-red-400',
-  MEDIUM: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  LOW: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-};
+  const daysLeft = differenceInCalendarDays(dueDate, today);
+
+  if (daysLeft < 0) {
+    return 'Overdue';
+  }
+  if (daysLeft === 0) {
+    return 'Due today';
+  }
+  if (daysLeft === 1) {
+    return '1 day left';
+  }
+  return `${daysLeft} days left`;
+}
 
 const statusColors = {
   OPEN: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
@@ -166,10 +180,8 @@ export function StudentDashboard({ initialOverview }) {
                         <>
                           <div className="flex items-start justify-between gap-2">
                             <p className="text-sm font-semibold">{deadline.title}</p>
-                            <span
-                              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${priorityColors[deadline.priority] ?? 'bg-muted text-muted-foreground'}`}
-                            >
-                              {deadline.priority}
+                            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-foreground">
+                              {formatDaysLeft(deadline.dueDate)}
                             </span>
                           </div>
                           <p className="mt-0.5 text-xs text-muted-foreground">{deadline.course}</p>
@@ -346,7 +358,7 @@ export function StudentDashboard({ initialOverview }) {
                 >
                   <p className="line-clamp-1 text-sm font-semibold">{item.label}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {item.category.replaceAll('_', ' ')}
+                    {formatEnumLabel(item.category)}
                   </p>
                 </a>
               ))
@@ -370,7 +382,7 @@ export function StudentDashboard({ initialOverview }) {
               initialOverview.pinnedClubs.map((club) => (
                 <Link key={club.id} href="/clubs" className={cn('block', listItemClassName)}>
                   <p className="text-sm font-semibold">{club.name}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{club.category}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{formatEnumLabel(club.category)}</p>
                 </Link>
               ))
             )}

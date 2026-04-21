@@ -9,11 +9,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { NotificationBadge } from '@/components/notifications/NotificationBadge';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
-  getNextThemeMode,
-  getThemeModeLabel,
-  renderThemeModeIcon,
-} from '@/components/layout/layoutUtils';
-import {
   getStudentNavigationSections,
   getStudentSecondaryNavigationItems,
   getStudentPageMeta,
@@ -30,9 +25,8 @@ export function Header() {
   const router = useRouter();
   const { signOut } = useAuth();
   const { disabledStudentPages, isPageVisible } = useStudentPageVisibility();
-  const { themeMode, setThemeMode, universityName } = useUniversityTheme();
+  const { universityName } = useUniversityTheme();
   const { unreadCount } = useUnreadNotificationCount();
-  const [mounted, setMounted] = React.useState(false);
   const [sheetOpen, setSheetOpen] = React.useState(false);
 
   const page = getStudentPageMeta(pathname);
@@ -48,19 +42,12 @@ export function Header() {
     () => getStudentSecondaryNavigationItems(disabledStudentPages),
     [disabledStudentPages],
   );
-  React.useEffect(() => setMounted(true), []);
 
   const handleSignOut = async () => {
     setSheetOpen(false);
     await signOut();
     router.push('/login');
   };
-
-  const cycleTheme = () => {
-    setThemeMode(getNextThemeMode(themeMode));
-  };
-
-  const themeLabel = getThemeModeLabel({ mounted, themeMode });
   const showDashboardBrand = pathname === '/' || pathname === '/dashboard';
 
   return (
@@ -174,17 +161,6 @@ export function Header() {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={cycleTheme}
-            className="flex h-11 items-center gap-2 rounded-full border border-border/70 bg-card/70 px-3 text-sm font-medium text-muted-foreground transition-all hover:border-primary/25 hover:bg-card hover:text-foreground"
-            aria-label={`Theme: ${themeLabel}`}
-            title={themeLabel}
-          >
-            {renderThemeModeIcon({ mounted, themeMode, className: 'h-[18px] w-[18px]' })}
-            <span className="hidden md:inline">{themeLabel}</span>
-          </button>
-
           {isPageVisible('notifications') ? (
             <Link
               href="/notifications"
