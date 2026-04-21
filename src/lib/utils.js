@@ -10,6 +10,18 @@ export function capitalizeInitial(value) {
     }
     return `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}`;
 }
+export function formatEnumLabel(value) {
+    const normalized = String(value ?? "").trim();
+    if (!normalized) {
+        return "";
+    }
+    return normalized
+        .toLowerCase()
+        .split(/[_\s]+/)
+        .filter(Boolean)
+        .map((part) => capitalizeInitial(part))
+        .join(" ");
+}
 export function formatDateTimeLocalInput(value) {
     const date = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(date.getTime())) {

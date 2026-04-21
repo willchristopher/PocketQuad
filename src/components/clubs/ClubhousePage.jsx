@@ -28,7 +28,7 @@ import { Input } from '@/components/ui/input';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth/context';
 import { useUniversityTheme } from '@/lib/theme';
-import { cn } from '@/lib/utils';
+import { cn, formatEnumLabel } from '@/lib/utils';
 
 const ALL_CLUBS_FILTER = 'All clubs';
 
@@ -68,13 +68,6 @@ function getSingleEmail(value) {
   const matches = normalized.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [];
 
   return matches.length === 1 ? matches[0] : null;
-}
-
-function parseSourceLinks(value) {
-  return String(value ?? '')
-    .split(';')
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 function ContactLine({ label, name, email, text }) {
@@ -119,14 +112,10 @@ function ClubContactDetails({ club }) {
     !club.advisorName &&
     !club.advisorEmail &&
     !club.publicContactInfo &&
-    !club.contactEmail &&
-    !club.sourceUrls &&
-    !club.importNotes
+    !club.contactEmail
   ) {
     return null;
   }
-
-  const sourceLinks = parseSourceLinks(club.sourceUrls);
 
   return (
     <div className="mt-4 space-y-3 rounded-xl border border-border/60 bg-muted/15 p-4">
@@ -145,35 +134,6 @@ function ClubContactDetails({ club }) {
         email={club.publicContactInfo ? null : club.contactEmail}
         text={club.publicContactInfo}
       />
-      {sourceLinks.length > 0 ? (
-        <div className="grid gap-1 sm:grid-cols-[112px_minmax(0,1fr)] sm:gap-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Sources
-          </p>
-          <div className="space-y-1 text-sm">
-            {sourceLinks.map((href) => (
-              <a
-                key={href}
-                href={href}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex max-w-full items-center gap-1.5 text-primary underline-offset-4 hover:underline"
-              >
-                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{href}</span>
-              </a>
-            ))}
-          </div>
-        </div>
-      ) : null}
-      {club.importNotes ? (
-        <div className="grid gap-1 sm:grid-cols-[112px_minmax(0,1fr)] sm:gap-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Notes
-          </p>
-          <p className="text-sm leading-6 text-muted-foreground">{club.importNotes}</p>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -184,8 +144,8 @@ function DirectoryRow({ club, isFollowed, onToggleInterest, saving }) {
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-lg font-semibold text-foreground">{club.name}</h3>
-          <Badge variant="subtle" className="rounded-full px-3 py-1 text-[10px] tracking-[0.16em]">
-            {club.category}
+          <Badge variant="subtle" className="rounded-full px-3 py-1 text-[10px] normal-case tracking-normal">
+            {formatEnumLabel(club.category)}
           </Badge>
           {isFollowed ? (
             <Badge variant="section" className="rounded-full px-3 py-1 text-[10px] tracking-[0.16em]">
@@ -640,9 +600,9 @@ export default function ClubhousePage({ initialClubs = null }) {
                   <Button
                     type="button"
                     variant="outline"
-                    className="rounded-full border-border/70 bg-card text-xs font-semibold uppercase tracking-[0.16em] text-foreground"
+                    className="rounded-full border-border/70 bg-card text-xs font-semibold text-foreground"
                   >
-                    {activeCategory === ALL_CLUBS_FILTER ? 'All tags' : activeCategory}
+                    {activeCategory === ALL_CLUBS_FILTER ? 'All tags' : formatEnumLabel(activeCategory)}
                     <ChevronDown className="h-3.5 w-3.5" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -656,7 +616,7 @@ export default function ClubhousePage({ initialClubs = null }) {
                         activeCategory === category ? 'bg-accent text-accent-foreground' : '',
                       )}
                     >
-                      <span>{category === ALL_CLUBS_FILTER ? 'All tags' : category}</span>
+                      <span>{category === ALL_CLUBS_FILTER ? 'All tags' : formatEnumLabel(category)}</span>
                       {category !== ALL_CLUBS_FILTER ? (
                         <span className="text-xs text-muted-foreground">
                           {categorySummary.find((item) => item.label === category)?.count ?? 0}
@@ -780,9 +740,9 @@ export default function ClubhousePage({ initialClubs = null }) {
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge
                           variant="subtle"
-                          className="rounded-full px-3 py-1 text-[10px] tracking-[0.16em]"
+                          className="rounded-full px-3 py-1 text-[10px] normal-case tracking-normal"
                         >
-                          {activeMatchCard.club.category}
+                          {formatEnumLabel(activeMatchCard.club.category)}
                         </Badge>
                         <span className="text-xs text-muted-foreground">
                           {matchRemaining} suggestion{matchRemaining === 1 ? '' : 's'} left

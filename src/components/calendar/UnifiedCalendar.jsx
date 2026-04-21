@@ -1,10 +1,11 @@
 'use client';
 import React from 'react';
 import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, isToday, startOfMonth, startOfWeek, subMonths, } from 'date-fns';
-import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { apiRequest, ApiClientError } from '@/lib/api/client';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
-import { cn } from '@/lib/utils';
+import { cn, formatEnumLabel } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 const entryColor = {
     Event: 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300',
@@ -18,6 +19,12 @@ function matchesFilter(entry, filter) {
         return entry.kind === filter;
     }
     return entry.category === filter;
+}
+function getFilterLabel(filter) {
+    if (filter === 'All' || filter === 'Event' || filter === 'Deadline' || filter === 'Personal') {
+        return filter;
+    }
+    return formatEnumLabel(filter);
 }
 export function UnifiedCalendar() {
     const [currentMonth, setCurrentMonth] = React.useState(new Date());
@@ -54,7 +61,7 @@ export function UnifiedCalendar() {
                     
                     if (event.eventType === 'DEADLINE') {
                         kind = 'Deadline';
-                        category = event.priority || 'MEDIUM';
+                        category = 'Deadline';
                         locationOrSource = event.course || 'Academic';
                     } else if (event.eventType === 'CAMPUS_EVENT') {
                         kind = 'Event';
@@ -101,7 +108,7 @@ export function UnifiedCalendar() {
             }, [loadEntries]);
     const filterOptions = React.useMemo(() => {
         const categories = Array.from(new Set(entries.map((entry) => entry.category))).sort();
-        return ['All', 'Event', 'Deadline', 'Personal', ...categories];
+        return Array.from(new Set(['All', 'Event', 'Deadline', 'Personal', ...categories]));
     }, [entries]);
     const getOptionCount = React.useCallback((option) => entries.filter((entry) => matchesFilter(entry, option)).length, [entries]);
     const filteredEntries = entries.filter((entry) => {
@@ -165,36 +172,29 @@ export function UnifiedCalendar() {
           </div>
         </div>
 
-        <div className="flex gap-1 overflow-x-auto pb-2 scrollbar-hide">
-          {filterOptions.map((option) => {
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" className="inline-flex items-center gap-2 self-start rounded-full border border-border/60 bg-card/80 px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-primary/30 hover:bg-card">
+              <span>{getFilterLabel(activeFilter)}</span>
+              <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-muted px-1.5 py-0.5 text-[10px]">
+                {getOptionCount(activeFilter)}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground"/>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            {filterOptions.map((option) => {
             const isActive = activeFilter === option;
-            const eventCount = getOptionCount(option);
-            
-            return (
-              <button 
-                key={option} 
-                onClick={() => setActiveFilter(option)}
-                title={`${option}${eventCount > 0 ? ` (${eventCount})` : ''}`}
-                className={cn(
-                  'flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-200',
-                  isActive
-                    ? 'border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20'
-                    : 'border-border/60 text-muted-foreground hover:border-primary/40 hover:bg-muted/60'
-                )}
-              >
-                <span>{option}</span>
-                {eventCount > 0 && (
-                  <span className={cn(
-                    'inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
-                    isActive ? 'bg-primary-foreground/30' : 'bg-muted'
-                  )}>
-                    {eventCount}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+            return (<DropdownMenuItem key={option} onClick={() => setActiveFilter(option)} className="flex items-center justify-between gap-3">
+                <span>{getFilterLabel(option)}</span>
+                <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {getOptionCount(option)}
+                  {isActive ? <Check className="h-3.5 w-3.5 text-foreground"/> : null}
+                </span>
+              </DropdownMenuItem>);
+        })}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {error && (<div className="px-4 pt-3">
@@ -345,7 +345,7 @@ export function UnifiedCalendar() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <p className="text-sm font-semibold leading-tight">{entry.title}</p>
-                        <p className="mt-1 text-xs opacity-75">{entry.kind} • {entry.category}</p>
+                        <p className="mt-1 text-xs opacity-75">{entry.kind} • {getFilterLabel(entry.category)}</p>
                       </div>
                       <span className={cn('whitespace-nowrap rounded-full px-2 py-1 text-xs font-semibold', 
                         entry.kind === 'Event' && 'bg-blue-500/20 text-blue-700 dark:text-blue-300',
