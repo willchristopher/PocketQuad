@@ -1,0 +1,2 @@
+-- No schema changes are required for dormant account status.
+-- The feature derives account status from existing user fields.

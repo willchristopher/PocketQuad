@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { readResourceLinkIds } from '@/lib/resourceLinkPreferences';
 import { canAccessAdminPortal, hasAnyPortalPermission, hasPortalPermission, resolvePortalPermissions, } from '@/lib/auth/portalPermissions';
 import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server';
@@ -80,35 +81,27 @@ function buildAuthenticatedProfileSelect(options, mode = 'full') {
         : mode === 'compat'
             ? BASE_PROFILE_SELECT_COMPAT
             : BASE_PROFILE_SELECT_LEGACY;
+    const preferenceSelect = mode === 'legacy'
+        ? undefined
+        : {
+            officeHourChanges: true,
+            newEvents: true,
+            eventReminders: true,
+            deadlineReminders: true,
+            emailDigest: true,
+            pushEnabled: true,
+            theme: true,
+            buildingAlerts: true,
+            buildingIds: true,
+            clubInterestIds: true,
+            dashboardModules: true,
+        };
     return {
         ...baseSelect,
-        ...(options.includePreferences
+        ...(options.includePreferences && preferenceSelect
             ? {
                 notificationPreferences: {
-                    select: mode === 'full'
-                        ? {
-                            officeHourChanges: true,
-                            newEvents: true,
-                            eventReminders: true,
-                            deadlineReminders: true,
-                            emailDigest: true,
-                            pushEnabled: true,
-                            theme: true,
-                            buildingAlerts: true,
-                            buildingIds: true,
-                            resourceLinkIds: true,
-                            clubInterestIds: true,
-                            dashboardModules: true,
-                        }
-                        : {
-                            officeHourChanges: true,
-                            newEvents: true,
-                            eventReminders: true,
-                            deadlineReminders: true,
-                            emailDigest: true,
-                            pushEnabled: true,
-                            theme: true,
-                        },
+                    select: preferenceSelect,
                 },
             }
             : {}),
@@ -272,6 +265,15 @@ export async function getAuthenticatedUser(options = {}) {
     }
     if (!profile) {
         throw new ApiError(404, 'User profile not found');
+    }
+    if (options.includePreferences && profile.notificationPreferences) {
+        profile = {
+            ...profile,
+            notificationPreferences: {
+                ...profile.notificationPreferences,
+                resourceLinkIds: await readResourceLinkIds(profile.id),
+            },
+        };
     }
     const normalizedProfile = normalizeAuthenticatedProfile(profile, options);
     if (!options.allowUnverified && !normalizedProfile.emailVerified) {

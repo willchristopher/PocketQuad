@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { CheckCheck, X } from 'lucide-react'
 
 import { NotificationBadge } from '@/components/notifications/NotificationBadge'
 import { useNotificationInbox } from '@/hooks/useNotifications'
@@ -19,11 +18,7 @@ export function NotificationWidget() {
     loading,
     error,
     updatingId,
-    clearingId,
-    markingAll,
     markRead,
-    clearNotification,
-    markAllRead,
   } = useNotificationInbox({ limit: 4 })
 
   return (
@@ -34,17 +29,6 @@ export function NotificationWidget() {
           <NotificationBadge count={unreadCount} />
         </div>
 
-        {unreadCount > 0 ? (
-          <button
-            type="button"
-            onClick={() => void markAllRead()}
-            disabled={markingAll}
-            className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary transition-colors hover:border-primary/25 hover:bg-muted disabled:opacity-60"
-          >
-            <CheckCheck className="h-3.5 w-3.5" />
-            {markingAll ? 'Updating...' : 'Mark all read'}
-          </button>
-        ) : null}
       </div>
 
       {error ? (
@@ -66,8 +50,7 @@ export function NotificationWidget() {
             const Icon = meta.icon
             const external = isExternalNotificationUrl(item.actionUrl)
             const isUpdating = updatingId === item.id
-            const isClearing = clearingId === item.id
-            const isPending = isUpdating || isClearing
+            const isPending = isUpdating
 
             const cardClassName = cn(
               'rounded-xl border px-4 py-3.5 transition-colors duration-200',
@@ -103,103 +86,49 @@ export function NotificationWidget() {
             )
 
             const actionClassName = 'block rounded-xl text-left transition-colors duration-200 hover:bg-muted'
+            const fallbackHref = '/notifications'
+            const targetHref = item.actionUrl || fallbackHref
 
-            if (item.actionUrl) {
-              if (external) {
-                return (
-                  <div key={item.id} className={cardClassName}>
-                    <div className="flex items-start gap-3">
-                      <a
-                        href={item.actionUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={() => {
-                          if (!item.read) {
-                            void markRead(item.id)
-                          }
-                        }}
-                        className={cn(actionClassName, 'min-w-0 flex-1')}
-                      >
-                        {content}
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => void clearNotification(item.id)}
-                        disabled={isClearing}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground disabled:opacity-60"
-                        aria-label={`Clear ${item.title}`}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                        {isClearing ? 'Clearing...' : 'Clear'}
-                      </button>
-                    </div>
-                  </div>
-                )
-              }
-
+            if (external) {
               return (
                 <div key={item.id} className={cardClassName}>
-                  <div className="flex items-start gap-3">
-                    <Link
-                      href={item.actionUrl}
-                      onClick={() => {
-                        if (!item.read) {
-                          void markRead(item.id)
-                        }
-                      }}
-                      className={cn(actionClassName, 'min-w-0 flex-1')}
-                    >
-                      {content}
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => void clearNotification(item.id)}
-                      disabled={isClearing}
-                      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground disabled:opacity-60"
-                      aria-label={`Clear ${item.title}`}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                      {isClearing ? 'Clearing...' : 'Clear'}
-                    </button>
-                  </div>
+                  <a
+                    href={targetHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => {
+                      if (!item.read) {
+                        void markRead(item.id)
+                      }
+                    }}
+                    className={cn(actionClassName, 'block min-w-0')}
+                    data-card-interactive="true"
+                  >
+                    {content}
+                  </a>
                 </div>
               )
             }
 
             return (
               <div key={item.id} className={cardClassName}>
-                <div className="flex items-start gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!item.read) {
-                        void markRead(item.id)
-                      }
-                    }}
-                    className={cn(actionClassName, 'min-w-0 flex-1')}
-                  >
-                    {content}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void clearNotification(item.id)}
-                    disabled={isClearing}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground disabled:opacity-60"
-                    aria-label={`Clear ${item.title}`}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    {isClearing ? 'Clearing...' : 'Clear'}
-                  </button>
-                </div>
+                <Link
+                  href={targetHref}
+                  onClick={() => {
+                    if (!item.read) {
+                      void markRead(item.id)
+                    }
+                  }}
+                  className={cn(actionClassName, 'block min-w-0')}
+                  data-card-interactive="true"
+                >
+                  {content}
+                </Link>
               </div>
             )
           })}
         </div>
       )}
-
-      <Link href="/notifications" className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-primary transition-colors hover:text-primary/80">
-        Open full inbox
-      </Link>
     </div>
   )
 }

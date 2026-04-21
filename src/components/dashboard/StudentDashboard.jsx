@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { CalendarClock, Compass, ExternalLink, Flag, Heart, MapPinned, Newspaper, Star } from 'lucide-react';
+import { CalendarClock, Compass, ExternalLink, Flag, Heart, Newspaper, Star } from 'lucide-react';
 import { BentoGrid, BentoWidget } from '@/components/dashboard/BentoGrid';
 import { NotificationWidget } from '@/components/dashboard/NotificationWidget';
 import { dashboardModulesToPreferences } from '@/lib/studentData';
@@ -161,22 +161,38 @@ export function StudentDashboard({ initialOverview }) {
                   {initialOverview.upcomingDeadlines.length === 0 ? (
                     <p className={emptyStateClassName}>No upcoming deadlines</p>
                   ) : (
-                    initialOverview.upcomingDeadlines.map((deadline) => (
-                      <div key={deadline.id} className={listItemClassName}>
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-semibold">{deadline.title}</p>
-                          <span
-                            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${priorityColors[deadline.priority] ?? 'bg-muted text-muted-foreground'}`}
-                          >
-                            {deadline.priority}
-                          </span>
+                    initialOverview.upcomingDeadlines.map((deadline) => {
+                      const content = (
+                        <>
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-semibold">{deadline.title}</p>
+                            <span
+                              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${priorityColors[deadline.priority] ?? 'bg-muted text-muted-foreground'}`}
+                            >
+                              {deadline.priority}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{deadline.course}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Due {formatDue(deadline.dueDate)}
+                          </p>
+                        </>
+                      );
+
+                      return deadline.href ? (
+                        <Link
+                          key={deadline.id}
+                          href={deadline.href}
+                          className={cn('block', listItemClassName)}
+                        >
+                          {content}
+                        </Link>
+                      ) : (
+                        <div key={deadline.id} className={listItemClassName}>
+                          {content}
                         </div>
-                        <p className="mt-0.5 text-xs text-muted-foreground">{deadline.course}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          Due {formatDue(deadline.dueDate)}
-                        </p>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -187,7 +203,7 @@ export function StudentDashboard({ initialOverview }) {
 
       {dashboardPreferences.favorites ? (
         <BentoWidget
-          title="Pinned"
+          title="Pinned Places"
           icon={Star}
           span="medium"
           action={isPageVisible('profile') ? { label: 'Preferences', href: '/profile' } : undefined}
@@ -285,7 +301,13 @@ export function StudentDashboard({ initialOverview }) {
               <p className={emptyStateClassName}>No service data</p>
             ) : (
               initialOverview.serviceSnapshot.map((service) => (
-                <div key={service.id} className={listItemClassName}>
+                <a
+                  key={service.id}
+                  href={service.directionsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={cn('block', listItemClassName)}
+                >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-semibold">{service.name}</p>
                     <span
@@ -295,18 +317,9 @@ export function StudentDashboard({ initialOverview }) {
                     </span>
                   </div>
                   <p className="mt-0.5 text-xs text-muted-foreground">{service.hours}</p>
-                </div>
+                </a>
               ))
             )}
-            <div className="flex flex-wrap gap-3 pt-1">
-              <Link
-                href="/campus-map"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80"
-              >
-                <MapPinned className="h-3 w-3" />
-                Campus map
-              </Link>
-            </div>
           </div>
         </BentoWidget>
       ) : null}

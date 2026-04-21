@@ -1,22 +1,18 @@
 import { prisma } from '@/lib/prisma';
 import { getCurrentBuildingAvailability } from '@/lib/buildingHours';
 import { getStudentFacingFacultyAvailability, parseLegacyFacultyAvailability, summarizeFacultyOfficeHours, } from '@/lib/faculty';
+import { readResourceLinkIds } from '@/lib/resourceLinkPreferences';
 import { getActiveAnnouncementWhere, listUniversityAnnouncements } from '@/lib/server/announcements';
 import { listCampusBuildingsCompatible } from '@/lib/server/campusBuildings';
 import { isMissingDatabaseFieldError, isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
 import { getClubsCached, getCampusServicesCached, getResourceLinksCached } from '@/lib/server/universityData';
 
-export async function getDashboardOverview(profile) {
-  const universityId = profile.universityId ?? undefined;
-  const now = new Date();
-
-  let preferences;
+async function readNotificationPreferencesCompatible(userId) {
   try {
-    preferences = await prisma.notificationPreferences.findUnique({
-      where: { userId: profile.id },
+    return await prisma.notificationPreferences.findUnique({
+      where: { userId },
       select: {
         buildingIds: true,
-        resourceLinkIds: true,
         clubInterestIds: true,
       },
     });
@@ -24,18 +20,53 @@ export async function getDashboardOverview(profile) {
     if (!isPrismaSchemaCompatibilityError(error)) {
       throw error;
     }
+  }
 
-    preferences = await prisma.notificationPreferences.findUnique({
-      where: { userId: profile.id },
+  try {
+    return await prisma.notificationPreferences.findUnique({
+      where: { userId },
+      select: {
+        buildingIds: true,
+      },
+    });
+  } catch (error) {
+    if (!isPrismaSchemaCompatibilityError(error)) {
+      throw error;
+    }
+  }
+
+  try {
+    return await prisma.notificationPreferences.findUnique({
+      where: { userId },
       select: {
         buildingIds: true,
         clubInterestIds: true,
       },
     });
+  } catch (error) {
+    if (!isPrismaSchemaCompatibilityError(error)) {
+      throw error;
+    }
   }
 
+  return prisma.notificationPreferences.findUnique({
+    where: { userId },
+    select: {
+      buildingIds: true,
+    },
+  });
+}
+
+export async function getDashboardOverview(profile) {
+  const universityId = profile.universityId ?? undefined;
+  const now = new Date();
+
+  const [preferences, pinnedResourceLinkIds] = await Promise.all([
+    readNotificationPreferencesCompatible(profile.id),
+    readResourceLinkIds(profile.id),
+  ]);
+
   const pinnedBuildingIds = preferences?.buildingIds ?? [];
-  const pinnedResourceLinkIds = preferences?.resourceLinkIds ?? [];
   const pinnedClubIds = preferences?.clubInterestIds ?? [];
 
   const favoriteFacultyPromise = prisma.facultyFavorite.findMany({
@@ -317,6 +348,7 @@ export async function getDashboardOverview(profile) {
       course: deadline.course,
       priority: deadline.priority,
       dueDate: deadline.dueDate,
+      href: '/calendar',
     })),
     ...campusDeadlineEvents.map((event) => ({
       id: event.id,
@@ -324,6 +356,7 @@ export async function getDashboardOverview(profile) {
       course: event.organizer || event.location || 'Campus deadline',
       priority: 'MEDIUM',
       dueDate: event.date,
+      href: `/events/${event.id}`,
     })),
   ]
     .sort((left, right) => new Date(left.dueDate).getTime() - new Date(right.dueDate).getTime())

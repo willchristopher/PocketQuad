@@ -32,10 +32,6 @@ export default function ServicesStatusPage() {
         void loadServices();
     }, []);
     return (<div className="space-y-6">
-      <section className="animate-in-up">
-        <h1 className="font-display text-2xl font-extrabold tracking-tight md:text-3xl">Services status</h1>
-      </section>
-
       {error && (<p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-700 dark:text-red-300">
           {error}
         </p>)}
