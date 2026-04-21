@@ -252,12 +252,6 @@ export default function CampusMapPage({
 
   return (
     <div className="space-y-6">
-      <section className="animate-in-up">
-        <h1 className="font-display text-2xl font-extrabold tracking-tight md:text-3xl">
-          Campus map
-        </h1>
-      </section>
-
       {error ? (
         <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-700 dark:text-red-300">
           {error}
@@ -329,14 +323,14 @@ export default function CampusMapPage({
                     type="button"
                     onClick={() => setSelectedBuildingId(building.id)}
                     className={cn(
-                      'w-full rounded-xl border p-4 text-left transition-all',
+                      'w-full rounded-xl border px-4 py-3 text-left transition-all',
                       isSelected
                         ? 'border-primary/40 bg-primary/6 shadow-sm'
                         : 'border-border/60 bg-card hover:border-primary/20 hover:bg-muted/20',
                     )}
                   >
-                    <div className="space-y-3">
-                      <div className="space-y-2">
+                    <div className="space-y-2.5">
+                      <div className="space-y-1.5">
                         <p className="text-base font-semibold leading-tight text-foreground">
                           {building.name}
                         </p>
@@ -353,24 +347,23 @@ export default function CampusMapPage({
                           >
                             {formatBuildingStatusPillLabel(building.operationalStatus)}
                           </Badge>
+                          {building.isFavorited ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                              <Star className="h-3.5 w-3.5 fill-current" />
+                              Saved
+                            </span>
+                          ) : null}
                         </div>
                       </div>
 
-                      {building.isFavorited ? (
-                        <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-[11px] font-semibold text-primary">
-                          <Star className="h-3.5 w-3.5 fill-current" />
-                          Saved to dashboard
-                        </div>
-                      ) : null}
-
-                      <p className="flex items-start gap-2 text-sm leading-6 text-muted-foreground">
-                        <MapPin className="mt-1 h-4 w-4 shrink-0" />
+                      <p className="flex items-start gap-2 text-sm leading-5 text-muted-foreground">
+                        <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
                         <span>{building.address}</span>
                       </p>
 
                       {building.currentOperationalLabel ? (
-                        <p className="flex items-start gap-2 text-sm leading-6 text-muted-foreground">
-                          <Clock3 className="mt-1 h-4 w-4 shrink-0" />
+                        <p className="flex items-start gap-2 text-sm leading-5 text-muted-foreground">
+                          <Clock3 className="mt-0.5 h-4 w-4 shrink-0" />
                           <span>
                             {building.currentOperationalLabel}
                             {building.currentOperationalDetail ? ` · ${building.currentOperationalDetail}` : ''}
@@ -379,7 +372,7 @@ export default function CampusMapPage({
                       ) : null}
 
                       {building.description ? (
-                        <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">
+                        <p className="line-clamp-2 text-sm leading-5 text-muted-foreground">
                           {building.description}
                         </p>
                       ) : null}

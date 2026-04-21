@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { canAccessAdminPortal } from '@/lib/auth/portalPermissions';
 import { getHomeForRole } from '@/lib/auth/routing';
+import { readResourceLinkIds } from '@/lib/resourceLinkPreferences';
 import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -36,7 +37,6 @@ const AUTH_SNAPSHOT_PROFILE_SELECT = {
   notificationPreferences: {
     select: {
       theme: true,
-      resourceLinkIds: true,
       dashboardModules: true,
     },
   },
@@ -48,6 +48,48 @@ const AUTH_SNAPSHOT_PROFILE_SELECT = {
       disabledStudentPages: true,
       themeMainColor: true,
       themeAccentColor: true,
+    },
+  },
+};
+
+const AUTH_SNAPSHOT_PROFILE_SELECT_COMPAT = {
+  id: true,
+  supabaseId: true,
+  universityId: true,
+  email: true,
+  displayName: true,
+  firstName: true,
+  lastName: true,
+  avatar: true,
+  role: true,
+  emailVerified: true,
+  onboardingComplete: true,
+  canPublishCampusAnnouncements: true,
+  adminAccessLevel: true,
+  portalPermissions: true,
+  managedClubs: {
+    select: {
+      clubId: true,
+      club: {
+        select: {
+          id: true,
+          universityId: true,
+          name: true,
+        },
+      },
+    },
+  },
+  notificationPreferences: {
+    select: {
+      theme: true,
+      dashboardModules: true,
+    },
+  },
+  university: {
+    select: {
+      id: true,
+      name: true,
+      domain: true,
     },
   },
 };
@@ -120,20 +162,30 @@ async function readAuthSnapshot() {
     if (!isPrismaSchemaCompatibilityError(error)) {
       throw error;
     }
-    const legacyProfile = await prisma.user.findFirst({
-      where,
-      select: AUTH_SNAPSHOT_PROFILE_SELECT_LEGACY,
-    });
-    profile = legacyProfile
-      ? {
-          ...legacyProfile,
-          adminAccessLevel: null,
-          portalPermissions: [],
-          managedClubs: [],
-          notificationPreferences: null,
-          university: null,
-        }
-      : null;
+    try {
+      profile = await prisma.user.findFirst({
+        where,
+        select: AUTH_SNAPSHOT_PROFILE_SELECT_COMPAT,
+      });
+    } catch (compatError) {
+      if (!isPrismaSchemaCompatibilityError(compatError)) {
+        throw compatError;
+      }
+      const legacyProfile = await prisma.user.findFirst({
+        where,
+        select: AUTH_SNAPSHOT_PROFILE_SELECT_LEGACY,
+      });
+      profile = legacyProfile
+        ? {
+            ...legacyProfile,
+            adminAccessLevel: null,
+            portalPermissions: [],
+            managedClubs: [],
+            notificationPreferences: null,
+            university: null,
+          }
+        : null;
+    }
   }
 
   if (!profile) {
@@ -145,6 +197,12 @@ async function readAuthSnapshot() {
   }
 
   const unreadNotificationCount = await countUnreadNotificationsCompatible(profile.id);
+  const notificationPreferences = profile.notificationPreferences
+    ? {
+        ...profile.notificationPreferences,
+        resourceLinkIds: await readResourceLinkIds(profile.id),
+      }
+    : null;
 
   return {
     session: {
@@ -156,6 +214,7 @@ async function readAuthSnapshot() {
     user: data.user,
     profile: {
       ...profile,
+      notificationPreferences,
       unreadNotificationCount,
     },
   };
