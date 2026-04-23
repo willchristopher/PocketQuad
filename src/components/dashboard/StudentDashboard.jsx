@@ -2,10 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { differenceInCalendarDays } from 'date-fns';
-import { CalendarClock, ExternalLink, Flag, Heart, Newspaper, Star } from 'lucide-react';
+import { CalendarClock, ExternalLink, Flag, Heart, MessageCircle, Newspaper, Star } from 'lucide-react';
 import { BentoGrid, BentoWidget } from '@/components/dashboard/BentoGrid';
-import { NotificationWidget } from '@/components/dashboard/NotificationWidget';
+import { ActiveAnnouncementsWidget } from '@/components/dashboard/ActiveAnnouncementsWidget';
 import { dashboardModulesToPreferences } from '@/lib/studentData';
 import { getStudentFacingFacultyAvailabilityTone } from '@/lib/faculty';
 import { useStudentPageVisibility } from '@/hooks/useStudentPageVisibility';
@@ -13,19 +12,21 @@ import { useAuth } from '@/lib/auth/context';
 import { cn, formatEnumLabel } from '@/lib/utils';
 
 function formatDate(value) {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
+    timeZone: 'America/Chicago',
   }).format(new Date(value));
 }
 
 function formatDue(value) {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: 'America/Chicago',
   }).format(new Date(value));
 }
 
@@ -57,11 +58,10 @@ function getPinnedBuildingSubtitle(building) {
 }
 function formatDaysLeft(value) {
   const dueDate = new Date(value);
-  dueDate.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const daysLeft = differenceInCalendarDays(dueDate, today);
+  const dueDateUtc = Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), dueDate.getUTCDate());
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const daysLeft = Math.floor((dueDateUtc - todayUtc) / (1000 * 60 * 60 * 24));
 
   if (daysLeft < 0) {
     return 'Overdue';
@@ -284,13 +284,13 @@ export function StudentDashboard({ initialOverview }) {
 
       {dashboardPreferences.news && isPageVisible('notifications') ? (
         <BentoWidget
-          title="Notifications"
+          title="Campus Announcements"
           icon={Newspaper}
           span="medium"
           action={{ label: 'Inbox', href: '/notifications' }}
           className="animate-in-up stagger-5 xl:col-start-9 xl:row-start-1"
         >
-          <NotificationWidget />
+          <ActiveAnnouncementsWidget announcements={initialOverview.campusNews} />
         </BentoWidget>
       ) : null}
 
@@ -347,6 +347,20 @@ export function StudentDashboard({ initialOverview }) {
           </div>
         </BentoWidget>
       ) : null}
+
+      <BentoWidget
+        title="Campus Chatroom"
+        icon={MessageCircle}
+        span="medium"
+        action={{ label: 'Join', href: '/chatroom' }}
+        asLink
+        className="animate-in-up stagger-8"
+      >
+        <div className="text-xs text-muted-foreground">
+          <p>Connect with your campus community in real-time.</p>
+          <p className="mt-2">Participate in channel discussions, share updates, and stay connected.</p>
+        </div>
+      </BentoWidget>
     </BentoGrid>
   );
 }

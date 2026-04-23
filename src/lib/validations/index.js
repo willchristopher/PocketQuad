@@ -1,5 +1,17 @@
 import { z } from 'zod';
 import { dashboardModuleIds } from '@/lib/studentData';
+export {
+  ANNOUNCEMENT_SCOPE,
+  ANNOUNCEMENT_STATUS,
+  ANNOUNCEMENT_PRIORITY,
+  announcementScopeEnum,
+  announcementStatusEnum,
+  announcementPriorityEnum,
+  createAnnouncementSchema,
+  updateAnnouncementSchema,
+  scheduleAnnouncementSchema,
+  announcementQuerySchema,
+} from '@/lib/validations/announcements';
 export const updateProfileSchema = z.object({
     displayName: z.string().trim().min(1).max(80),
 }).strict();
@@ -108,65 +120,7 @@ export const updateFacultyEventSchema = z.object({
     buildingId: z.string().cuid().nullable().optional(),
     isCancelled: z.boolean().optional(),
 }).strict();
-export const createAnnouncementSchema = z.object({
-    title: z.string().trim().min(1).max(120),
-    message: z.string().trim().min(1).max(2000),
-    linkUrl: z.string().trim().url().optional(),
-    expiresAt: z.coerce.date().optional(),
-    scope: z.enum(['CAMPUS', 'BUILDING', 'SERVICE']).default('CAMPUS'),
-    buildingId: z.string().cuid().optional(),
-    serviceId: z.string().cuid().optional(),
-}).superRefine((value, context) => {
-    if (value.scope === 'BUILDING' && !value.buildingId) {
-        context.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['buildingId'],
-            message: 'Choose a building for building announcements',
-        });
-    }
-    if (value.scope !== 'BUILDING' && value.buildingId) {
-        context.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['buildingId'],
-            message: 'Building target is only valid for building announcements',
-        });
-    }
-    if (value.scope === 'SERVICE' && !value.serviceId) {
-        context.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['serviceId'],
-            message: 'Choose a service for service announcements',
-        });
-    }
-    if (value.scope !== 'SERVICE' && value.serviceId) {
-        context.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['serviceId'],
-            message: 'Service target is only valid for service announcements',
-        });
-    }
-    if (value.expiresAt && value.expiresAt <= new Date()) {
-        context.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['expiresAt'],
-            message: 'Expiration must be in the future',
-        });
-    }
-});
-export const updateAnnouncementSchema = z.object({
-    title: z.string().trim().min(1).max(120),
-    message: z.string().trim().min(1).max(2000),
-    linkUrl: z.string().trim().url().optional().or(z.literal('')),
-    expiresAt: z.coerce.date().nullable().optional(),
-}).superRefine((value, context) => {
-    if (value.expiresAt && value.expiresAt <= new Date()) {
-        context.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['expiresAt'],
-            message: 'Expiration must be in the future',
-        });
-    }
-});
+
 export const facultyBuildingManagerSchema = z.object({
     buildingId: z.string().cuid(),
 });

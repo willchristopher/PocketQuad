@@ -3,13 +3,11 @@ import * as React from 'react';
 import { Sparkles, MessageSquare, Send, X } from 'lucide-react';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
-import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
 import { useAuth } from '@/lib/auth/context';
 import { AIChatDialog } from './AIChatDialog';
 const MAX_PAYLOAD_MESSAGES = 12;
 export function AIChatWidget({ initialOpen = false }) {
-    const isMobile = useMediaQuery('(max-width: 768px)');
     const scrollingDown = useScrollDirection();
     const { profile } = useAuth();
     const [open, setOpen] = React.useState(initialOpen);
@@ -75,24 +73,14 @@ export function AIChatWidget({ initialOpen = false }) {
             setIsTyping(false);
         }
     };
-    if (isMobile) {
-        return (<>
-        <button onClick={() => setOpen(true)} style={{ bottom: scrollingDown ? 72 : 100 }} className="fixed right-4 z-40 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg transition-colors duration-200 hover:bg-primary/90" aria-label="Open AI Assistant">
-          <Sparkles className="w-5 h-5"/>
-        </button>
-        <AIChatDialog open={open} onOpenChange={setOpen} messages={messages} input={input} onInputChange={setInput} onSend={() => {
-                void sendMessage();
-            }} isTyping={isTyping}/>
-      </>);
-    }
     return (<>
-      <div className="fixed bottom-24 right-6 z-40 flex items-center gap-2 transition-[bottom] duration-300">
+      <div className={cn('fixed right-4 z-40 flex items-center gap-2 transition-[bottom] duration-300 md:right-6', scrollingDown ? 'bottom-[72px] md:bottom-24' : 'bottom-[100px] md:bottom-24')}>
         <button onClick={() => setOpen(prev => !prev)} className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg transition-colors duration-200 hover:bg-primary/90" aria-label="Toggle AI Assistant">
           {open ? <X className="w-5 h-5"/> : <Sparkles className="w-5 h-5"/>}
         </button>
       </div>
 
-      {open && (<div className="fixed bottom-40 right-6 z-40 w-[360px] max-w-[90vw] overflow-hidden rounded-xl border border-border/60 bg-card shadow-lg">
+      {open && (<div className="fixed bottom-40 right-4 z-40 w-[360px] max-w-[90vw] overflow-hidden rounded-xl border border-border/60 bg-card shadow-lg md:right-6">
           <div className="p-4 border-b border-border/60 flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-primary"/>

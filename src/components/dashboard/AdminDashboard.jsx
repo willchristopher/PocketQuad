@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertCircle, Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronUp, Clock, ExternalLink, GraduationCap, KeyRound, Landmark, LayoutGrid, Loader2, Pencil, Plus, School, Search, ShieldUser, Tag, Trash2, Upload, Users, X, } from 'lucide-react';
+import { AlertCircle, Bell, Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronUp, Clock, ExternalLink, GraduationCap, KeyRound, Landmark, LayoutGrid, Loader2, Pencil, Plus, School, Search, ShieldUser, Tag, Trash2, Upload, Users, X, } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { ApiClientError, apiRequest } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth/context';
 import { getAllowedAdminTabs, hasPortalPermission, } from '@/lib/auth/portalPermissions';
 import { BuildingHoursEditor } from '@/components/buildings/BuildingHoursEditor';
+import { AdminAnnouncementsTab } from '@/components/admin/AdminAnnouncementsTab';
 import { BUILDING_IMPORT_OPTIONAL_HEADERS, BUILDING_IMPORT_REQUIRED_HEADERS, extractBuildingImportRows, validateBuildingImportHeaders } from '@/lib/buildingImport';
 import { hasMeaningfulBuildingHoursSchedule, summarizeBuildingHoursSchedule } from '@/lib/buildingHours';
 import { parseCsvText } from '@/lib/csv';
@@ -25,6 +26,7 @@ const tabItems = [
     { value: 'overview', label: 'Overview', icon: Landmark },
     { value: 'universities', label: 'Universities', icon: School },
     { value: 'student-pages', label: 'Student Pages', icon: LayoutGrid },
+    { value: 'announcements', label: 'Announcements', icon: Bell },
     { value: 'faculty', label: 'Faculty', icon: Users },
     { value: 'buildings', label: 'Buildings', icon: Building2 },
     { value: 'building-import', label: 'Building Import', icon: Upload },
@@ -970,6 +972,10 @@ export function AdminDashboard({ initialUniversities = null }) {
                 </p>)}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="announcements" className="mt-0">
+          <AdminAnnouncementsTab />
         </TabsContent>
 
         <TabsContent value="faculty" className="mt-0 space-y-5">
