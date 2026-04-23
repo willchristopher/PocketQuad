@@ -510,19 +510,14 @@ export default function ClubhousePage({ initialClubs = null }) {
                 animate={{ opacity: 1 }}
                 exit={shouldReduceMotion ? { opacity: 1 } : { opacity: 0 }}
                 transition={{ duration: 0.3 }}
-              >
-                <p className="poster-label">{campusLabel}</p>
-                <h2 className="mt-3 font-display text-3xl leading-tight text-foreground md:text-4xl">
-                  Welcome to the Clubhouse.
-                </h2>
-                <p className="mt-4 text-base leading-7 text-muted-foreground">
-                  The Clubhouse is where you can discover clubs at {campusLabel}, connect with the
-                  ones you are already in, and explore opportunities to network with other students,
-                  peers, and professionals.
-                </p>
+	              >
+	                <p className="poster-label">{campusLabel}</p>
+	                <h2 className="mt-3 font-display text-3xl leading-tight text-foreground md:text-4xl">
+	                  Welcome to the Clubhouse.
+	                </h2>
 
-                <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-                  <Button
+	                <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+	                  <Button
                     type="button"
                     onClick={() => handleSelectView('directory')}
                     className="rounded-full"
@@ -563,15 +558,12 @@ export default function ClubhousePage({ initialClubs = null }) {
       {activeView === 'directory' ? (
         <section className="panel-card overflow-hidden rounded-xl">
           <div className="border-b border-border/60 px-5 py-5 md:px-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div className="max-w-2xl">
-                <p className="poster-label">Club Directory</p>
-                <h2 className="mt-2 font-display text-3xl leading-none text-foreground">
-                  Browse clubs at {campusLabel}.
-                </h2>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  Search the directory, filter by category, and keep clubs close by adding them to
-                  your Clubhouse circle.
+	            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+	              <div className="max-w-2xl">
+	                <p className="poster-label">Club Directory</p>
+	                <p className="mt-3 text-sm leading-6 text-muted-foreground">
+	                  Search the directory, filter by category, and keep clubs close by adding them to
+	                  your Clubhouse circle.
                 </p>
               </div>
 
@@ -581,14 +573,14 @@ export default function ClubhousePage({ initialClubs = null }) {
                 </label>
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="clubhouse-search"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Search clubs, categories, meeting details, or contact info"
-                    variant="soft"
-                    inputSize="lg"
-                    className="pl-11"
+	                  <Input
+	                    id="clubhouse-search"
+	                    value={query}
+	                    onChange={(event) => setQuery(event.target.value)}
+	                    placeholder="Search clubs"
+	                    variant="soft"
+	                    inputSize="lg"
+	                    className="pl-11"
                   />
                 </div>
               </div>
