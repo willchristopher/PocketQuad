@@ -2,8 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, CalendarDays, MapPin, RefreshCcw, Search, Sparkles, Ticket } from 'lucide-react';
-import { FeelingBoredDialog } from '@/components/events/FeelingBoredDialog';
+import { ArrowUpRight, CalendarDays, MapPin, RefreshCcw, Search, Ticket } from 'lucide-react';
 import { EventCalendarActions } from '@/components/events/EventCalendarActions';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -166,10 +165,6 @@ export default function EventsPage({ initialResponse = null }) {
   const [loading, setLoading] = React.useState(!initialResponse);
   const [busyAction, setBusyAction] = React.useState(null);
   const [error, setError] = React.useState(null);
-  const [showBoredDialog, setShowBoredDialog] = React.useState(false);
-  const [recommendations, setRecommendations] = React.useState(null);
-  const [recommendationsLoading, setRecommendationsLoading] = React.useState(false);
-  const [recommendationsError, setRecommendationsError] = React.useState(null);
 
   const syncEventInState = React.useCallback((eventId, updater) => {
     setEventsResponse((current) => {
@@ -180,24 +175,6 @@ export default function EventsPage({ initialResponse = null }) {
       return {
         ...current,
         items: current.items.map((event) => (event.id === eventId ? updater(event) : event)),
-      };
-    });
-
-    setRecommendations((current) => {
-      if (!current) {
-        return current;
-      }
-
-      return {
-        ...current,
-        cards: current.cards.map((card) =>
-          card.event.id === eventId
-            ? {
-                ...card,
-                event: updater(card.event),
-              }
-            : card,
-        ),
       };
     });
   }, []);
@@ -238,27 +215,6 @@ export default function EventsPage({ initialResponse = null }) {
 
     void loadEvents();
   }, [initialResponse, loadEvents]);
-
-  const loadRecommendations = React.useCallback(async () => {
-    setRecommendationsLoading(true);
-    setRecommendationsError(null);
-
-    try {
-      const response = await apiRequest('/api/events/recommendations');
-      setRecommendations(response);
-    } catch (err) {
-      const message = err instanceof ApiClientError ? err.message : 'Unable to build event recommendations.';
-      setRecommendationsError(message);
-    } finally {
-      setRecommendationsLoading(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    if (showBoredDialog && !recommendations && !recommendationsLoading) {
-      void loadRecommendations();
-    }
-  }, [loadRecommendations, recommendations, recommendationsLoading, showBoredDialog]);
 
   const handleAddToAppCalendar = React.useCallback(async (event) => {
     setBusyAction(`${event.id}:app:add`);
@@ -414,10 +370,6 @@ export default function EventsPage({ initialResponse = null }) {
                 <RefreshCcw className={cn('mr-2 h-4 w-4', busyAction === 'sync' && 'animate-spin')} />
                 Refresh
               </Button>
-              <Button type="button" onClick={() => setShowBoredDialog(true)}>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Feeling bored?
-              </Button>
             </div>
           </div>
           </div>
@@ -549,19 +501,6 @@ export default function EventsPage({ initialResponse = null }) {
         )}
       </div>
 
-      <FeelingBoredDialog
-        open={showBoredDialog}
-        onOpenChange={setShowBoredDialog}
-        recommendations={recommendations}
-        loading={recommendationsLoading}
-        error={recommendationsError}
-        onRefresh={loadRecommendations}
-        onPass={() => {}}
-        onAddToAppCalendar={handleAddToAppCalendar}
-        onRemoveFromAppCalendar={handleRemoveFromAppCalendar}
-        onOpenExternalCalendar={handleOpenExternalCalendar}
-        busyAction={busyAction}
-      />
     </>
   );
 }
