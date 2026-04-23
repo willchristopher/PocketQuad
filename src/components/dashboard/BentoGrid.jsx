@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { cn } from '@/lib/utils';
@@ -29,7 +30,16 @@ function clickCameFromInteractiveChild(target, currentTarget) {
   return Boolean(interactiveAncestor && interactiveAncestor !== currentTarget);
 }
 
-export const BentoWidget = ({ children, className, span = 'medium', title, icon: Icon, action, noPadding = false }) => {
+export const BentoWidget = ({
+  children,
+  className,
+  span = 'medium',
+  title,
+  icon: Icon,
+  action,
+  noPadding = false,
+  asLink = false,
+}) => {
   const router = useRouter();
 
   const handleNavigate = () => {
@@ -38,14 +48,44 @@ export const BentoWidget = ({ children, className, span = 'medium', title, icon:
     }
   };
 
+  const sharedProps = {
+    className: cn(
+      spanClasses[span],
+      'panel-card relative flex flex-col overflow-hidden rounded-xl transition-shadow duration-300 hover:shadow-lg',
+      action && 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35',
+      className,
+    ),
+  };
+
+  if (action?.href && asLink) {
+    return (
+      <Link
+        href={action.href}
+        {...sharedProps}
+        aria-label={action.label ?? title ?? 'Open card'}
+      >
+        {title ? (
+          <div className="flex items-start gap-4 px-5 pb-4 pt-5 md:px-6 md:pb-4 md:pt-6">
+            <div className="flex min-w-0 items-center gap-3">
+              {Icon ? (
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-muted/40 text-foreground/70">
+                  <Icon className="h-[15px] w-[15px]" weight="regular" />
+                </div>
+              ) : null}
+              <h3 className="truncate font-display text-lg tracking-tight text-foreground">{title}</h3>
+            </div>
+          </div>
+        ) : null}
+        <div className={cn('flex-1 overflow-auto', noPadding ? '' : 'px-5 pb-5 md:px-6 md:pb-6')}>
+          {children}
+        </div>
+      </Link>
+    );
+  }
+
   return (
     <div
-      className={cn(
-        spanClasses[span],
-        'panel-card relative flex flex-col overflow-hidden rounded-xl transition-shadow duration-300 hover:shadow-lg',
-        action && 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35',
-        className,
-      )}
+      {...sharedProps}
       onClick={(event) => {
         if (!action || clickCameFromInteractiveChild(event.target, event.currentTarget)) {
           return;

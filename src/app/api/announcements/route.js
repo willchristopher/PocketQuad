@@ -98,6 +98,13 @@ export async function POST(request) {
         const canManageServices = hasPortalPermission(profile, 'ADMIN_TAB_SERVICES');
         const canPublishCampus = canPublishCampusAnnouncements(profile);
         const managedBuildingIds = profile.managedBuildings?.map((assignment) => assignment.buildingId) ?? [];
+        const isAdmin = profile.role === 'ADMIN';
+        const isFaculty = profile.role === 'FACULTY';
+        const isBuildingManager = managedBuildingIds.length > 0;
+
+        if (!isAdmin && !isFaculty && !isBuildingManager) {
+            throw new ApiError(403, 'Only admins, faculty, or assigned building managers can publish announcements');
+        }
         let schemaSupportsScopedAnnouncements = true;
         try {
             await prisma.announcement.findFirst({
