@@ -234,7 +234,7 @@ export const adminEventCreateSchema = z.object({
     time: z.string().trim().min(1).max(80),
     location: z.string().trim().min(2).max(180),
     category: z.enum(['ACADEMIC', 'SOCIAL', 'SPORTS', 'ARTS', 'CAREER', 'CLUBS', 'WELLNESS', 'OTHER']),
-    audience: z.enum(['ORGANIZATION', 'ALL_CAMPUS', 'DEADLINE']).default('ALL_CAMPUS'),
+    audience: z.enum(['ORGANIZATION', 'ALL_CAMPUS', 'MY_STUDENTS', 'DEADLINE']).default('ALL_CAMPUS'),
     organizer: z.string().trim().min(2).max(120),
     isPublished: z.boolean().default(true),
 });
@@ -246,7 +246,7 @@ export const adminEventUpdateSchema = z.object({
     time: z.string().trim().min(1).max(80).optional(),
     location: z.string().trim().min(2).max(180).optional(),
     category: z.enum(['ACADEMIC', 'SOCIAL', 'SPORTS', 'ARTS', 'CAREER', 'CLUBS', 'WELLNESS', 'OTHER']).optional(),
-    audience: z.enum(['ORGANIZATION', 'ALL_CAMPUS', 'DEADLINE']).optional(),
+    audience: z.enum(['ORGANIZATION', 'ALL_CAMPUS', 'MY_STUDENTS', 'DEADLINE']).optional(),
     organizer: z.string().trim().min(2).max(120).optional(),
     isPublished: z.boolean().optional(),
 });

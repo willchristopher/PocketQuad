@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { attachCalendarInterestCounts, serializeEventForViewer } from '@/lib/server/campusEvents';
 import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
+import { canViewEventForAudience } from '@/lib/server/eventVisibility';
 import {
   ApiError,
   getAuthenticatedUser,
@@ -29,9 +30,23 @@ export async function GET(_request, context) {
           category: true,
           audience: true,
           organizer: true,
+          organizerId: true,
           maxAttendees: true,
           isPublished: true,
           isCancelled: true,
+          organizerRef: {
+            select: {
+              facultyProfile: {
+                select: {
+                  favorites: {
+                    where: { userId: profile.id },
+                    select: { userId: true },
+                    take: 1,
+                  },
+                },
+              },
+            },
+          },
           calendarEntries: {
             where: { userId: profile.id },
             select: { id: true, campusEventId: true },
@@ -61,9 +76,23 @@ export async function GET(_request, context) {
           category: true,
           audience: true,
           organizer: true,
+          organizerId: true,
           maxAttendees: true,
           isPublished: true,
           isCancelled: true,
+          organizerRef: {
+            select: {
+              facultyProfile: {
+                select: {
+                  favorites: {
+                    where: { userId: profile.id },
+                    select: { userId: true },
+                    take: 1,
+                  },
+                },
+              },
+            },
+          },
           calendarEntries: {
             where: { userId: profile.id },
             select: { id: true, campusEventId: true },
@@ -74,6 +103,9 @@ export async function GET(_request, context) {
     }
 
     if (!event) {
+      throw new ApiError(404, 'Event not found');
+    }
+    if (!canViewEventForAudience(profile, event)) {
       throw new ApiError(404, 'Event not found');
     }
 

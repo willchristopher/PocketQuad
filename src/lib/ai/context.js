@@ -4,6 +4,7 @@ import { formatFacultyAvailability } from '@/lib/faculty';
 import { getActiveAnnouncementWhere, getAnnouncementAudienceLabel } from '@/lib/server/announcements';
 import { enrichEventsForAudience } from '@/lib/server/campusEvents';
 import { isMissingDatabaseFieldError } from '@/lib/server/dbCompatibility';
+import { buildEventAudienceVisibilityWhere } from '@/lib/server/eventVisibility';
 import { getBuildingsCached, getCampusServicesCached, getClubsCached, getFacultyCached, getResourceLinksCached, } from '@/lib/server/universityData';
 
 /** @typedef {'announcements' | 'events' | 'faculty' | 'services' | 'resourceLinks' | 'buildings' | 'clubs' | 'officeHours' | 'userDeadlines'} AIContextSection */
@@ -549,6 +550,7 @@ export async function gatherUniversityContext(universityId, userId, options) {
                     date: { gte: now },
                     isPublished: true,
                     isCancelled: false,
+                    ...buildEventAudienceVisibilityWhere({ id: userId, role: 'STUDENT' }),
                 },
                 select: {
                     title: true,

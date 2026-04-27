@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { resolveEventDateRange } from '@/lib/events';
 import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
+import { buildEventAudienceVisibilityWhere } from '@/lib/server/eventVisibility';
 import {
   ApiError,
   getAuthenticatedUser,
@@ -29,17 +30,22 @@ function buildCampusEventRangeWhere(startDate, endDate) {
 
 function buildCampusEventCalendarVisibilityWhere(userId) {
   return {
-    OR: [
-      { audience: 'DEADLINE' },
+    AND: [
+      buildEventAudienceVisibilityWhere({ id: userId }),
       {
-        AND: [
-          { audience: { not: 'DEADLINE' } },
+        OR: [
+          { audience: 'DEADLINE' },
           {
-            calendarEntries: {
-              some: {
-                userId,
+            AND: [
+              { audience: { not: 'DEADLINE' } },
+              {
+                calendarEntries: {
+                  some: {
+                    userId,
+                  },
+                },
               },
-            },
+            ],
           },
         ],
       },
@@ -199,23 +205,31 @@ export async function GET(request) {
     const linkedCampusEventIds = new Set(
       personalEvents.map((event) => event.campusEventId).filter(Boolean),
     );
+    const campusEventById = new Map(campusEvents.map((event) => [event.id, event]));
 
     const events = [
-      ...personalEvents.map((event) => ({
-        id: event.id,
-        title: event.title,
-        description: event.description,
-        start: event.start,
-        end: event.end,
-        allDay: event.allDay,
-        eventType: 'PERSONAL_EVENT',
-        type: event.type,
-        location: event.location,
-        source: 'calendar',
-        priority: 'MEDIUM',
-        completed: false,
-        campusEventId: event.campusEventId ?? null,
-      })),
+      ...personalEvents.map((event) => {
+        const linkedCampusEvent = event.campusEventId ? campusEventById.get(event.campusEventId) : null;
+        const linkedRange = linkedCampusEvent ? resolveEventDateRange(linkedCampusEvent) : null;
+
+        return {
+          id: event.id,
+          title: linkedCampusEvent?.title ?? event.title,
+          description: linkedCampusEvent?.description ?? event.description,
+          start: linkedRange?.start ?? event.start,
+          end: linkedRange?.end ?? event.end,
+          allDay: linkedRange?.allDay ?? event.allDay,
+          eventType: linkedCampusEvent ? 'CAMPUS_EVENT' : 'PERSONAL_EVENT',
+          type: linkedCampusEvent?.category ?? event.type,
+          location: linkedCampusEvent?.location ?? event.location,
+          organizer: linkedCampusEvent?.organizer,
+          maxAttendees: linkedCampusEvent?.maxAttendees,
+          source: 'calendar',
+          priority: 'MEDIUM',
+          completed: false,
+          campusEventId: event.campusEventId ?? null,
+        };
+      }),
       ...deadlines.map((deadline) => ({
         id: deadline.id,
         title: deadline.title,

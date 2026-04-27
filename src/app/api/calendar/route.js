@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { resolveEventDateRange } from '@/lib/events';
 import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
+import { buildEventAudienceVisibilityWhere, canViewEventForAudience } from '@/lib/server/eventVisibility';
 import { createCalendarEventSchema } from '@/lib/validations';
 import {
   ApiError,
@@ -30,17 +31,22 @@ function buildCampusEventRangeWhere(startDate, endDate) {
 
 function buildCampusEventCalendarVisibilityWhere(userId) {
   return {
-    OR: [
-      { audience: 'DEADLINE' },
+    AND: [
+      buildEventAudienceVisibilityWhere({ id: userId }),
       {
-        AND: [
-          { audience: { not: 'DEADLINE' } },
+        OR: [
+          { audience: 'DEADLINE' },
           {
-            calendarEntries: {
-              some: {
-                userId,
+            AND: [
+              { audience: { not: 'DEADLINE' } },
+              {
+                calendarEntries: {
+                  some: {
+                    userId,
+                  },
+                },
               },
-            },
+            ],
           },
         ],
       },
@@ -170,21 +176,29 @@ export async function GET(request) {
     const linkedCampusEventIds = new Set(
       personalEvents.map((event) => event.campusEventId).filter(Boolean),
     );
+    const campusEventById = new Map(campusEvents.map((event) => [event.id, event]));
 
     const unified = [
-      ...personalEvents.map((event) => ({
-        id: event.id,
-        title: event.title,
-        description: event.description,
-        start: event.start,
-        end: event.end,
-        allDay: event.allDay,
-        eventType: 'PERSONAL_EVENT',
-        type: event.type,
-        location: event.location,
-        source: 'calendar',
-        campusEventId: event.campusEventId ?? null,
-      })),
+      ...personalEvents.map((event) => {
+        const linkedCampusEvent = event.campusEventId ? campusEventById.get(event.campusEventId) : null;
+        const linkedRange = linkedCampusEvent ? resolveEventDateRange(linkedCampusEvent) : null;
+
+        return {
+          id: event.id,
+          title: linkedCampusEvent?.title ?? event.title,
+          description: linkedCampusEvent?.description ?? event.description,
+          start: linkedRange?.start ?? event.start,
+          end: linkedRange?.end ?? event.end,
+          allDay: linkedRange?.allDay ?? event.allDay,
+          eventType: linkedCampusEvent ? 'CAMPUS_EVENT' : 'PERSONAL_EVENT',
+          type: linkedCampusEvent?.category ?? event.type,
+          location: linkedCampusEvent?.location ?? event.location,
+          organizer: linkedCampusEvent?.organizer,
+          maxAttendees: linkedCampusEvent?.maxAttendees,
+          source: 'calendar',
+          campusEventId: event.campusEventId ?? null,
+        };
+      }),
       ...deadlines.map((deadline) => ({
         id: deadline.id,
         title: deadline.title,
@@ -284,11 +298,28 @@ export async function POST(request) {
           time: true,
           location: true,
           audience: true,
+          organizerId: true,
           isPublished: true,
           isCancelled: true,
+          organizerRef: {
+            select: {
+              facultyProfile: {
+                select: {
+                  favorites: {
+                    where: { userId: profile.id },
+                    select: { userId: true },
+                    take: 1,
+                  },
+                },
+              },
+            },
+          },
         },
       });
       if (!campusEvent || !campusEvent.isPublished || campusEvent.isCancelled) {
+        throw new ApiError(404, 'Campus event not found');
+      }
+      if (!canViewEventForAudience(profile, campusEvent)) {
         throw new ApiError(404, 'Campus event not found');
       }
       if (campusEvent.audience === 'DEADLINE') {

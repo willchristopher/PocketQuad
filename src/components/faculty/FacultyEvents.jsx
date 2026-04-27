@@ -29,6 +29,7 @@ const defaultEventForm = {
 const eventAudienceLabels = {
   ORGANIZATION: 'Organization',
   ALL_CAMPUS: 'All campus',
+  MY_STUDENTS: 'My Students',
   DEADLINE: 'Deadline',
 };
 
@@ -285,6 +286,7 @@ export function FacultyEvents({ initialWorkspace = null, initialEvents = null })
               >
                 <option value="ORGANIZATION">Organization</option>
                 <option value="ALL_CAMPUS">All campus</option>
+                <option value="MY_STUDENTS">My Students</option>
                 {workspace?.canCreateDeadlineEvents || form.audience === 'DEADLINE' ? (
                   <option value="DEADLINE">Deadline</option>
                 ) : null}

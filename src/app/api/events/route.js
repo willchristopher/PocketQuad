@@ -75,6 +75,13 @@ export async function POST(request) {
     if (payload.audience === 'DEADLINE' && !canCreateDeadlineEvents(profile)) {
       throw new ApiError(403, 'You do not have permission to create deadline events');
     }
+    const faculty = await prisma.faculty.findUnique({
+      where: { userId: profile.id },
+      select: { id: true },
+    });
+    if (payload.audience === 'MY_STUDENTS' && !faculty) {
+      throw new ApiError(403, 'Faculty profile is required for My Students events');
+    }
     let building = null;
     if (payload.buildingId) {
       if (!canManageBuilding(profile, payload.buildingId)) {
@@ -135,10 +142,6 @@ export async function POST(request) {
     }
 
     let notifiedCount = 0;
-    const faculty = await prisma.faculty.findUnique({
-      where: { userId: profile.id },
-      select: { id: true },
-    });
     if (faculty && event.audience !== 'DEADLINE') {
       const subscribers = await prisma.facultyFavorite.findMany({
         where: {

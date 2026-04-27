@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { buildExternalCalendarUrl } from '@/lib/events';
 import { prisma } from '@/lib/prisma';
 import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
+import { canViewEventForAudience } from '@/lib/server/eventVisibility';
 import {
   ApiError,
   getAuthenticatedUser,
@@ -33,8 +34,23 @@ export async function POST(request, context) {
           time: true,
           location: true,
           externalUrl: true,
+          audience: true,
+          organizerId: true,
           isPublished: true,
           isCancelled: true,
+          organizerRef: {
+            select: {
+              facultyProfile: {
+                select: {
+                  favorites: {
+                    where: { userId: profile.id },
+                    select: { userId: true },
+                    take: 1,
+                  },
+                },
+              },
+            },
+          },
         },
       });
     } catch (error) {
@@ -51,12 +67,30 @@ export async function POST(request, context) {
           endDate: true,
           time: true,
           location: true,
+          audience: true,
+          organizerId: true,
           isPublished: true,
           isCancelled: true,
+          organizerRef: {
+            select: {
+              facultyProfile: {
+                select: {
+                  favorites: {
+                    where: { userId: profile.id },
+                    select: { userId: true },
+                    take: 1,
+                  },
+                },
+              },
+            },
+          },
         },
       });
     }
     if (!event || !event.isPublished || event.isCancelled) {
+      throw new ApiError(404, 'Event not found');
+    }
+    if (!canViewEventForAudience(profile, event)) {
       throw new ApiError(404, 'Event not found');
     }
 

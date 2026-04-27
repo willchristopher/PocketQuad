@@ -71,6 +71,7 @@ enum EventCategory {
 enum EventAudience {
   ORGANIZATION
   ALL_CAMPUS
+  MY_STUDENTS
   DEADLINE
 }
 
