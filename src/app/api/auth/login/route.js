@@ -4,6 +4,7 @@ import { loginSchema } from '@/lib/validations/auth';
 import { ApiError, handleApiError, successResponse } from '@/lib/api/utils';
 import { createRoleHintToken, setRoleHintCookie } from '@/lib/auth/roleHint';
 import { getHomeForRole } from '@/lib/auth/routing';
+import { isTestingAuthEnabled } from '@/lib/auth/testing';
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server';
 export async function POST(request) {
     try {
@@ -15,6 +16,9 @@ export async function POST(request) {
             message: 'Too many login attempts. Please wait a minute and try again.',
         });
         const payload = loginSchema.parse(await request.json());
+        if (isTestingAuthEnabled()) {
+            throw new ApiError(401, 'Invalid credentials');
+        }
         const supabase = await createSupabaseRouteHandlerClient();
         let data;
         let error;

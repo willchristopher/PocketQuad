@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "prisma generate && next dev",
+    "dev:e2e": "prisma generate && E2E_TESTING=true node scripts/seed-e2e.mjs && E2E_TESTING=true next dev --hostname 127.0.0.1 -p ${PORT:-3000}",
     "launch": "bash ./scripts/launch.sh",
     "stop-local": "bash ./scripts/stop.sh",
     "erd": "node scripts/generate-local-erd.mjs",
@@ -11,7 +12,11 @@
     "build": "prisma generate && prisma migrate deploy && next build",
     "postinstall": "prisma generate",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -71,6 +76,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "autoprefixer": "^10.4.24",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
