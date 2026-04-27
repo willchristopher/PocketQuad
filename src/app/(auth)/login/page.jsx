@@ -13,6 +13,7 @@ import {
 } from '@/components/auth/AuthExperienceLayout';
 import { AuthField, AuthFieldShell, AuthMessage } from '@/components/auth/AuthShell';
 import { apiRequest, ApiClientError } from '@/lib/api/client';
+import { useAuth } from '@/lib/auth/context';
 import { getSafeRedirectTarget } from '@/lib/auth/routing';
 
 export default function LoginPage() {
@@ -32,6 +33,7 @@ function LoginForm() {
   const [error, setError] = React.useState(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { refreshSession } = useAuth();
   React.useEffect(() => {
     const rememberedEmail = window.localStorage.getItem('pocketquad:last-login-email');
 
@@ -57,15 +59,19 @@ function LoginForm() {
         window.localStorage.removeItem('pocketquad:last-login-email');
       }
 
+      await refreshSession();
+
       const redirectTarget = getSafeRedirectTarget(searchParams.get('redirect'));
 
       if (result.needsOnboarding) {
         router.push('/onboarding');
+        router.refresh();
         return;
       }
 
       const destination = redirectTarget ?? result.destination;
       router.push(destination);
+      router.refresh();
     } catch (err) {
       const message = err instanceof ApiClientError ? err.message : 'Unable to sign in right now';
       setError(message);
