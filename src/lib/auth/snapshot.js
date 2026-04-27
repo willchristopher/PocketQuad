@@ -1,8 +1,15 @@
 import { unstable_noStore as noStore } from 'next/cache';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { canAccessAdminPortal } from '@/lib/auth/portalPermissions';
 import { getHomeForRole } from '@/lib/auth/routing';
+import {
+  createTestingSupabaseUser,
+  getTestingIdentity,
+  parseTestingRole,
+  TEST_AUTH_COOKIE_NAME,
+} from '@/lib/auth/testing';
 import { readResourceLinkIds } from '@/lib/resourceLinkPreferences';
 import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -131,28 +138,9 @@ async function countUnreadNotificationsCompatible(userId) {
   }
 }
 
-async function readAuthSnapshot() {
-  noStore();
-
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.getUser();
-
-  if (error || !data.user) {
-    return {
-      session: null,
-      user: null,
-      profile: null,
-    };
-  }
-
-  const normalizedEmail = data.user.email?.toLowerCase();
-  const where = normalizedEmail
-    ? {
-        OR: [{ supabaseId: data.user.id }, { email: normalizedEmail }],
-      }
-    : { supabaseId: data.user.id };
-
+async function readProfileForAuthWhere(where) {
   let profile;
+
   try {
     profile = await prisma.user.findFirst({
       where,
@@ -187,6 +175,88 @@ async function readAuthSnapshot() {
         : null;
     }
   }
+
+  return profile;
+}
+
+function buildAuthSnapshot(user, profile) {
+  return {
+    session: {
+      user: {
+        id: user.id,
+        email: user.email ?? null,
+      },
+    },
+    user,
+    profile,
+  };
+}
+
+async function readTestingAuthSnapshot() {
+  const cookieStore = await cookies();
+  const testingRole = parseTestingRole(cookieStore.get(TEST_AUTH_COOKIE_NAME)?.value);
+
+  if (!testingRole) {
+    return null;
+  }
+
+  const identity = getTestingIdentity(testingRole);
+  const user = createTestingSupabaseUser(testingRole);
+  const profile = await readProfileForAuthWhere({
+    OR: [{ supabaseId: identity.supabaseId }, { email: identity.email }],
+  });
+
+  if (!profile) {
+    return {
+      session: null,
+      user,
+      profile: null,
+    };
+  }
+
+  const unreadNotificationCount = await countUnreadNotificationsCompatible(profile.id);
+  const notificationPreferences = profile.notificationPreferences
+    ? {
+        ...profile.notificationPreferences,
+        resourceLinkIds: await readResourceLinkIds(profile.id),
+      }
+    : null;
+
+  return buildAuthSnapshot(user, {
+    ...profile,
+    notificationPreferences,
+    unreadNotificationCount,
+  });
+}
+
+async function readAuthSnapshot() {
+  noStore();
+
+  const testingSnapshot = await readTestingAuthSnapshot();
+
+  if (testingSnapshot) {
+    return testingSnapshot;
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.getUser();
+
+  if (error || !data.user) {
+    return {
+      session: null,
+      user: null,
+      profile: null,
+    };
+  }
+
+  const normalizedEmail = data.user.email?.toLowerCase();
+  const where = normalizedEmail
+    ? {
+        OR: [{ supabaseId: data.user.id }, { email: normalizedEmail }],
+      }
+    : { supabaseId: data.user.id };
+
+  const profile = await readProfileForAuthWhere(where);
 
   if (!profile) {
     return {

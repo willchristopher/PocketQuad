@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { ZodError } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { readResourceLinkIds } from '@/lib/resourceLinkPreferences';
 import { canAccessAdminPortal, hasAnyPortalPermission, hasPortalPermission, resolvePortalPermissions, } from '@/lib/auth/portalPermissions';
+import {
+    createTestingSupabaseUser,
+    getTestingIdentity,
+    parseTestingRole,
+    TEST_AUTH_COOKIE_NAME,
+} from '@/lib/auth/testing';
 import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
 import { createSupabaseRouteHandlerClient } from '@/lib/supabase/server';
 
@@ -212,6 +219,65 @@ function normalizeAuthenticatedProfile(profile, options) {
             : {}),
     };
 }
+async function getTestingAuthenticatedUser(options) {
+    const cookieStore = await cookies();
+    const testingRole = parseTestingRole(cookieStore.get(TEST_AUTH_COOKIE_NAME)?.value);
+    if (!testingRole) {
+        return null;
+    }
+    const identity = getTestingIdentity(testingRole);
+    const supabaseUser = createTestingSupabaseUser(testingRole);
+    const where = {
+        OR: [
+            { supabaseId: identity.supabaseId },
+            { email: identity.email },
+        ],
+    };
+    let profile;
+    try {
+        profile = await prisma.user.findFirst({
+            where,
+            select: buildAuthenticatedProfileSelect(options, 'full'),
+        });
+    }
+    catch (error) {
+        if (!isPrismaSchemaCompatibilityError(error)) {
+            throw error;
+        }
+        try {
+            profile = await prisma.user.findFirst({
+                where,
+                select: buildAuthenticatedProfileSelect(options, 'compat'),
+            });
+        }
+        catch (compatError) {
+            if (!isPrismaSchemaCompatibilityError(compatError)) {
+                throw compatError;
+            }
+            profile = await prisma.user.findFirst({
+                where,
+                select: buildAuthenticatedProfileSelect(options, 'legacy'),
+            });
+        }
+    }
+    if (!profile) {
+        throw new ApiError(404, 'User profile not found');
+    }
+    if (options.includePreferences && profile.notificationPreferences) {
+        profile = {
+            ...profile,
+            notificationPreferences: {
+                ...profile.notificationPreferences,
+                resourceLinkIds: await readResourceLinkIds(profile.id),
+            },
+        };
+    }
+    const normalizedProfile = normalizeAuthenticatedProfile(profile, options);
+    if (!options.allowUnverified && !normalizedProfile.emailVerified) {
+        throw new ApiError(403, 'Email verification required');
+    }
+    return { supabaseUser, profile: normalizedProfile };
+}
 /**
  * @param {{
  *   includePreferences?: boolean,
@@ -222,6 +288,10 @@ function normalizeAuthenticatedProfile(profile, options) {
  * }} [options]
  */
 export async function getAuthenticatedUser(options = {}) {
+    const testingAuthenticated = await getTestingAuthenticatedUser(options);
+    if (testingAuthenticated) {
+        return testingAuthenticated;
+    }
     const supabase = await createSupabaseRouteHandlerClient();
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) {

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ROLE_HINT_COOKIE_NAME, verifyRoleHintToken, } from '@/lib/auth/roleHint';
+import { parseTestingRole, TEST_AUTH_COOKIE_NAME, } from '@/lib/auth/testing';
 import { createSupabaseMiddlewareClient, hasSupabaseEnv } from '@/lib/supabase/server';
 const PUBLIC_ROUTES = new Set([
     '/',
@@ -60,17 +61,6 @@ function redirectAuthenticatedUser(request, role) {
     }
     return NextResponse.redirect(url);
 }
-function parseTestingRole(value) {
-    if (!value)
-        return null;
-    if (value === 'admin')
-        return 'ADMIN';
-    if (value === 'faculty')
-        return 'FACULTY';
-    if (value === 'student')
-        return 'STUDENT';
-    return null;
-}
 export async function middleware(request) {
     const pathname = request.nextUrl.pathname;
     if (pathname.startsWith('/_next') || pathname.startsWith('/api')) {
@@ -85,7 +75,7 @@ export async function middleware(request) {
         },
     });
     try {
-        const mockRole = parseTestingRole(request.cookies.get('pocketquad-test-role')?.value);
+        const mockRole = parseTestingRole(request.cookies.get(TEST_AUTH_COOKIE_NAME)?.value);
         const supabase = createSupabaseMiddlewareClient(request, response);
         const { data } = await supabase.auth.getUser();
         const user = data.user;

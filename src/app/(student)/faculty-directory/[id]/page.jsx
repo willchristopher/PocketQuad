@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Clock3, Copy, Heart, Mail, MapPin, Navigation, Phone } from 'lucide-react';
+import { ArrowLeft, Clock3, Heart, Mail, MapPin, Phone } from 'lucide-react';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
 import { getStudentFacingFacultyAvailabilityTone } from '@/lib/faculty';
 import { cn } from '@/lib/utils';
@@ -13,8 +13,22 @@ const toneClasses = {
     slate: 'border-border/60 bg-muted/20 text-muted-foreground',
 };
 
-function ProfileRow({ icon: Icon, label, children, action }) {
-    return (<div className="flex items-start gap-3 px-4 py-4 sm:px-5">
+function ProfileRow({ icon: Icon, label, children, href, onClick, external = false, ariaLabel }) {
+    const interactive = Boolean(href || onClick);
+    const Component = href ? 'a' : onClick ? 'button' : 'div';
+    const rowProps = href
+        ? {
+            href,
+            ...(external ? { target: '_blank', rel: 'noreferrer' } : {}),
+        }
+        : onClick
+            ? {
+                type: 'button',
+                onClick,
+            }
+            : {};
+
+    return (<Component {...rowProps} aria-label={ariaLabel} className={cn('flex w-full items-start gap-3 px-4 py-4 text-left transition-colors sm:px-5', interactive && 'cursor-pointer hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2')}>
       <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[rgba(var(--msu-blue-rgb),0.06)] text-primary">
         <Icon className="h-4 w-4"/>
       </div>
@@ -24,8 +38,7 @@ function ProfileRow({ icon: Icon, label, children, action }) {
           {children}
         </div>
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
-    </div>);
+    </Component>);
 }
 
 export default function FacultyDetailPage({ params }) {
@@ -33,7 +46,7 @@ export default function FacultyDetailPage({ params }) {
     const [faculty, setFaculty] = React.useState(null);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState(null);
-  const [actionMessage, setActionMessage] = React.useState(null);
+    const [actionMessage, setActionMessage] = React.useState(null);
     React.useEffect(() => {
         let active = true;
         const loadFaculty = async () => {
@@ -67,7 +80,7 @@ export default function FacultyDetailPage({ params }) {
         if (!faculty)
             return;
         setError(null);
-      setActionMessage(null);
+        setActionMessage(null);
         try {
             const result = await apiRequest(`/api/faculty/${faculty.id}/favorite`, {
                 method: 'POST',
@@ -84,19 +97,19 @@ export default function FacultyDetailPage({ params }) {
             setError(message);
         }
     };
-      const copyEmail = async () => {
+    const copyEmail = async () => {
         if (!faculty)
-          return;
+            return;
         try {
-          await navigator.clipboard.writeText(faculty.email);
-          setActionMessage('Email copied to clipboard');
-          setError(null);
+            await navigator.clipboard.writeText(faculty.email);
+            setActionMessage('Email copied to clipboard');
+            setError(null);
         }
         catch {
-          setError('Unable to copy email right now');
-          setActionMessage(null);
+            setError('Unable to copy email right now');
+            setActionMessage(null);
         }
-      };
+    };
     if (loading) {
         return <p className="text-sm text-muted-foreground">Loading faculty profile...</p>;
     }
@@ -150,7 +163,7 @@ export default function FacultyDetailPage({ params }) {
                   Email faculty
                 </a>
 
-                <button onClick={() => void onToggleFavorite()} className={cn('inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-all duration-200', faculty.isFavorited
+                <button type="button" onClick={() => void onToggleFavorite()} className={cn('inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-all duration-200', faculty.isFavorited
             ? 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400'
             : 'border-border/60 hover:bg-muted/35')}>
                   <Heart className={cn('h-4 w-4', faculty.isFavorited && 'fill-red-600 dark:fill-red-400')}/>
@@ -173,21 +186,21 @@ export default function FacultyDetailPage({ params }) {
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Profile details</p>
               </div>
               <div className="divide-y divide-border/60">
-                <ProfileRow icon={Mail} label="Email" action={<button type="button" onClick={() => void copyEmail()} className="inline-flex min-h-11 items-center rounded-full border border-border/60 px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground"><Copy className="mr-1.5 h-3.5 w-3.5"/>Copy</button>}>
-                  <a href={`mailto:${faculty.email}`} className="font-medium text-primary hover:text-primary/80">
+                <ProfileRow icon={Mail} label="Email" onClick={() => void copyEmail()} ariaLabel={`Copy ${faculty.name}'s email address`}>
+                  <span className="font-medium text-primary">
                     {faculty.email}
-                  </a>
+                  </span>
                 </ProfileRow>
 
-                {faculty.phone ? (<ProfileRow icon={Phone} label="Phone" action={<a href={`tel:${faculty.phone}`} className="inline-flex min-h-11 items-center rounded-full border border-border/60 px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground">Call</a>}>
+                {faculty.phone ? (<ProfileRow icon={Phone} label="Phone" href={`tel:${faculty.phone}`} ariaLabel={`Call ${faculty.name}`}>
                     {faculty.phone}
                   </ProfileRow>) : null}
 
-                <ProfileRow icon={MapPin} label="Office" action={mapUrl ? (<a href={mapUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-full border border-border/60 px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground">Map</a>) : null}>
+                <ProfileRow icon={MapPin} label="Office" href={mapUrl ?? undefined} external={Boolean(mapUrl)} ariaLabel={mapUrl ? `Open a map for ${faculty.officeLocation}` : undefined}>
                   {faculty.officeLocation}
                 </ProfileRow>
 
-                <ProfileRow icon={Clock3} label="Office hours" action={mapUrl ? (<a href={mapUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-full border border-border/60 px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground"><Navigation className="mr-1.5 h-3.5 w-3.5"/>Directions</a>) : null}>
+                <ProfileRow icon={Clock3} label="Office hours" href={mapUrl ?? undefined} external={Boolean(mapUrl)} ariaLabel={mapUrl ? `Get directions to ${faculty.name}'s office` : undefined}>
                   {faculty.officeHours}
                 </ProfileRow>
               </div>
