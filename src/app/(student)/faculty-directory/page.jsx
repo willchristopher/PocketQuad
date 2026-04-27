@@ -3,26 +3,12 @@ import React from 'react';
 import Link from 'next/link';
 import { Heart, MapPin, Search } from 'lucide-react';
 import { ApiClientError, apiRequest } from '@/lib/api/client';
-import { getStudentFacingFacultyAvailabilityTone } from '@/lib/faculty';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
-const toneClasses = {
-    emerald: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-    amber: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-    rose: 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300',
-    slate: 'border-border/60 bg-muted/20 text-muted-foreground',
-};
 function FacultyCard({ entry, pending, onToggleFavorite }) {
-    const tone = toneClasses[getStudentFacingFacultyAvailabilityTone(entry.studentAvailabilityState)];
     return (<article className="group py-4 first:pt-0 last:pb-0">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{entry.department}</p>
-            <div className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', tone)}>
-              {entry.studentAvailabilityLabel}
-            </div>
-          </div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{entry.department}</p>
 
           <Link href={`/faculty-directory/${entry.id}`} className="mt-2 block space-y-1">
             <h2 className="font-display text-xl font-semibold tracking-tight transition-colors group-hover:text-primary">{entry.name}</h2>
@@ -38,26 +24,12 @@ function FacultyCard({ entry, pending, onToggleFavorite }) {
         </button>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {entry.tags.slice(0, 2).map((tag) => (<Badge key={tag} variant="outline" className="rounded-full px-3 py-1 text-[11px]">
-            {tag}
-          </Badge>))}
-        {entry.tags.length === 0 && (<Badge variant="outline" className="rounded-full px-3 py-1 text-[11px]">
-          Faculty contact
-        </Badge>)}
-      </div>
-
       <Link href={`/faculty-directory/${entry.id}`} className="mt-3 block">
-        <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">
-          {entry.bio ?? 'No bio yet. Open the profile for office hours, office location, and contact details.'}
-        </p>
-
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
             <MapPin className="h-4 w-4"/>
             {entry.officeLocation}
           </span>
-          <span className="truncate">{entry.officeHours}</span>
         </div>
 
         <div className="mt-4 inline-flex items-center text-sm font-semibold text-primary transition-colors hover:text-primary/80">
@@ -212,9 +184,7 @@ export default function FacultyDirectoryPage() {
                     Tap Save on any faculty card to pin them here.
                   </p>
                 </div>) : (<div className="divide-y divide-border/60 rounded-[1.25rem] border border-border/60 bg-background/80 px-4 py-1">
-                    {favoriteEntries.map((entry) => {
-            const tone = toneClasses[getStudentFacingFacultyAvailabilityTone(entry.studentAvailabilityState)];
-            return (<article key={entry.id} className="py-4 first:pt-3 last:pb-3">
+                    {favoriteEntries.map((entry) => (<article key={entry.id} className="py-4 first:pt-3 last:pb-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 space-y-1">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{entry.department}</p>
@@ -230,16 +200,12 @@ export default function FacultyDirectoryPage() {
                       </div>
 
                       <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <div className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', tone)}>
-                          {entry.studentAvailabilityLabel}
-                        </div>
                         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                           <MapPin className="h-3.5 w-3.5"/>
                           {entry.officeLocation}
                         </span>
                       </div>
-                    </article>);
-        })}
+                    </article>))}
                   </div>)}
             </div>
           </div>
