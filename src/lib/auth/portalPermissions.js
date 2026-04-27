@@ -1,7 +1,7 @@
 /** @typedef {'STUDENT' | 'FACULTY' | 'ADMIN'} AppRole */
 /** @typedef {'OWNER' | 'IT_ADMIN' | 'CLUB_PRESIDENT' | 'CONTENT_MANAGER'} AdminAccessLevel */
-/** @typedef {'ADMIN_PORTAL_ACCESS' | 'ADMIN_TAB_OVERVIEW' | 'ADMIN_TAB_UNIVERSITIES' | 'ADMIN_TAB_STUDENT_PAGES' | 'ADMIN_TAB_FACULTY' | 'ADMIN_TAB_BUILDINGS' | 'ADMIN_TAB_BUILDING_IMPORT' | 'ADMIN_TAB_LINKS' | 'ADMIN_TAB_SERVICES' | 'ADMIN_TAB_CLUBS' | 'ADMIN_TAB_EVENTS' | 'ADMIN_TAB_IT_ACCOUNTS' | 'ADMIN_TAB_USERS' | 'CAN_PUBLISH_ANNOUNCEMENTS' | 'CAN_CREATE_DEADLINE_EVENTS' | 'CAN_MANAGE_CLUB_PROFILE' | 'CAN_MANAGE_CLUB_CONTACT'} PortalPermission */
-/** @typedef {'overview' | 'universities' | 'student-pages' | 'faculty' | 'buildings' | 'building-import' | 'links' | 'services' | 'clubs' | 'events' | 'it-accounts' | 'users'} AdminTabValue */
+/** @typedef {'ADMIN_PORTAL_ACCESS' | 'ADMIN_TAB_OVERVIEW' | 'ADMIN_TAB_UNIVERSITIES' | 'ADMIN_TAB_STUDENT_PAGES' | 'ADMIN_TAB_FACULTY' | 'ADMIN_TAB_BUILDINGS' | 'ADMIN_TAB_BUILDING_IMPORT' | 'ADMIN_TAB_LINKS' | 'ADMIN_TAB_SERVICES' | 'ADMIN_TAB_CLUBS' | 'ADMIN_TAB_EVENTS' | 'ADMIN_TAB_CHAT' | 'ADMIN_TAB_IT_ACCOUNTS' | 'ADMIN_TAB_USERS' | 'CAN_PUBLISH_ANNOUNCEMENTS' | 'CAN_CREATE_DEADLINE_EVENTS' | 'CAN_MANAGE_CLUB_PROFILE' | 'CAN_MANAGE_CLUB_CONTACT'} PortalPermission */
+/** @typedef {'overview' | 'universities' | 'student-pages' | 'faculty' | 'buildings' | 'building-import' | 'links' | 'services' | 'clubs' | 'events' | 'chat' | 'it-accounts' | 'users'} AdminTabValue */
 /** @typedef {{ role: AppRole, adminAccessLevel?: AdminAccessLevel | null, portalPermissions?: PortalPermission[] | null, canPublishCampusAnnouncements?: boolean }} PortalPermissionProfile */
 
 /** @type {AdminAccessLevel[]} */
@@ -24,6 +24,7 @@ export const PORTAL_PERMISSIONS = [
     'ADMIN_TAB_SERVICES',
     'ADMIN_TAB_CLUBS',
     'ADMIN_TAB_EVENTS',
+    'ADMIN_TAB_CHAT',
     'ADMIN_TAB_IT_ACCOUNTS',
     'ADMIN_TAB_USERS',
     'CAN_PUBLISH_ANNOUNCEMENTS',
@@ -43,6 +44,7 @@ export const ADMIN_TAB_PERMISSION = {
     services: 'ADMIN_TAB_SERVICES',
     clubs: 'ADMIN_TAB_CLUBS',
     events: 'ADMIN_TAB_EVENTS',
+    chat: 'ADMIN_TAB_CHAT',
     'it-accounts': 'ADMIN_TAB_IT_ACCOUNTS',
     users: 'ADMIN_TAB_USERS',
 };
@@ -58,6 +60,7 @@ const OWNER_PERMISSIONS = [
     'ADMIN_TAB_SERVICES',
     'ADMIN_TAB_CLUBS',
     'ADMIN_TAB_EVENTS',
+    'ADMIN_TAB_CHAT',
     'ADMIN_TAB_IT_ACCOUNTS',
     'ADMIN_TAB_USERS',
     'CAN_PUBLISH_ANNOUNCEMENTS',
@@ -75,6 +78,7 @@ const IT_ADMIN_PERMISSIONS = [
     'ADMIN_TAB_LINKS',
     'ADMIN_TAB_SERVICES',
     'ADMIN_TAB_EVENTS',
+    'ADMIN_TAB_CHAT',
     'ADMIN_TAB_USERS',
 ];
 const CLUB_PRESIDENT_PERMISSIONS = [

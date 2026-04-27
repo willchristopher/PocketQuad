@@ -1,9 +1,12 @@
 const TWELVE_HOUR_TIME_RE = /(\d{1,2}):(\d{2})\s*([AP]M)/i;
 const TWENTY_FOUR_HOUR_TIME_RE = /(\d{1,2}):(\d{2})/;
+const CLOCK_TIME_RE = /(?<!\d)(\d{1,2})(?::(\d{2}))?\s*([AP]\.?M\.?)?(?!\d)/gi;
+const DATE_ONLY_VALUE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 export const EVENT_FEED_SOURCE_KEY = 'murray-state-main-rss';
 export const EVENT_FEED_SYNC_INTERVAL_MS = 1000 * 60 * 60 * 48;
 export const EXTERNAL_CALENDAR_PROVIDERS = ['GOOGLE', 'OUTLOOK', 'APPLE'];
+export const EVENT_TIME_ZONE = 'America/Chicago';
 
 export function slugifyEventToken(value) {
   return String(value ?? '')
@@ -14,6 +17,177 @@ export function slugifyEventToken(value) {
 
 function pad(value) {
   return String(value).padStart(2, '0');
+}
+
+function normalizePeriod(value) {
+  const normalized = String(value ?? '').replace(/\./g, '').toUpperCase();
+  return normalized === 'AM' || normalized === 'PM' ? normalized : null;
+}
+
+function toClockTime(hoursRaw, minutesRaw, periodRaw) {
+  const period = normalizePeriod(periodRaw);
+  const hoursValue = Number(hoursRaw);
+  const minutesValue = typeof minutesRaw === 'string' ? Number(minutesRaw) : 0;
+
+  if (
+    !Number.isInteger(hoursValue) ||
+    !Number.isInteger(minutesValue) ||
+    minutesValue < 0 ||
+    minutesValue > 59
+  ) {
+    return null;
+  }
+
+  if (period) {
+    if (hoursValue < 1 || hoursValue > 12) {
+      return null;
+    }
+
+    return {
+      hours: (hoursValue % 12) + (period === 'PM' ? 12 : 0),
+      minutes: minutesValue,
+    };
+  }
+
+  if (hoursValue < 0 || hoursValue > 23) {
+    return null;
+  }
+
+  return {
+    hours: hoursValue,
+    minutes: minutesValue,
+  };
+}
+
+function getDatePartsInTimeZone(dateValue, { preferUtcDateOnly = false } = {}) {
+  const rawValue = String(dateValue ?? '').trim();
+  const dateOnlyMatch = rawValue.match(DATE_ONLY_VALUE_RE);
+  if (dateOnlyMatch) {
+    return {
+      year: Number(dateOnlyMatch[1]),
+      month: Number(dateOnlyMatch[2]),
+      day: Number(dateOnlyMatch[3]),
+    };
+  }
+
+  const date = dateValue instanceof Date ? dateValue : new Date(rawValue);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  if (
+    preferUtcDateOnly &&
+    date.getUTCHours() === 0 &&
+    date.getUTCMinutes() === 0 &&
+    date.getUTCSeconds() === 0 &&
+    date.getUTCMilliseconds() === 0
+  ) {
+    return {
+      year: date.getUTCFullYear(),
+      month: date.getUTCMonth() + 1,
+      day: date.getUTCDate(),
+    };
+  }
+
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: EVENT_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const valueByType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return {
+    year: Number(valueByType.year),
+    month: Number(valueByType.month),
+    day: Number(valueByType.day),
+  };
+}
+
+function getTimeZoneOffsetMs(date, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const valueByType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const zonedTimestamp = Date.UTC(
+    Number(valueByType.year),
+    Number(valueByType.month) - 1,
+    Number(valueByType.day),
+    Number(valueByType.hour),
+    Number(valueByType.minute),
+    Number(valueByType.second),
+  );
+
+  return zonedTimestamp - date.getTime();
+}
+
+function createDateInTimeZone(dateParts, clockTime) {
+  const utcGuess = Date.UTC(
+    dateParts.year,
+    dateParts.month - 1,
+    dateParts.day,
+    clockTime.hours,
+    clockTime.minutes,
+    0,
+    0,
+  );
+  let offset = getTimeZoneOffsetMs(new Date(utcGuess), EVENT_TIME_ZONE);
+  let resolved = new Date(utcGuess - offset);
+  const nextOffset = getTimeZoneOffsetMs(resolved, EVENT_TIME_ZONE);
+
+  if (nextOffset !== offset) {
+    offset = nextOffset;
+    resolved = new Date(utcGuess - offset);
+  }
+
+  return resolved;
+}
+
+function combineEventDateAndClock(dateValue, clockTime, options) {
+  const dateParts = getDatePartsInTimeZone(dateValue, options);
+  if (!dateParts) {
+    return null;
+  }
+
+  return createDateInTimeZone(dateParts, clockTime);
+}
+
+export function parseEventTimeRange(timeValue) {
+  const trimmed = String(timeValue ?? '').trim();
+  if (!trimmed || isAllDayEventLabel(trimmed) || isTimeTbaLabel(trimmed)) {
+    return {
+      start: null,
+      end: null,
+    };
+  }
+
+  const matches = Array.from(trimmed.matchAll(CLOCK_TIME_RE));
+  const lastPeriod = [...matches].reverse().map((match) => normalizePeriod(match[3])).find(Boolean);
+  const clocks = matches
+    .map((match) => {
+      const minutes = match[2];
+      const explicitPeriod = normalizePeriod(match[3]);
+      const inferredPeriod = explicitPeriod ?? (matches.length > 1 ? lastPeriod : null);
+
+      if (!minutes && !inferredPeriod) {
+        return null;
+      }
+
+      return toClockTime(match[1], minutes, inferredPeriod);
+    })
+    .filter(Boolean);
+
+  return {
+    start: clocks[0] ?? null,
+    end: clocks[1] ?? null,
+  };
 }
 
 export function formatEventTimeLabel(timeValue) {
@@ -55,62 +229,45 @@ export function isTimeTbaLabel(timeValue) {
 }
 
 export function parseClockTime(timeValue) {
-  const trimmed = String(timeValue ?? '').trim();
-  if (!trimmed || isAllDayEventLabel(trimmed)) {
-    return null;
-  }
-
-  const twelveHourMatch = trimmed.match(TWELVE_HOUR_TIME_RE);
-  if (twelveHourMatch) {
-    const [, hoursRaw, minutesRaw, periodRaw] = twelveHourMatch;
-    const hoursNumber = Number(hoursRaw) % 12 + (periodRaw.toUpperCase() === 'PM' ? 12 : 0);
-    return {
-      hours: hoursNumber % 24,
-      minutes: Number(minutesRaw),
-    };
-  }
-
-  const twentyFourHourMatch = trimmed.match(TWENTY_FOUR_HOUR_TIME_RE);
-  if (!twentyFourHourMatch) {
-    return null;
-  }
-
-  return {
-    hours: Number(twentyFourHourMatch[1]),
-    minutes: Number(twentyFourHourMatch[2]),
-  };
+  return parseEventTimeRange(timeValue).start;
 }
 
 export function combineEventDateTime(dateValue, timeValue) {
-  const baseDate = dateValue instanceof Date ? new Date(dateValue) : new Date(String(dateValue ?? ''));
-  if (Number.isNaN(baseDate.getTime())) {
-    return null;
-  }
-
-  const nextDate = new Date(baseDate);
   const clockTime = parseClockTime(timeValue);
   if (!clockTime) {
-    nextDate.setHours(0, 0, 0, 0);
-    return nextDate;
+    return combineEventDateAndClock(dateValue, { hours: 0, minutes: 0 }, { preferUtcDateOnly: true });
   }
 
-  nextDate.setHours(clockTime.hours, clockTime.minutes, 0, 0);
-  return nextDate;
+  return combineEventDateAndClock(dateValue, clockTime);
 }
 
 export function resolveEventDateRange(event, fallbackMinutes = 60) {
-  const start = combineEventDateTime(event.date, event.time) ?? new Date(event.date);
+  const timeRange = parseEventTimeRange(event.time);
+  const start =
+    (timeRange.start ? combineEventDateAndClock(event.date, timeRange.start) : combineEventDateTime(event.date, event.time)) ??
+    new Date(event.date);
   const allDay = isAllDayEventLabel(event.time) || isTimeTbaLabel(event.time);
   let end = null;
 
   if (event.endDate) {
-    end = combineEventDateTime(event.endDate, event.endTime ?? event.time) ?? new Date(event.endDate);
+    end = timeRange.end
+      ? combineEventDateAndClock(event.endDate, timeRange.end)
+      : combineEventDateTime(event.endDate, event.endTime ?? event.time);
+    end ??= new Date(event.endDate);
+  } else if (timeRange.end) {
+    end = combineEventDateAndClock(event.date, timeRange.end);
+  }
+
+  if (end && end.getTime() <= start.getTime() && timeRange.end) {
+    end = new Date(end);
+    end.setUTCDate(end.getUTCDate() + 1);
   }
 
   if (!end || Number.isNaN(end.getTime()) || end.getTime() <= start.getTime()) {
-    end = new Date(start);
     if (allDay) {
-      end.setHours(23, 59, 0, 0);
+      end =
+        combineEventDateAndClock(event.endDate ?? event.date, { hours: 23, minutes: 59 }, { preferUtcDateOnly: true }) ??
+        new Date(start);
     } else {
       end = new Date(start.getTime() + fallbackMinutes * 60 * 1000);
     }

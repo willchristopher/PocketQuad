@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { canViewEventForAudience } from '@/lib/server/eventVisibility';
 import { ApiError, getAuthenticatedUser, handleApiError, resolveParams, successResponse, } from '@/lib/api/utils';
 export async function POST(_request, context) {
     try {
@@ -6,13 +7,35 @@ export async function POST(_request, context) {
         const { id } = await resolveParams(context);
         const event = await prisma.event.findUnique({
             where: { id },
-            select: { id: true, isCancelled: true, isPublished: true },
+            select: {
+                id: true,
+                audience: true,
+                organizerId: true,
+                isCancelled: true,
+                isPublished: true,
+                organizerRef: {
+                    select: {
+                        facultyProfile: {
+                            select: {
+                                favorites: {
+                                    where: { userId: profile.id },
+                                    select: { userId: true },
+                                    take: 1,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         });
         if (!event) {
             throw new ApiError(404, 'Event not found');
         }
         if (!event.isPublished || event.isCancelled) {
             throw new ApiError(409, 'This event is no longer available');
+        }
+        if (!canViewEventForAudience(profile, event)) {
+            throw new ApiError(404, 'Event not found');
         }
         const existing = await prisma.eventInterest.findUnique({
             where: {

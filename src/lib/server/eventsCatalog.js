@@ -6,6 +6,7 @@ import {
   serializeEventForViewer,
 } from '@/lib/server/campusEvents';
 import { isPrismaSchemaCompatibilityError } from '@/lib/server/dbCompatibility';
+import { buildEventAudienceVisibilityWhere } from '@/lib/server/eventVisibility';
 import { purgeExpiredEvents } from '@/lib/server/eventMaintenance';
 import { eventQuerySchema } from '@/lib/validations';
 
@@ -48,6 +49,7 @@ export async function getEventsCatalogData(profile, options = {}) {
     ...(payload.upcoming ? { date: { gte: today } } : {}),
     ...(includeCancelled ? {} : { isCancelled: false }),
     isPublished: true,
+    ...buildEventAudienceVisibilityWhere(profile),
   };
 
   let events;

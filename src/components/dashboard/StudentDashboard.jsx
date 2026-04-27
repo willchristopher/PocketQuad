@@ -87,6 +87,19 @@ const listItemClassName =
 const emptyStateClassName =
   'rounded-xl border border-dashed border-border/60 bg-background px-4 py-7 text-center text-xs text-muted-foreground';
 
+function isCampusChatroomDashboardShortcut(item) {
+  const href = typeof item?.href === 'string' ? item.href.toLowerCase() : '';
+  const label = typeof item?.label === 'string' ? item.label.toLowerCase() : '';
+  const title = typeof item?.title === 'string' ? item.title.toLowerCase() : '';
+
+  return (
+    href === '/chatroom' ||
+    href.startsWith('/chatroom?') ||
+    label.includes('campus chatroom') ||
+    title.includes('campus chatroom')
+  );
+}
+
 export function StudentDashboard({ initialOverview }) {
   const { profile } = useAuth();
   const { isHrefVisible, isPageVisible } = useStudentPageVisibility();
@@ -96,7 +109,7 @@ export function StudentDashboard({ initialOverview }) {
   );
 
   const pinnedResources = React.useMemo(
-    () => initialOverview.pinnedResourceLinks ?? [],
+    () => (initialOverview.pinnedResourceLinks ?? []).filter((item) => !isCampusChatroomDashboardShortcut(item)),
     [initialOverview.pinnedResourceLinks],
   );
 

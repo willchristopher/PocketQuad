@@ -415,6 +415,7 @@ function pickActivityLabel(event, matchedClubs) {
 function getAudienceLabel(audience) {
   if (audience === 'DEADLINE') return 'Deadline';
   if (audience === 'ORGANIZATION') return 'Organization';
+  if (audience === 'MY_STUDENTS') return 'My Students';
   return 'All campus';
 }
 
@@ -459,6 +460,8 @@ export function enrichEventsForAudience(events, options = {}) {
           ? 'Main campus'
           : event.audience === 'ORGANIZATION'
             ? 'Organization'
+            : event.audience === 'MY_STUDENTS'
+              ? 'My Students'
             : event.audience === 'ALL_CAMPUS'
               ? 'All campus'
           : clubActivity

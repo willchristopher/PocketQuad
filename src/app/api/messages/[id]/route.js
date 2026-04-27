@@ -49,28 +49,9 @@ export async function PATCH(request, context) {
 }
 export async function DELETE(_request, context) {
     try {
-        const { profile } = await getAuthenticatedUser();
-        const { id } = await resolveParams(context);
-        const message = await prisma.chatMessage.findUnique({
-            where: { id },
-            select: { id: true, userId: true, createdAt: true, isDeleted: true },
-        });
-        if (!message) {
-            throw new ApiError(404, 'Message not found');
-        }
-        if (message.userId !== profile.id) {
-            throw new ApiError(403, 'You can only delete your own messages');
-        }
-        if (!withinEditableWindow(message.createdAt)) {
-            throw new ApiError(403, 'Delete window has expired');
-        }
-        if (message.isDeleted) {
-            return successResponse({ success: true });
-        }
-        await prisma.chatMessage.delete({
-            where: { id },
-        });
-        return successResponse({ success: true });
+        await getAuthenticatedUser();
+        await resolveParams(context);
+        throw new ApiError(403, 'Only administrators can delete chat messages');
     }
     catch (error) {
         return handleApiError(error);

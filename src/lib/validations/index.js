@@ -104,7 +104,7 @@ export const createEventSchema = z.object({
     time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:MM 24-hour format'),
     location: z.string().trim().min(1).max(160),
     category: z.enum(['ACADEMIC', 'SOCIAL', 'SPORTS', 'ARTS', 'CAREER', 'CLUBS', 'WELLNESS', 'OTHER']),
-    audience: z.enum(['ORGANIZATION', 'ALL_CAMPUS', 'DEADLINE']).default('ALL_CAMPUS'),
+    audience: z.enum(['ORGANIZATION', 'ALL_CAMPUS', 'MY_STUDENTS', 'DEADLINE']).default('ALL_CAMPUS'),
     maxAttendees: z.number().int().min(1).max(10000).optional(),
     buildingId: z.string().cuid().optional(),
 });
@@ -115,7 +115,7 @@ export const updateFacultyEventSchema = z.object({
     time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:MM 24-hour format').optional(),
     location: z.string().trim().min(1).max(160).optional(),
     category: z.enum(['ACADEMIC', 'SOCIAL', 'SPORTS', 'ARTS', 'CAREER', 'CLUBS', 'WELLNESS', 'OTHER']).optional(),
-    audience: z.enum(['ORGANIZATION', 'ALL_CAMPUS', 'DEADLINE']).optional(),
+    audience: z.enum(['ORGANIZATION', 'ALL_CAMPUS', 'MY_STUDENTS', 'DEADLINE']).optional(),
     maxAttendees: z.number().int().min(1).max(10000).nullable().optional(),
     buildingId: z.string().cuid().nullable().optional(),
     isCancelled: z.boolean().optional(),

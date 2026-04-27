@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertCircle, Bell, Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronUp, Clock, ExternalLink, GraduationCap, KeyRound, Landmark, LayoutGrid, Loader2, Pencil, Plus, School, Search, ShieldUser, Tag, Trash2, Upload, Users, X, } from 'lucide-react';
+import { AlertCircle, Bell, Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronUp, Clock, ExternalLink, Flag, GraduationCap, KeyRound, Landmark, LayoutGrid, Loader2, MessageSquareText, Pencil, Plus, School, Search, ShieldUser, Tag, Trash2, Upload, Users, X, } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ const tabItems = [
     { value: 'links', label: 'Resource Links', icon: ExternalLink },
     { value: 'clubs', label: 'Clubs', icon: Users },
     { value: 'events', label: 'Events', icon: CalendarDays },
+    { value: 'chat', label: 'Chat Room', icon: MessageSquareText },
     { value: 'it-accounts', label: 'IT Accounts', icon: ShieldUser },
     { value: 'users', label: 'Users', icon: Users },
 ];
@@ -57,11 +58,13 @@ const eventCategories = [
 const eventAudienceOptions = [
     'ORGANIZATION',
     'ALL_CAMPUS',
+    'MY_STUDENTS',
     'DEADLINE',
 ];
 const eventAudienceLabels = {
     ORGANIZATION: 'Organization',
     ALL_CAMPUS: 'All campus',
+    MY_STUDENTS: 'My Students',
     DEADLINE: 'Deadline',
 };
 const FACULTY_ROLE_TAG_OPTIONS = [
@@ -106,6 +109,7 @@ const portalPermissionOptions = [
     'ADMIN_TAB_LINKS',
     'ADMIN_TAB_CLUBS',
     'ADMIN_TAB_EVENTS',
+    'ADMIN_TAB_CHAT',
     'ADMIN_TAB_IT_ACCOUNTS',
     'ADMIN_TAB_USERS',
     'CAN_PUBLISH_ANNOUNCEMENTS',
@@ -124,6 +128,7 @@ const portalPermissionLabels = {
     ADMIN_TAB_LINKS: 'Tab: Resource Links',
     ADMIN_TAB_CLUBS: 'Tab: Clubs',
     ADMIN_TAB_EVENTS: 'Tab: Events',
+    ADMIN_TAB_CHAT: 'Tab: Chat Room',
     ADMIN_TAB_IT_ACCOUNTS: 'Tab: IT Accounts',
     ADMIN_TAB_USERS: 'Tab: Users',
     CAN_PUBLISH_ANNOUNCEMENTS: 'Publish Announcements',
@@ -258,6 +263,7 @@ export function AdminDashboard({ initialUniversities = null }) {
     const [resourceLinks, setResourceLinks] = React.useState([]);
     const [clubs, setClubs] = React.useState([]);
     const [events, setEvents] = React.useState([]);
+    const [chatMessages, setChatMessages] = React.useState([]);
     const [portalAccounts, setPortalAccounts] = React.useState([]);
     const [temporaryAccountPassword, setTemporaryAccountPassword] = React.useState(null);
     const [allUsers, setAllUsers] = React.useState([]);
@@ -269,6 +275,8 @@ export function AdminDashboard({ initialUniversities = null }) {
     const [linkSearchQuery, setLinkSearchQuery] = React.useState('');
     const [clubSearchQuery, setClubSearchQuery] = React.useState('');
     const [eventSearchQuery, setEventSearchQuery] = React.useState('');
+    const [chatSearchQuery, setChatSearchQuery] = React.useState('');
+    const [showReportedOnly, setShowReportedOnly] = React.useState(false);
     const [portalAccountSearchQuery, setPortalAccountSearchQuery] = React.useState('');
     // UI expansion state
     const [expandedFacultyId, setExpandedFacultyId] = React.useState(null);
@@ -353,7 +361,7 @@ export function AdminDashboard({ initialUniversities = null }) {
         email: '',
         role: 'ADMIN',
         accessLevel: 'IT_ADMIN',
-        portalPermissions: ['ADMIN_TAB_OVERVIEW', 'ADMIN_TAB_FACULTY', 'ADMIN_TAB_BUILDINGS'],
+        portalPermissions: ['ADMIN_TAB_OVERVIEW', 'ADMIN_TAB_FACULTY', 'ADMIN_TAB_BUILDINGS', 'ADMIN_TAB_CHAT'],
         managedClubIds: [],
         password: '',
     });
@@ -365,6 +373,7 @@ export function AdminDashboard({ initialUniversities = null }) {
     const canManageLinks = !profile || hasPortalPermission(profile, 'ADMIN_TAB_LINKS');
     const canManageClubs = !profile || hasPortalPermission(profile, 'ADMIN_TAB_CLUBS');
     const canManageEvents = !profile || hasPortalPermission(profile, 'ADMIN_TAB_EVENTS');
+    const canManageChat = !profile || hasPortalPermission(profile, 'ADMIN_TAB_CHAT');
     const canManageAccounts = !profile || hasPortalPermission(profile, 'ADMIN_TAB_IT_ACCOUNTS');
     const canManageUsers = !profile || hasPortalPermission(profile, 'ADMIN_TAB_USERS');
     const fallbackUniversityFromProfile = React.useMemo(() => {
@@ -399,6 +408,7 @@ export function AdminDashboard({ initialUniversities = null }) {
                 setResourceLinks([]);
                 setClubs([]);
                 setEvents([]);
+                setChatMessages([]);
                 setPortalAccounts([]);
                 setAllUsers([]);
                 return;
@@ -448,6 +458,13 @@ export function AdminDashboard({ initialUniversities = null }) {
                     set: setEvents,
                 },
                 {
+                    key: 'chat',
+                    label: 'chat messages',
+                    enabled: canManageChat,
+                    load: () => apiRequest(`/api/admin/chat/messages${universityQuery}`),
+                    set: setChatMessages,
+                },
+                {
                     key: 'accounts',
                     label: 'IT accounts',
                     enabled: canManageAccounts,
@@ -495,6 +512,7 @@ export function AdminDashboard({ initialUniversities = null }) {
         canManageBuildings,
         canManageClubs,
         canManageEvents,
+        canManageChat,
         canManageFaculty,
         canManageLinks,
         canManageUniversities,
@@ -716,6 +734,7 @@ export function AdminDashboard({ initialUniversities = null }) {
     const linkQuery = React.useDeferredValue(normalizeSearchValue(linkSearchQuery));
     const clubQuery = React.useDeferredValue(normalizeSearchValue(clubSearchQuery));
     const eventQuery = React.useDeferredValue(normalizeSearchValue(eventSearchQuery));
+    const chatQuery = React.useDeferredValue(normalizeSearchValue(chatSearchQuery));
     const portalAccountQuery = React.useDeferredValue(normalizeSearchValue(portalAccountSearchQuery));
     const selectedUniversity = universities.find((university) => university.id === selectedUniversityId) ?? null;
     const selectedUniversityDisabledStudentPages = sanitizeDisabledStudentPages(selectedUniversity?.disabledStudentPages);
@@ -734,6 +753,18 @@ export function AdminDashboard({ initialUniversities = null }) {
     const filteredResourceLinks = React.useMemo(() => scopedResourceLinks.filter((record) => matchesAnySearch(record, linkQuery, ['label', 'category', 'href', 'description'])), [linkQuery, scopedResourceLinks]);
     const filteredClubs = React.useMemo(() => scopedClubs.filter((record) => matchesAnySearch(record, clubQuery, ['name', 'category', 'description', 'contactEmail', 'presidentName', 'presidentEmail', 'advisorName', 'advisorEmail', 'meetingInfo'])), [clubQuery, scopedClubs]);
     const filteredEvents = React.useMemo(() => scopedEvents.filter((record) => matchesAnySearch(record, eventQuery, ['title', 'description', 'location', 'organizer', 'category', 'audience'])), [eventQuery, scopedEvents]);
+    const filteredChatMessages = React.useMemo(() => chatMessages.filter((record) => {
+        if (showReportedOnly && record.reportCount === 0) {
+            return false;
+        }
+        return matchesAnySearch(record, chatQuery, [
+            'content',
+            (item) => item.user?.displayName,
+            (item) => item.user?.email,
+            (item) => item.channel?.name,
+            (item) => item.reports?.map((report) => report.reason) ?? [],
+        ]);
+    }), [chatMessages, chatQuery, showReportedOnly]);
     const filteredPortalAccounts = React.useMemo(() => scopedPortalAccounts.filter((record) => matchesAnySearch(record, portalAccountQuery, ['displayName', 'firstName', 'lastName', 'email', 'role', 'adminAccessLevel', 'portalPermissions', (item) => item.managedClubs.map((entry) => entry.club.name)])), [portalAccountQuery, scopedPortalAccounts]);
     const facultyAccountOptions = React.useMemo(() => {
         const deduped = new Map();
@@ -813,6 +844,7 @@ export function AdminDashboard({ initialUniversities = null }) {
                 { label: 'Buildings', value: scopedBuildings.length, icon: Building2, tab: 'buildings' },
                 { label: 'Clubs', value: scopedClubs.length, icon: Landmark, tab: 'clubs' },
                 { label: 'Events', value: scopedEvents.length, icon: CalendarDays, tab: 'events' },
+                { label: 'Reports', value: chatMessages.filter((message) => message.reportCount > 0).length, icon: Flag, tab: 'chat' },
                 { label: 'Links', value: scopedResourceLinks.length, icon: ExternalLink, tab: 'links' },
                 { label: 'Users', value: allUsers.length, icon: Users, tab: 'users' },
             ].map((stat) => (<button key={stat.label} className="rounded-xl border border-border/60 bg-card/70 p-4 text-left hover:bg-card transition-colors duration-150" onClick={() => handleTabChange(stat.tab)}>
@@ -836,6 +868,7 @@ export function AdminDashboard({ initialUniversities = null }) {
                 { icon: Building2, title: 'Manage Buildings', desc: 'Add buildings and update their status', tab: 'buildings', visible: canManageBuildings },
                 { icon: Landmark, title: 'Manage Clubs', desc: 'Update club info and leadership', tab: 'clubs', visible: canManageClubs },
                 { icon: CalendarDays, title: 'Publish Events', desc: 'Create and manage campus events', tab: 'events', visible: canManageEvents },
+                { icon: MessageSquareText, title: 'Review Chat', desc: 'Moderate campus chat and reported messages', tab: 'chat', visible: canManageChat },
                 { icon: ShieldUser, title: 'IT Accounts', desc: 'Provision portal access and permissions', tab: 'it-accounts', visible: canManageAccounts },
             ].filter((action) => action.visible).map((action) => (<button key={action.title} className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-left hover:bg-muted/40 transition-colors" onClick={() => handleTabChange(action.tab)}>
                     <action.icon className="mt-0.5 h-4 w-4 text-primary shrink-0"/>
@@ -2055,6 +2088,41 @@ export function AdminDashboard({ initialUniversities = null }) {
             }, 'Event deleted')}/>
         </TabsContent>
 
+        <TabsContent value="chat" className="mt-0 space-y-4">
+          <Card className="rounded-xl border-border/60">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Chat Room Moderation</CardTitle>
+              <CardDescription>
+                Review recent campus chat messages for {selectedUniversity?.name ?? 'this university'} and remove messages that should not stay visible.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative w-full sm:max-w-sm">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"/>
+                  <Input value={chatSearchQuery} onChange={(event) => setChatSearchQuery(event.target.value)} placeholder="Search messages, names, reports…" className="pl-10"/>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border/60 px-3 text-xs font-medium text-muted-foreground">
+                    <input type="checkbox" checked={showReportedOnly} onChange={(event) => setShowReportedOnly(event.target.checked)}/>
+                    Reported only
+                  </label>
+                  <Badge variant="outline">{filteredChatMessages.length} message{filteredChatMessages.length === 1 ? '' : 's'}</Badge>
+                  <Badge variant={chatMessages.some((message) => message.reportCount > 0) ? 'destructive' : 'secondary'}>
+                    {chatMessages.filter((message) => message.reportCount > 0).length} reported
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <ChatModerationList records={filteredChatMessages} saving={saving} onDelete={(recordId) => runMutation(async () => {
+                await apiRequest(`/api/admin/chat/messages/${recordId}`, {
+                    method: 'DELETE',
+                });
+            }, 'Message deleted')}/>
+        </TabsContent>
+
         <TabsContent value="it-accounts" className="mt-0 space-y-4">
           {temporaryAccountPassword && (<Card className="rounded-2xl border-[#002144]/10 bg-card shadow-sm">
               <CardContent className="p-4">
@@ -2566,6 +2634,58 @@ function CrudEventTable({ records, universities, saving, onChange, onSave, onDel
                 </div>
               </div>
             </details>)))}
+      </div>
+    </CrudCard>);
+}
+function ChatModerationList({ records, saving, onDelete }) {
+    return (<CrudCard title="Campus Chat Messages" description="Newest messages appear first. Reported messages show reporter notes and counts.">
+      <div className="space-y-3">
+        {records.length === 0 ? (<p className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
+            No chat messages matched that view.
+          </p>) : (records.map((record) => {
+            const authorName = record.user?.displayName || record.user?.email || 'Unknown user';
+            const createdAt = new Date(record.createdAt);
+            return (<div key={record.id} className={cn('rounded-xl border bg-card/70 p-4', record.reportCount > 0 ? 'border-red-500/30 bg-red-500/5' : 'border-border/60')}>
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={record.reportCount > 0 ? 'destructive' : 'secondary'} className="gap-1">
+                        {record.reportCount > 0 ? <Flag className="h-3 w-3"/> : <MessageSquareText className="h-3 w-3"/>}
+                        {record.reportCount} report{record.reportCount === 1 ? '' : 's'}
+                      </Badge>
+                      <Badge variant="outline">{record.channel?.name ?? 'Chat room'}</Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {createdAt.toLocaleDateString()} at {createdAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">{authorName}</p>
+                      {record.user?.email ? <p className="text-xs text-muted-foreground">{record.user.email}</p> : null}
+                    </div>
+                    <p className="whitespace-pre-wrap rounded-xl border border-border/60 bg-background/70 px-3 py-2 text-sm text-foreground">
+                      {record.content}
+                    </p>
+                    {record.reports?.length > 0 ? (<div className="space-y-2 rounded-xl border border-red-500/20 bg-background/70 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-red-700 dark:text-red-300">Reports</p>
+                        {record.reports.map((report) => (<div key={report.id} className="rounded-lg bg-muted/30 px-3 py-2">
+                            <p className="text-sm text-foreground">{report.reason}</p>
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              {report.reporter?.displayName || report.reporter?.email || 'Reporter'} · {new Date(report.createdAt).toLocaleString()}
+                            </p>
+                          </div>))}
+                      </div>) : null}
+                  </div>
+                  <Button size="sm" variant="destructive" disabled={saving} onClick={() => {
+                    if (window.confirm('Delete this chat message? This will remove it from the chat room.')) {
+                        void onDelete(record.id);
+                    }
+                }} className="shrink-0 gap-2">
+                    <Trash2 className="h-4 w-4"/>
+                    Delete
+                  </Button>
+                </div>
+              </div>);
+        }))}
       </div>
     </CrudCard>);
 }
