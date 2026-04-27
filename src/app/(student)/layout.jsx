@@ -3,6 +3,7 @@ import { Header } from '@/components/layout/Header';
 import { SkipLink } from '@/components/layout/SkipLink';
 import { StudentPageVisibilityGate } from '@/components/auth/StudentPageVisibilityGate';
 import { LazyCommandPalette } from '@/components/layout/LazyCommandPalette';
+import { LazyAIChatWidget } from '@/components/ai/LazyAIChatWidget';
 import { requireStudentSnapshot } from '@/lib/auth/snapshot';
 function LayoutShell({ children }) {
     return (<div className="relative min-h-screen">
@@ -17,6 +18,7 @@ function LayoutShell({ children }) {
         </main>
       </div>
       <LazyCommandPalette />
+      <LazyAIChatWidget />
     </div>);
 }
 export default async function StudentLayout({ children, }) {
