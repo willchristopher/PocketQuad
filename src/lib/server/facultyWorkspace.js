@@ -8,6 +8,26 @@ import { getFacultyEventOwner } from '@/lib/server/facultyEvents';
 import { isMissingDatabaseFieldError } from '@/lib/server/dbCompatibility';
 import { ApiError } from '@/lib/api/utils';
 
+async function resolveManagedBuildingAssignments(profile) {
+  if (Array.isArray(profile.managedBuildings)) {
+    return profile.managedBuildings;
+  }
+
+  return prisma.buildingManagerAssignment.findMany({
+    where: { userId: profile.id },
+    select: {
+      buildingId: true,
+      building: {
+        select: {
+          id: true,
+          name: true,
+          type: true,
+        },
+      },
+    },
+  });
+}
+
 export async function getFacultyStatusData(userId) {
   try {
     const faculty = await prisma.faculty.findUnique({
@@ -149,7 +169,8 @@ export async function getFacultyWorkspaceData(profile) {
   const canManageBuildings = hasPortalPermission(profile, 'ADMIN_TAB_BUILDINGS');
   const canManageServices = hasPortalPermission(profile, 'ADMIN_TAB_SERVICES');
   const universityId = faculty.universityId ?? profile.universityId;
-  const managedBuildingIds = profile.managedBuildings?.map((assignment) => assignment.buildingId) ?? [];
+  const managedBuildings = await resolveManagedBuildingAssignments(profile);
+  const managedBuildingIds = managedBuildings.map((assignment) => assignment.buildingId);
   const [availableBuildings, availableServices] = await Promise.all([
     universityId
       ? prisma.campusBuilding.findMany({
@@ -191,7 +212,7 @@ export async function getFacultyWorkspaceData(profile) {
     canPublishCampusAnnouncements: canPublishCampusAnnouncements(profile),
     canManageBuildings,
     canManageServices,
-    managedBuildings: profile.managedBuildings ?? [],
+    managedBuildings,
     availableBuildings,
     availableServices,
     studentAvailabilityLabel: formatFacultyAvailability(status, note),
@@ -204,7 +225,8 @@ export async function getFacultyAnnouncementsData(profile) {
   const canPublishCampus = canPublishCampusAnnouncements(profile);
   const canManageBuildings = hasPortalPermission(profile, 'ADMIN_TAB_BUILDINGS');
   const canManageServices = hasPortalPermission(profile, 'ADMIN_TAB_SERVICES');
-  const managedBuildingIds = profile.managedBuildings?.map((assignment) => assignment.buildingId) ?? [];
+  const managedBuildings = await resolveManagedBuildingAssignments(profile);
+  const managedBuildingIds = managedBuildings.map((assignment) => assignment.buildingId);
   const universityId = profile.universityId ?? undefined;
 
   let schemaSupportsScopedAnnouncements = true;
@@ -278,7 +300,8 @@ export async function getFacultyBuildingsData(profile) {
   }
 
   const now = new Date();
-  const managedIds = new Set((profile.managedBuildings ?? []).map((assignment) => assignment.buildingId));
+  const managedBuildings = await resolveManagedBuildingAssignments(profile);
+  const managedIds = new Set(managedBuildings.map((assignment) => assignment.buildingId));
   const buildings = await listCampusBuildingsCompatible({
     where: {
       universityId: profile.universityId,

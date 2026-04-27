@@ -41,6 +41,19 @@ const AUTH_SNAPSHOT_PROFILE_SELECT = {
       },
     },
   },
+  managedBuildings: {
+    select: {
+      buildingId: true,
+      building: {
+        select: {
+          id: true,
+          universityId: true,
+          name: true,
+          type: true,
+        },
+      },
+    },
+  },
   notificationPreferences: {
     select: {
       theme: true,
